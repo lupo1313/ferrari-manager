@@ -1,7 +1,7 @@
 import type {
+  Cart,
   Catalog,
   Customer,
-  LoyaltyEvent,
   Order,
   OrderMode,
   OrderStatus,
@@ -11,7 +11,7 @@ import type {
 } from '../domain/types';
 import type { IdFactory } from '../domain/ids';
 import { createId } from '../domain/ids';
-import type { AppRepository } from '../storage/repository';
+import type { AppRepository, PersistedData } from '../storage/repository';
 import type { AppData } from '../storage/schema';
 import { normalizeAppData } from '../storage/schema';
 import { defaultSettings } from '../data/defaultSettings';
@@ -60,6 +60,13 @@ const fail = (error: string, extra: Partial<Extract<Result, { ok: false }>> = {}
   ...extra,
 });
 
+/** Délai maximal avant l'enregistrement du panier pendant une saisie de texte (note, nom comptoir). */
+export const CART_TEXT_DELAY_MS = 300;
+
+const SAVE_FAILED = 'Enregistrement impossible (stockage plein ou bloqué) : rien n’a été enregistré. Réessayez.';
+const DOC_ERROR = 'Sauvegarde locale impossible (stockage plein ou bloqué) : la dernière action n’a pas été enregistrée.';
+const CART_ERROR = 'Sauvegarde du panier impossible : la commande en cours de saisie risque d’être perdue au rechargement.';
+
 export interface StoreDeps {
   repo: AppRepository;
   catalog: Catalog;
@@ -68,10 +75,16 @@ export interface StoreDeps {
   newId?: IdFactory;
 }
 
+const withoutCart = ({ cart: _cart, ...rest }: AppData): PersistedData => (void _cart, rest);
+
 /**
  * Store applicatif : orchestre le domaine, la persistance et les abonnements React.
  * Toutes les actions sont synchrones et lisent l'état courant : un double appel
  * (double clic) s'exécute sur l'état déjà mis à jour par le premier.
+ *
+ * Règle de persistance : une donnée durable (commande, fidélité, client, paramètres) est d'abord
+ * écrite ; l'état affiché n'est mis à jour que si l'écriture a réussi. Le panier, simple brouillon,
+ * est mis à jour à l'écran immédiatement puis enregistré dans sa propre clé.
  */
 export function createAppStore(deps: StoreDeps) {
   const now = deps.now ?? (() => new Date());
@@ -81,34 +94,54 @@ export function createAppStore(deps: StoreDeps) {
   const toppingById = new Map(catalog.toppings.map((t) => [t.id, t]));
   const listeners = new Set<() => void>();
 
-  let persistError: string | null = null;
+  let docError: string | null = null;
+  let cartError: string | null = null;
   /**
    * Renseigné quand des données existent mais ne peuvent pas être relues (version inconnue, JSON corrompu,
    * stockage inaccessible). Aucune écriture n'est alors faite : les données d'origine restent intactes
    * tant que l'utilisateur ne choisit pas explicitement « Réinitialiser les données de démonstration ».
    */
   let storageLocked: string | null = null;
+  let cartTimer: ReturnType<typeof setTimeout> | null = null;
   let data: AppData = loadOrSeed();
 
   function loadOrSeed(): AppData {
     const loaded = repo.load();
+    if (loaded.kind === 'error') return lockStorage(loaded.error);
     if (loaded.kind === 'data') {
-      const normalized = normalizeAppData(loaded.value, {
+      const raw = loaded.value;
+      // Panier : sa propre clé ; à défaut, celui de l'ancien format (inclus dans le document principal).
+      const legacyCart = raw && typeof raw === 'object' ? (raw as { cart?: unknown }).cart : undefined;
+      const merged = raw && typeof raw === 'object' ? { ...raw, cart: loaded.cart ?? legacyCart } : raw;
+      const normalized = normalizeAppData(merged, {
         settings: defaultSettings,
         newCartId: () => newId('ord'),
         nowIso: now().toISOString(),
       });
-      if (normalized.ok) return normalized.data;
-      return lockStorage(normalized.reason);
+      if (!normalized.ok) return lockStorage(normalized.reason);
+      let next = normalized.data;
+      let writeCart = loaded.cart === null; // transition depuis l'ancien format
+      // Panier déjà validé (la commande a été enregistrée mais pas le panier vidé) : on repart d'un panier vide.
+      if (!next.cart.editingOrderId && next.orders.some((o) => o.id === next.cart.draftId)) {
+        next = { ...next, cart: emptyCart(newId('ord')) };
+        writeCart = true;
+      }
+      if (writeCart) {
+        try {
+          repo.saveCart(next.cart);
+        } catch {
+          cartError = CART_ERROR;
+        }
+      }
+      return next;
     }
-    if (loaded.kind === 'error') return lockStorage(loaded.error);
 
     // Premier lancement : rien d'enregistré, on installe le jeu de démonstration.
     const seeded = deps.seed(catalog, now(), newId);
     try {
-      repo.save(seeded);
+      repo.replaceAll(withoutCart(seeded), seeded.cart);
     } catch {
-      persistError = 'Le stockage local est indisponible : les données ne seront pas conservées.';
+      docError = 'Le stockage local est indisponible : les données ne seront pas conservées.';
     }
     return seeded;
   }
@@ -117,24 +150,56 @@ export function createAppStore(deps: StoreDeps) {
     storageLocked =
       `Données locales non chargées (${reason}). Elles sont conservées intactes et rien ne sera enregistré : ` +
       'les données affichées sont celles de démonstration. Pour repartir de zéro, utilisez Paramètres → Réinitialiser les données de démonstration.';
-    persistError = storageLocked;
     return deps.seed(catalog, now(), newId);
   }
 
-  function commit(next: AppData) {
-    data = next;
-    if (storageLocked) {
-      persistError = storageLocked;
-      listeners.forEach((l) => l());
-      return;
-    }
+  const notify = () => listeners.forEach((l) => l());
+
+  /**
+   * Écrit une donnée durable. Renvoie false si l'écriture a échoué : l'appelant ne modifie alors rien
+   * et signale l'échec. En mode protégé (données illisibles), rien n'est écrit, volontairement.
+   */
+  function persist(write: () => void): boolean {
+    if (storageLocked) return true;
     try {
-      repo.save(next);
-      persistError = null;
+      write();
+      docError = null;
+      return true;
     } catch {
-      persistError = 'Sauvegarde locale impossible (stockage plein ou bloqué). Les dernières modifications risquent d’être perdues.';
+      docError = DOC_ERROR;
+      notify();
+      return false;
     }
-    listeners.forEach((l) => l());
+  }
+
+  function writeCartNow() {
+    if (cartTimer !== null) {
+      clearTimeout(cartTimer);
+      cartTimer = null;
+    }
+    if (storageLocked) return;
+    try {
+      repo.saveCart(data.cart);
+      cartError = null;
+    } catch {
+      cartError = CART_ERROR;
+    }
+  }
+
+  /**
+   * Met à jour le panier à l'écran. Enregistrement immédiat par défaut ; pendant une saisie de texte,
+   * regroupé (au plus CART_TEXT_DELAY_MS) et forcé à la mise en arrière-plan / fermeture (flushPendingWrites).
+   */
+  function setCart(cart: Cart, timing: 'now' | 'deferred' = 'now') {
+    data = { ...data, cart };
+    if (timing === 'now') writeCartNow();
+    else if (cartTimer === null) {
+      cartTimer = setTimeout(() => {
+        writeCartNow();
+        notify();
+      }, CART_TEXT_DELAY_MS);
+    }
+    notify();
   }
 
   const nowIso = () => now().toISOString();
@@ -142,27 +207,50 @@ export function createAppStore(deps: StoreDeps) {
   const findOrder = (id: string) => data.orders.find((o) => o.id === id);
   const product = (id: string): Product | undefined => productById.get(id);
 
-  function setCart(cart: AppData['cart']) {
-    commit({ ...data, cart });
+  /**
+   * Enregistre une commande et réconcilie la fidélité, en une seule écriture.
+   * Renvoie les événements ajoutés, ou null si l'écriture a échoué (rien n'a changé).
+   */
+  function commitOrder(order: Order, opts: { nextOrderNumber?: number; cart?: Cart } = {}) {
+    const newEvents = reconcileOrderLoyalty(data.loyaltyEvents, order, data.settings.loyalty, { nowIso: nowIso(), newId });
+    if (!persist(() => repo.saveOrderWithLoyalty({ order, newEvents, nextOrderNumber: opts.nextOrderNumber }))) return null;
+    const exists = data.orders.some((o) => o.id === order.id);
+    data = {
+      ...data,
+      orders: exists ? data.orders.map((o) => (o.id === order.id ? order : o)) : [...data.orders, order],
+      loyaltyEvents: newEvents.length ? [...data.loyaltyEvents, ...newEvents] : data.loyaltyEvents,
+      counters: opts.nextOrderNumber !== undefined ? { nextOrderNumber: opts.nextOrderNumber } : data.counters,
+    };
+    if (opts.cart && opts.cart !== data.cart) setCart(opts.cart);
+    else notify();
+    return newEvents;
   }
 
-  /** Applique un changement de commande et réconcilie la fidélité. */
-  function commitOrder(order: Order, extra: Partial<AppData> = {}) {
-    const exists = data.orders.some((o) => o.id === order.id);
-    const orders = exists ? data.orders.map((o) => (o.id === order.id ? order : o)) : [...data.orders, order];
-    const newEvents = reconcileOrderLoyalty(data.loyaltyEvents, order, data.settings.loyalty, { nowIso: nowIso(), newId });
-    const loyaltyEvents: LoyaltyEvent[] = newEvents.length ? [...data.loyaltyEvents, ...newEvents] : data.loyaltyEvents;
-    commit({ ...data, ...extra, orders, loyaltyEvents });
-    return newEvents;
+  function commitCustomer(customer: Customer, cart?: Cart): boolean {
+    if (!persist(() => repo.upsertCustomer(customer))) return false;
+    const exists = data.customers.some((c) => c.id === customer.id);
+    data = {
+      ...data,
+      customers: exists ? data.customers.map((c) => (c.id === customer.id ? customer : c)) : [...data.customers, customer],
+    };
+    if (cart) setCart(cart);
+    else notify();
+    return true;
   }
 
   return {
     catalog,
     getData: () => data,
-    getPersistError: () => persistError,
+    getPersistError: () => storageLocked ?? docError ?? cartError,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    /** Enregistre immédiatement un panier en attente (mise en arrière-plan, fermeture de l'onglet). */
+    flushPendingWrites() {
+      if (cartTimer === null) return;
+      writeCartNow();
+      notify();
     },
     product,
     topping: (id: string) => toppingById.get(id),
@@ -190,8 +278,8 @@ export function createAppStore(deps: StoreDeps) {
         });
       }
       const customer = buildCustomer(input, newId('cus'), nowIso());
-      const cart = options.select ? { ...withoutRewardLines(data.cart), customerId: customer.id, counterName: '' } : data.cart;
-      commit({ ...data, customers: [...data.customers, customer], cart });
+      const cart = options.select ? { ...withoutRewardLines(data.cart), customerId: customer.id, counterName: '' } : undefined;
+      if (!commitCustomer(customer, cart)) return fail(SAVE_FAILED);
       return ok(customer);
     },
 
@@ -209,7 +297,7 @@ export function createAppStore(deps: StoreDeps) {
         });
       }
       const updated = applyCustomerInput(existing, input, nowIso());
-      commit({ ...data, customers: data.customers.map((c) => (c.id === customerId ? updated : c)) });
+      if (!commitCustomer(updated)) return fail(SAVE_FAILED);
       return ok(updated);
     },
 
@@ -218,7 +306,7 @@ export function createAppStore(deps: StoreDeps) {
       if (!existing) return fail('Client introuvable.');
       if (instructions.trim().length > 300) return fail('300 caractères maximum.');
       const updated = { ...existing, instructions: instructions.trim(), updatedAt: nowIso() };
-      commit({ ...data, customers: data.customers.map((c) => (c.id === customerId ? updated : c)) });
+      if (!commitCustomer(updated)) return fail(SAVE_FAILED);
       return ok(updated);
     },
 
@@ -272,11 +360,11 @@ export function createAppStore(deps: StoreDeps) {
     },
 
     setOrderNote(note: string) {
-      setCart({ ...data.cart, note: note.slice(0, 300) });
+      setCart({ ...data.cart, note: note.slice(0, 300) }, 'deferred');
     },
 
     setCounterName(name: string) {
-      setCart({ ...data.cart, counterName: name.slice(0, 40) });
+      setCart({ ...data.cart, counterName: name.slice(0, 40) }, 'deferred');
     },
 
     /** Vide le panier (et abandonne une éventuelle modification en cours). */
@@ -330,10 +418,12 @@ export function createAppStore(deps: StoreDeps) {
         settings: data.settings,
         previous,
       });
-      commitOrder(order, {
+      const saved = commitOrder(order, {
         cart: emptyCart(newId('ord')),
-        counters: previous ? data.counters : { nextOrderNumber: data.counters.nextOrderNumber + 1 },
+        nextOrderNumber: previous ? undefined : data.counters.nextOrderNumber + 1,
       });
+      // Échec d'écriture : le panier reste intact, l'utilisateur peut réessayer.
+      if (!saved) return fail(SAVE_FAILED);
       return ok(order);
     },
 
@@ -351,8 +441,8 @@ export function createAppStore(deps: StoreDeps) {
       if (!canChangeStatus(order, status)) return fail('Changement de statut impossible.');
       const updated = withStatus(order, status, nowIso());
       // Une commande terminée ne peut plus être modifiée : on libère le panier s'il l'éditait.
-      const cart = data.cart.editingOrderId === orderId && !canEditOrder(updated) ? emptyCart(newId('ord')) : data.cart;
-      commitOrder(updated, { cart });
+      const cart = data.cart.editingOrderId === orderId && !canEditOrder(updated) ? emptyCart(newId('ord')) : undefined;
+      if (!commitOrder(updated, { cart })) return fail(SAVE_FAILED);
       return ok(updated);
     },
 
@@ -362,8 +452,9 @@ export function createAppStore(deps: StoreDeps) {
       if (!order) return fail('Commande introuvable.');
       if (!canCancelOrder(order)) return fail('Cette commande ne peut pas être annulée.');
       const cancelled = withStatus(order, 'annulee', nowIso());
-      const cart = data.cart.editingOrderId === orderId ? emptyCart(newId('ord')) : data.cart;
+      const cart = data.cart.editingOrderId === orderId ? emptyCart(newId('ord')) : undefined;
       const events = commitOrder(cancelled, { cart });
+      if (!events) return fail(SAVE_FAILED);
       const pointsReverted = -events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
       const rewardsRestored = -events.filter((e) => e.type === 'rewards_used').reduce((s, e) => s + e.delta, 0);
       return ok({ order: cancelled, pointsReverted, rewardsRestored });
@@ -374,7 +465,9 @@ export function createAppStore(deps: StoreDeps) {
       const order = findOrder(orderId);
       if (!order) return;
       const updated = { ...order, printRequests: [...order.printRequests, nowIso()] };
-      commit({ ...data, orders: data.orders.map((o) => (o.id === orderId ? updated : o)) });
+      if (!persist(() => repo.saveOrderWithLoyalty({ order: updated, newEvents: [] }))) return;
+      data = { ...data, orders: data.orders.map((o) => (o.id === orderId ? updated : o)) };
+      notify();
     },
 
     /** Points que la commande en cours de modification a déjà crédités (affichage). */
@@ -384,13 +477,15 @@ export function createAppStore(deps: StoreDeps) {
 
     endService(): Result<{ archived: number; stillActive: number }> {
       const { orders, archived, stillActive } = closeService(data.orders, nowIso());
-      commit({
-        ...data,
-        orders,
-        // Numérotation remise à 1 seulement si plus aucune commande n'est en cours (évite les doublons).
-        counters: stillActive === 0 ? { nextOrderNumber: 1 } : data.counters,
-        serviceStartedAt: nowIso(),
-      });
+      // Numérotation remise à 1 seulement si plus aucune commande n'est en cours (évite les doublons).
+      const counters = stillActive === 0 ? { nextOrderNumber: 1 } : data.counters;
+      const serviceStartedAt = nowIso();
+      const archivedOrders = orders.filter((o, i) => o !== data.orders[i]);
+      if (!persist(() => repo.closeService({ archivedOrders, nextOrderNumber: counters.nextOrderNumber, serviceStartedAt }))) {
+        return fail(SAVE_FAILED);
+      }
+      data = { ...data, orders, counters, serviceStartedAt };
+      notify();
       return ok({ archived, stillActive });
     },
 
@@ -415,7 +510,9 @@ export function createAppStore(deps: StoreDeps) {
           return p?.category === 'boisson' && !p.alcohol;
         }),
       };
-      commit({ ...data, settings: next });
+      if (!persist(() => repo.saveSettings(next))) return fail(SAVE_FAILED);
+      data = { ...data, settings: next };
+      notify();
       return ok(next);
     },
 
@@ -423,8 +520,19 @@ export function createAppStore(deps: StoreDeps) {
     resetDemoData() {
       // Choix explicite de l'utilisateur : seule action autorisée à remplacer des données illisibles.
       storageLocked = null;
+      if (cartTimer !== null) clearTimeout(cartTimer);
+      cartTimer = null;
       repo.clear();
-      commit(deps.seed(catalog, now(), newId));
+      const seeded = deps.seed(catalog, now(), newId);
+      try {
+        repo.replaceAll(withoutCart(seeded), seeded.cart);
+        docError = null;
+        cartError = null;
+      } catch {
+        docError = DOC_ERROR;
+      }
+      data = seeded;
+      notify();
     },
   };
 }

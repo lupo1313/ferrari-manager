@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Icon } from '../ui/Icon';
-import { useAppData, useStore } from '../../state/StoreContext';
+import { useAppSelector, useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { CustomerFormModal } from './CustomerFormModal';
 import { LoyaltyCard } from '../loyalty/LoyaltyCard';
@@ -22,18 +22,19 @@ import type { Customer } from '../../domain/types';
 
 type FormState = { mode: 'create'; phone?: string } | { mode: 'edit'; customer: Customer } | null;
 
-export function CustomerPanel() {
+/** memo + sélection fine : la saisie de la note de commande ne re-rend pas la colonne client. */
+export const CustomerPanel = memo(function CustomerPanel() {
   const store = useStore();
-  const data = useAppData();
+  const customers = useAppSelector((d) => d.customers);
+  const customerId = useAppSelector((d) => d.cart.customerId);
   const toast = useToast();
   const [query, setQuery] = useState('');
   const [keyboard, setKeyboard] = useState<'tel' | 'text'>('tel');
   const [form, setForm] = useState<FormState>(null);
   const [rewardOpen, setRewardOpen] = useState(false);
 
-  const cart = data.cart;
-  const customer = cart.customerId ? data.customers.find((c) => c.id === cart.customerId) ?? null : null;
-  const results = useMemo(() => searchCustomers(data.customers, query), [data.customers, query]);
+  const customer = customerId ? customers.find((c) => c.id === customerId) ?? null : null;
+  const results = useMemo(() => searchCustomers(customers, query), [customers, query]);
   const normalizedQuery = normalizePhone(query);
   const canCreateFromQuery = /^[\d\s.+-]+$/.test(query.trim()) && isValidPhone(normalizedQuery) && results.length === 0;
 
@@ -147,11 +148,11 @@ export function CustomerPanel() {
       {rewardOpen && customer && <RewardModal customerName={customerFullName(customer)} onClose={() => setRewardOpen(false)} />}
     </section>
   );
-}
+});
 
 function CounterState() {
   const store = useStore();
-  const data = useAppData();
+  const counterName = useAppSelector((d) => d.cart.counterName);
   return (
     <div className="counter-state">
       <div className="empty">
@@ -165,7 +166,7 @@ function CounterState() {
         <span className="field__label">Nom pour le comptoir (facultatif)</span>
         <input
           className="input"
-          value={data.cart.counterName}
+          value={counterName}
           onChange={(e) => store.setCounterName(e.target.value)}
           placeholder="Ex. : Paul"
           autoComplete="off"
@@ -183,19 +184,23 @@ interface SelectedCustomerProps {
 
 function SelectedCustomer({ customer, onEdit, onUseReward }: SelectedCustomerProps) {
   const store = useStore();
-  const data = useAppData();
+  const settings = useAppSelector((d) => d.settings);
+  const loyaltyEvents = useAppSelector((d) => d.loyaltyEvents);
+  const orders = useAppSelector((d) => d.orders);
+  const lines = useAppSelector((d) => d.cart.lines);
+  const editingOrderId = useAppSelector((d) => d.cart.editingOrderId);
   const toast = useToast();
   const [tab, setTab] = useState<'infos' | 'historique'>('infos');
   const [notes, setNotes] = useState(customer.instructions);
   useEffect(() => setNotes(customer.instructions), [customer.instructions]);
 
-  const rules = data.settings.loyalty;
-  const balance = computeBalance(data.loyaltyEvents, customer.id, rules);
-  const rewardsInCart = rewardLineCount(data.cart.lines);
+  const rules = settings.loyalty;
+  const balance = computeBalance(loyaltyEvents, customer.id, rules);
+  const rewardsInCart = rewardLineCount(lines);
   const remaining = store.rewardsRemaining();
-  const alreadyCredited = data.cart.editingOrderId ? store.pointsAlreadyCredited(data.cart.editingOrderId, customer.id) : 0;
-  const pendingPoints = countEarningPizzas(data.cart.lines) - alreadyCredited;
-  const history = data.orders
+  const alreadyCredited = editingOrderId ? store.pointsAlreadyCredited(editingOrderId, customer.id) : 0;
+  const pendingPoints = countEarningPizzas(lines) - alreadyCredited;
+  const history = orders
     .filter((o) => o.customerId === customer.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 6);
@@ -229,7 +234,7 @@ function SelectedCustomer({ customer, onEdit, onUseReward }: SelectedCustomerPro
             Infos
           </button>
           <button type="button" role="tab" aria-selected={tab === 'historique'} onClick={() => setTab('historique')}>
-            Historique ({data.orders.filter((o) => o.customerId === customer.id).length})
+            Historique ({orders.filter((o) => o.customerId === customer.id).length})
           </button>
         </div>
 

@@ -51,16 +51,19 @@ describe('stockage local : aucune perte de données', () => {
   });
 
   it('lecture impossible (stockage bloqué) : pas d’écrasement', () => {
-    let saves = 0;
-    const repo: AppRepository = {
+    const repo = createMemoryRepository();
+    const writes = { n: 0 };
+    const blocked: AppRepository = {
+      ...repo,
       load: () => ({ kind: 'error', error: 'stockage local inaccessible' }),
-      save: () => void saves++,
-      clear: () => {},
+      saveCart: () => void writes.n++,
+      saveOrderWithLoyalty: () => void writes.n++,
     };
-    const { store } = createTestStore(repo as never);
+    const { store } = createTestStore(blocked as never);
     expect(store.getPersistError()).toMatch(/inaccessible/);
     store.addProduct('reine');
-    expect(saves).toBe(0);
+    store.validateCart();
+    expect(writes.n).toBe(0);
   });
 
   it('la réinitialisation explicite remplace les données illisibles et réactive l’enregistrement', () => {
@@ -70,25 +73,17 @@ describe('stockage local : aucune perte de données', () => {
     expect(store.getPersistError()).toBeNull();
     expect(repo.saves).toBe(1);
     expect(JSON.parse(repo.raw()!).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(repo.rawCart()).not.toBeNull();
   });
 
-  it('écriture impossible (quota plein) : erreur affichée, l’application continue, l’erreur disparaît au succès suivant', () => {
-    const base = createMemoryRepository();
-    let fail = false;
-    const repo = {
-      ...base,
-      load: () => base.load(),
-      save: (d: Parameters<AppRepository['save']>[0]) => {
-        if (fail) throw new Error('QuotaExceededError');
-        base.save(d);
-      },
-    };
-    const { store } = createTestStore(repo as never);
-    fail = true;
+  it('écriture du panier impossible (quota plein) : erreur affichée, l’application continue, l’erreur disparaît au succès suivant', () => {
+    const repo = createMemoryRepository();
+    const { store } = createTestStore(repo);
+    repo.control.failOn = 'cart';
     store.addProduct('reine');
-    expect(store.getPersistError()).toMatch(/Sauvegarde locale impossible/);
+    expect(store.getPersistError()).toMatch(/Sauvegarde du panier impossible/);
     expect(store.getData().cart.lines).toHaveLength(1);
-    fail = false;
+    repo.control.failOn = null;
     store.addProduct('reine');
     expect(store.getPersistError()).toBeNull();
   });

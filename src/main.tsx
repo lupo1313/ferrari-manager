@@ -24,6 +24,12 @@ const store = createAppStore({
   seed: buildDemoData,
 });
 
+// Panier en cours de saisie : enregistré sans attendre si la tablette met l'onglet en arrière-plan ou le ferme.
+window.addEventListener('pagehide', () => store.flushPendingWrites());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') store.flushPendingWrites();
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

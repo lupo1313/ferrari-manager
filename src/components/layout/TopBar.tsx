@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../ui/Icon';
-import { useAppData, useStore } from '../../state/StoreContext';
+import { useAppSelector, useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { customerFullName, formatPhone, searchCustomers } from '../../domain/customers';
 import { formatPrice } from '../../domain/money';
@@ -26,7 +26,7 @@ interface TopBarProps {
 
 export function TopBar({ onGoToOrderTaking, onEndService }: TopBarProps) {
   const store = useStore();
-  const data = useAppData();
+  const customers = useAppSelector((d) => d.customers);
   const toast = useToast();
   const now = useClock();
   const [query, setQuery] = useState('');
@@ -36,13 +36,13 @@ export function TopBar({ onGoToOrderTaking, onEndService }: TopBarProps) {
   const results = useMemo(() => {
     const q = query.trim();
     if (!q) return { customers: [], products: [] as Product[] };
-    const customers = searchCustomers(data.customers, q, 5);
+    const found = searchCustomers(customers, q, 5);
     const folded = fold(q);
     const products = /^[\d\s.+-]+$/.test(q)
       ? []
       : store.catalog.products.filter((p) => fold(`${p.name} ${p.description ?? ''}`).includes(folded)).slice(0, 6);
-    return { customers, products };
-  }, [query, data.customers, store.catalog.products]);
+    return { customers: found, products };
+  }, [query, customers, store.catalog.products]);
 
   useEffect(() => {
     const onDown = (e: PointerEvent) => {

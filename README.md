@@ -57,8 +57,43 @@ tests/                 Tests Vitest : prix, clients, fidélité, scénario compl
 - **Copies figées** : une commande garde une copie du client (nom, adresse…) et des prix au moment de la commande. Modifier une fiche ne change pas l'historique.
 - **Fidélité par journal** : le solde n'est jamais stocké. Il est recalculé depuis un journal d'événements (`points`, `rewards_used`). À chaque validation, modification, changement de statut ou annulation, la commande est *réconciliée* : on écrit uniquement l'écart entre ce qu'elle devrait avoir crédité et ce qui est déjà dans le journal. Résultat : un double clic, une annulation ou une modification ne peuvent pas créer de points en double.
 - **Validation idempotente** : chaque panier réserve l'identifiant de sa future commande. Une seconde validation du même panier est refusée, et le bouton est verrouillé pendant l'enregistrement.
-- **Stockage abstrait** (`AppRepository`) : pour la V2, une implémentation Supabase/API remplacera `localStorage` sans toucher au domaine.
+- **Persistance par opération** (`AppRepository`) : `saveOrderWithLoyalty`, `upsertCustomer`, `saveSettings`, `closeService`, `saveCart`. Le panier a sa propre clé et ne réécrit jamais l'historique. Détails et garanties : section *Persistance locale* ci-dessous.
 - **Navigation par hash** (`#/commandes`) : fonctionne sur n'importe quel hébergement statique, sans règle de réécriture.
+
+---
+
+## Persistance locale (V1) : garanties réelles
+
+Deux clés `localStorage` :
+
+| Clé | Contenu | Écrite quand |
+| --- | --- | --- |
+| `ferrari-manager:v1` | Historique : commandes, journal de fidélité, clients, paramètres, compteur, début de service | Validation, modification, statut, annulation, impression demandée, fiche client, paramètres, fin de service |
+| `ferrari-manager:v1:panier` | Commande en cours de saisie | Immédiatement à chaque ajout, quantité, client, mode ou heure ; regroupée (au plus 300 ms) pendant la saisie d'une note ou d'un nom comptoir, et forcée quand l'onglet passe en arrière-plan ou se ferme (`pagehide`, `visibilitychange`) |
+
+Ce qui est garanti :
+
+- **Commande + fidélité = une seule écriture.** Une commande et ses événements de fidélité sont dans la même clé, écrite en une fois : on ne peut pas avoir l'une sans les autres.
+- **Écrire d'abord, afficher ensuite.** Pour toute donnée durable, l'écran n'est mis à jour que si l'écriture a réussi. En cas d'échec (stockage plein ou bloqué), l'action est refusée avec un message, le panier reste intact et un nouvel essai est possible.
+- **Écriture partielle entre les deux clés.** Si la commande est enregistrée mais que le panier n'a pas pu être vidé, le panier restant porte l'identifiant d'une commande déjà enregistrée : la validation le refuse, et au rechargement il est automatiquement vidé. Aucun doublon possible.
+- **Pas d'écrasement.** Données illisibles ou version inconnue : rien n'est écrit tant que l'utilisateur ne choisit pas *Paramètres → Réinitialiser*.
+- **Ancien format** (panier inclus dans l'historique) : repris automatiquement, copié dans sa clé, puis retiré de l'historique à la première écriture.
+
+Limites assumées en V1 :
+
+- L'historique reste un seul document JSON réécrit à chaque opération durable (`localStorage` ne sait pas modifier une partie d'une valeur). Coût mesuré : environ 40 ms et 1,2 Mo écrits par validation avec 500 commandes en historique (CPU bridé ×4).
+- Une fermeture brutale (plantage du navigateur, batterie) dans les 300 ms qui suivent une frappe peut perdre ces derniers caractères de la note.
+- Deux onglets ouverts sur l'application ne se synchronisent pas : le dernier qui écrit gagne.
+- Un panier illisible est remplacé par un panier vide (l'historique, lui, reste protégé).
+
+À reprendre côté serveur en V2 (Supabase) :
+
+- `saveOrderWithLoyalty` → une fonction Postgres en transaction, qui recalcule elle-même prix et fidélité. Le client ne doit plus envoyer d'événements de fidélité « de confiance ».
+- Identifiant de commande généré par le client conservé (`on conflict do nothing`) pour garder la protection contre les doublons ; `revision` utilisée comme verrou contre les modifications concurrentes.
+- Numérotation des commandes par une séquence serveur (doublons dès deux appareils sinon).
+- Unicité du téléphone client par contrainte en base.
+- Store asynchrone : les opérations du dépôt renverront des promesses ; le verrou du bouton de validation devra durer jusqu'à la réponse du serveur.
+- Le panier peut rester local.
 
 ---
 

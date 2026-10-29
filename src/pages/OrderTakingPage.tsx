@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CustomerPanel } from '../components/customer/CustomerPanel';
 import { CatalogPanel } from '../components/catalog/CatalogPanel';
 import { OrderPanel } from '../components/order/OrderPanel';
-import { useAppData } from '../state/StoreContext';
+import { useAppSelector } from '../state/StoreContext';
 import { itemCount } from '../domain/cart';
 import { computeTotals } from '../domain/pricing';
 import { formatPrice } from '../domain/money';
@@ -15,17 +15,21 @@ type Pane = 'client' | 'carte' | 'commande';
  * Sur écran étroit, les trois colonnes deviennent des onglets plutôt que d'être réduites.
  */
 export function OrderTakingPage() {
-  const data = useAppData();
+  // Sélection fine : taper une note (cart.note) ne re-rend pas cette page ni ses trois colonnes.
+  const lines = useAppSelector((d) => d.cart.lines);
+  const mode = useAppSelector((d) => d.cart.mode);
+  const customerId = useAppSelector((d) => d.cart.customerId);
+  const customers = useAppSelector((d) => d.customers);
+  const deliveryFee = useAppSelector((d) => d.settings.deliveryFee);
   const [pane, setPane] = useState<Pane>('carte');
-  const cart = data.cart;
   // En mode onglets : une fois le client choisi, on passe directement à la carte.
-  const previousCustomer = useRef(cart.customerId);
+  const previousCustomer = useRef(customerId);
   useEffect(() => {
-    if (cart.customerId && cart.customerId !== previousCustomer.current) setPane((p) => (p === 'client' ? 'carte' : p));
-    previousCustomer.current = cart.customerId;
-  }, [cart.customerId]);
-  const customer = cart.customerId ? data.customers.find((c) => c.id === cart.customerId) : undefined;
-  const totals = computeTotals(cart.lines, cart.mode, { deliveryFee: data.settings.deliveryFee });
+    if (customerId && customerId !== previousCustomer.current) setPane((p) => (p === 'client' ? 'carte' : p));
+    previousCustomer.current = customerId;
+  }, [customerId]);
+  const customer = customerId ? customers.find((c) => c.id === customerId) : undefined;
+  const totals = computeTotals(lines, mode, { deliveryFee });
 
   return (
     <div className="workspace" data-pane={pane}>
@@ -39,7 +43,7 @@ export function OrderTakingPage() {
           <small>Pizzas, boissons…</small>
         </button>
         <button type="button" role="tab" aria-selected={pane === 'commande'} onClick={() => setPane('commande')}>
-          Commande ({itemCount(cart.lines)})
+          Commande ({itemCount(lines)})
           <small>{formatPrice(totals.total)}</small>
         </button>
       </div>

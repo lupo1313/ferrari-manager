@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { Icon, type IconName } from '../ui/Icon';
-import { useAppData, useStore } from '../../state/StoreContext';
+import { useAppSelector, useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { ProductCard } from './ProductCard';
 import { CustomizeModal } from './CustomizeModal';
@@ -25,9 +25,9 @@ const CATEGORIES: { id: CategoryId; label: string; icon: IconName }[] = [
 
 const STRIP_SIZE = 5;
 
-export function CatalogPanel() {
+/** memo : sans props, le catalogue ne se re-rend que lorsque les lignes du panier changent. */
+export const CatalogPanel = memo(function CatalogPanel() {
   const store = useStore();
-  const data = useAppData();
   const toast = useToast();
   const [category, setCategory] = useState<CategoryId>('toutes');
   const [customizing, setCustomizing] = useState<Product | null>(null);
@@ -37,7 +37,7 @@ export function CatalogPanel() {
   const pizzas = products.filter((p) => p.category === 'pizza');
   const drinks = products.filter((p) => p.category === 'boisson');
   const desserts = products.filter((p) => p.category === 'dessert');
-  const lines = data.cart.lines;
+  const lines = useAppSelector((d) => d.cart.lines);
   const pizzaLines = lines.filter((l) => l.category === 'pizza');
 
   const add = (p: Product) => {
@@ -187,4 +187,4 @@ export function CatalogPanel() {
       {toppingTarget && <ToppingTargetModal topping={toppingTarget} pizzaLines={pizzaLines} onClose={() => setToppingTarget(null)} />}
     </section>
   );
-}
+});

@@ -8,18 +8,20 @@ import { OrdersPage } from './pages/OrdersPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { LoyaltyPage } from './pages/LoyaltyPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { useAppData, usePersistError } from './state/StoreContext';
+import { useAppSelector, usePersistError } from './state/StoreContext';
 import { useRoute } from './state/useRoute';
 import { isActiveOrder } from './domain/orders';
 
 export function App() {
-  const data = useAppData();
+  // Sélection minimale : la saisie dans le panier ne re-rend pas toute l'application.
+  const orders = useAppSelector((d) => d.orders);
+  const editingOrderId = useAppSelector((d) => d.cart.editingOrderId);
   const persistError = usePersistError();
   const [route, navigate] = useRoute();
   const [endService, setEndService] = useState(false);
 
-  const activeOrders = data.orders.filter(isActiveOrder).length;
-  const editing = data.cart.editingOrderId ? data.orders.find((o) => o.id === data.cart.editingOrderId) : undefined;
+  const activeOrders = orders.filter(isActiveOrder).length;
+  const editing = editingOrderId ? orders.find((o) => o.id === editingOrderId) : undefined;
   const goToOrderTaking = () => navigate('prise');
 
   return (
