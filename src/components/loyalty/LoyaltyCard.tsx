@@ -8,17 +8,38 @@ interface LoyaltyCardProps {
   rewardsInCart: number;
   /** Récompenses encore ajoutables (peut être 0). */
   remaining: number;
-  /** Pizzas payantes de la commande en cours (crédités à la validation). */
+  /** Pizzas payantes de la commande en cours (créditées à l'encaissement). */
   pendingPoints: number;
+  /** Récompenses prises par d'autres commandes enregistrées, pas encore encaissées. */
+  reserved: number;
+  reservingOrders: number[];
+  /** Pizzas des autres commandes enregistrées, en attente d'encaissement. */
+  pendingPizzas: number;
+  /** Aucune pizza payante dans la commande en cours : le cadeau n'est pas encore utilisable. */
+  needsPaidPizza: boolean;
   onUseReward: () => void;
 }
 
+const s = (n: number) => (n > 1 ? 's' : '');
+
 /**
- * Affiche séparément les récompenses disponibles et la progression vers la suivante,
+ * Affiche séparément les récompenses disponibles, réservées et la progression vers la suivante,
  * pour éviter tout « 10/10 » ambigu.
  */
-export function LoyaltyCard({ balance, pizzasPerReward, rewardsInCart, remaining, pendingPoints, onUseReward }: LoyaltyCardProps) {
+export function LoyaltyCard({
+  balance,
+  pizzasPerReward,
+  rewardsInCart,
+  remaining,
+  pendingPoints,
+  reserved,
+  reservingOrders,
+  pendingPizzas,
+  needsPaidPizza,
+  onUseReward,
+}: LoyaltyCardProps) {
   const hasReward = balance.available > 0;
+  const canUse = remaining >= 1 && !needsPaidPizza;
   return (
     <section className={`loyalty-card ${hasReward ? 'loyalty-card--ready' : ''}`} aria-label="Fidélité">
       <div className="loyalty-card__head">
@@ -27,9 +48,7 @@ export function LoyaltyCard({ balance, pizzasPerReward, rewardsInCart, remaining
         </span>
         <div>
           <p className="loyalty-card__title">
-            {hasReward
-              ? `${balance.available} récompense${balance.available > 1 ? 's' : ''} disponible${balance.available > 1 ? 's' : ''}`
-              : 'Aucune récompense disponible'}
+            {hasReward ? `${balance.available} récompense${s(balance.available)} disponible${s(balance.available)}` : 'Aucune récompense disponible'}
           </p>
           <p className="loyalty-card__sub">
             {balance.progress} / {pizzasPerReward} pizzas vers la prochaine
@@ -51,7 +70,19 @@ export function LoyaltyCard({ balance, pizzasPerReward, rewardsInCart, remaining
       </div>
 
       {pendingPoints > 0 && (
-        <p className="loyalty-card__pending">+{pendingPoints} pizza{pendingPoints > 1 ? 's' : ''} comptée{pendingPoints > 1 ? 's' : ''} à la validation</p>
+        <p className="loyalty-card__pending">
+          +{pendingPoints} pizza{s(pendingPoints)} comptée{s(pendingPoints)} à l’encaissement
+        </p>
+      )}
+      {pendingPizzas > 0 && (
+        <p className="loyalty-card__note">
+          {pendingPizzas} pizza{s(pendingPizzas)} d’autres commandes en attente d’encaissement
+        </p>
+      )}
+      {reserved > 0 && (
+        <p className="loyalty-card__note">
+          {reserved} récompense{s(reserved)} réservée{s(reserved)} (n° {reservingOrders.join(', ')}, non encaissée{s(reservingOrders.length)})
+        </p>
       )}
       {balance.debt > 0 && (
         <p className="loyalty-card__warn">
@@ -59,13 +90,17 @@ export function LoyaltyCard({ balance, pizzasPerReward, rewardsInCart, remaining
         </p>
       )}
 
-      <button type="button" className="btn btn--gold btn--block" onClick={onUseReward} disabled={remaining < 1}>
+      <button type="button" className="btn btn--gold btn--block" onClick={onUseReward} disabled={!canUse}>
         <Icon name="gift" size={20} />
         {rewardsInCart > 0 && remaining < 1 ? 'Récompense ajoutée' : 'Utiliser une récompense'}
       </button>
+      {remaining >= 1 && needsPaidPizza && (
+        <p className="loyalty-card__note">Ajoutez d’abord une pizza payante : le cadeau s’ajoute à un achat.</p>
+      )}
       {rewardsInCart > 0 && (
         <p className="loyalty-card__note">
-          {rewardsInCart} récompense{rewardsInCart > 1 ? 's' : ''} dans la commande, consommée{rewardsInCart > 1 ? 's' : ''} à la validation.
+          {rewardsInCart} récompense{s(rewardsInCart)} dans la commande : réservée{s(rewardsInCart)} à l’enregistrement, consommée
+          {s(rewardsInCart)} à l’encaissement.
         </p>
       )}
     </section>

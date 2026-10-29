@@ -5,6 +5,7 @@ import { useAppData, useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { eligibleRewardProducts } from '../../domain/loyalty';
 import { formatPrice } from '../../domain/money';
+import { paidPizzaCount, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
 import type { RewardKind } from '../../domain/types';
 
 interface RewardModalProps {
@@ -22,6 +23,7 @@ export function RewardModal({ customerName, onClose }: RewardModalProps) {
   const products = eligibleRewardProducts(store.catalog, kind, rules);
   const remaining = store.rewardsRemaining();
   const product = selected ? store.product(selected) : undefined;
+  const needsPaidPizza = paidPizzaCount(data.cart.lines) === 0;
 
   const confirm = () => {
     if (!product) return;
@@ -45,7 +47,7 @@ export function RewardModal({ customerName, onClose }: RewardModalProps) {
           <button type="button" className="btn btn--lg" onClick={onClose}>
             Plus tard
           </button>
-          <button type="button" className="btn btn--lg btn--gold" onClick={confirm} disabled={!product || remaining < 1}>
+          <button type="button" className="btn btn--lg btn--gold" onClick={confirm} disabled={!product || remaining < 1 || needsPaidPizza}>
             <Icon name="gift" /> Ajouter le cadeau
           </button>
         </>
@@ -106,17 +108,24 @@ export function RewardModal({ customerName, onClose }: RewardModalProps) {
         </div>
       )}
 
+      {needsPaidPizza && (
+        <p className="notice notice--error reward-needs-pizza" role="alert">
+          {REWARD_NEEDS_PAID_PIZZA} Ajoutez d’abord la pizza achetée par le client.
+        </p>
+      )}
+
       <div className="reward-effect">
         <Icon name="info" />
         <div>
           {product ? (
             <p>
-              <strong>Effet sur la commande :</strong> + 1 × {product.name} offert (0,00 € au lieu de {formatPrice(product.price)}).
-              {kind === 'pizza' && ' Les suppléments éventuels restent payants.'} La récompense sera consommée à la validation ; il en
-              restera {remaining - 1}.
+              <strong>Effet sur la commande :</strong> + 1 × {product.name} offert (0,00 € au lieu de {formatPrice(product.price)}), en
+              plus des produits déjà choisis : aucune pizza de la commande ne devient gratuite.
+              {kind === 'pizza' && ' Les suppléments éventuels restent payants.'} La récompense est réservée à l’enregistrement et consommée à
+              l’encaissement ; il en restera {remaining - 1}.
             </p>
           ) : (
-            <p>Sélectionnez un produit. La récompense n’est consommée qu’à la validation de la commande.</p>
+            <p>Sélectionnez un produit. Une récompense donne droit à un seul cadeau : une pizza ou une grande bouteille.</p>
           )}
           <p className="muted">Non échangeable contre du vin, des boissons alcoolisées, des desserts ou des suppléments.</p>
         </div>

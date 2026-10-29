@@ -402,3 +402,7 @@
 .reward-effect p + p {
   margin-top: 6px;
 }
+
+.reward-needs-pizza {
+  margin-top: 14px;
+}

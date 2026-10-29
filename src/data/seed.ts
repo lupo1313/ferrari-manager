@@ -123,7 +123,7 @@ export function buildDemoData(catalog: Catalog, now: Date, newId: IdFactory): Ap
   orders.push(buildOrder(counter, { id: counter.draftId, number: 2, nowIso: iso(6), customer: null, settings }));
 
   for (const o of orders) {
-    events = [...events, ...reconcileOrderLoyalty(events, o, settings.loyalty, { nowIso: o.createdAt, newId })];
+    events = [...events, ...reconcileOrderLoyalty(events, o, { nowIso: o.createdAt, newId })];
   }
 
   return {

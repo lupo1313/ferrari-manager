@@ -54,7 +54,7 @@ export function OrderTakingPage() {
         <CatalogPanel />
       </div>
       <div className="workspace__col workspace__col--commande">
-        <OrderPanel />
+        <OrderPanel onShowCatalog={() => setPane('carte')} />
       </div>
     </div>
   );

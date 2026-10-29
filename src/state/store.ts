@@ -5,6 +5,7 @@ import type {
   Order,
   OrderMode,
   OrderStatus,
+  PaymentMethod,
   Product,
   RewardKind,
   Settings,
@@ -21,6 +22,8 @@ import {
   addToppingToLine,
   createLine,
   emptyCart,
+  paidPizzaCount,
+  REWARD_NEEDS_PAID_PIZZA,
   removeLine,
   rewardLineCount,
   setLineQuantity,
@@ -48,6 +51,7 @@ import {
   withStatus,
 } from '../domain/orders';
 import { isValidTimeOfDay } from '../domain/time';
+import { cannotMarkPaid, isPaid, markPaid, markUnpaid } from '../domain/payment';
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -212,7 +216,7 @@ export function createAppStore(deps: StoreDeps) {
    * Renvoie les événements ajoutés, ou null si l'écriture a échoué (rien n'a changé).
    */
   function commitOrder(order: Order, opts: { nextOrderNumber?: number; cart?: Cart } = {}) {
-    const newEvents = reconcileOrderLoyalty(data.loyaltyEvents, order, data.settings.loyalty, { nowIso: nowIso(), newId });
+    const newEvents = reconcileOrderLoyalty(data.loyaltyEvents, order, { nowIso: nowIso(), newId });
     if (!persist(() => repo.saveOrderWithLoyalty({ order, newEvents, nextOrderNumber: opts.nextOrderNumber }))) return null;
     const exists = data.orders.some((o) => o.id === order.id);
     data = {
@@ -384,6 +388,8 @@ export function createAppStore(deps: StoreDeps) {
       if (!customer) return fail('Sélectionnez d’abord le client.');
       const p = product(productId);
       if (!p || !isRewardEligible(p, kind, data.settings.loyalty)) return fail('Ce produit n’est pas éligible à la récompense.');
+      // Le cadeau s'ajoute à un achat : au moins une pizza payante doit déjà être dans la commande.
+      if (paidPizzaCount(data.cart.lines) === 0) return fail(`${REWARD_NEEDS_PAID_PIZZA} Ajoutez d’abord la pizza achetée.`);
       if (rewardsRemainingForCart(data.loyaltyEvents, data.cart, data.settings.loyalty) < 1) {
         return fail('Aucune récompense disponible pour ce client.');
       }
@@ -446,8 +452,42 @@ export function createAppStore(deps: StoreDeps) {
       return ok(updated);
     },
 
-    /** Annulation : retire les points crédités et restitue les récompenses consommées. */
-    cancelOrder(orderId: string): Result<{ order: Order; pointsReverted: number; rewardsRestored: number }> {
+    /**
+     * Encaissement (suivi opérationnel, pas une caisse) : crédite les pizzas payantes du client.
+     * Idempotent : une commande déjà encaissée ne recrédite jamais rien (seul le moyen peut être corrigé).
+     */
+    markOrderPaid(orderId: string, method: PaymentMethod = 'non_precise'): Result<{ order: Order; pointsCredited: number; alreadyPaid: boolean }> {
+      const order = findOrder(orderId);
+      if (!order) return fail('Commande introuvable.');
+      const blocked = cannotMarkPaid(order);
+      if (blocked) return fail(blocked);
+      const alreadyPaid = isPaid(order);
+      const updated = markPaid(order, method, nowIso());
+      if (updated === order) return ok({ order, pointsCredited: 0, alreadyPaid });
+      const events = commitOrder(updated);
+      if (!events) return fail(SAVE_FAILED);
+      const pointsCredited = events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
+      return ok({ order: updated, pointsCredited, alreadyPaid });
+    },
+
+    /** Correction d'un encaissement saisi par erreur : la commande repasse « à encaisser », ses pizzas sont retirées. */
+    markOrderUnpaid(orderId: string): Result<{ order: Order; pointsReverted: number }> {
+      const order = findOrder(orderId);
+      if (!order) return fail('Commande introuvable.');
+      if (!isPaid(order)) return fail('Cette commande n’est pas encaissée.');
+      if (order.status === 'annulee') return fail('Commande annulée : encaissement non modifiable.');
+      const updated = markUnpaid(order, nowIso());
+      const events = commitOrder(updated);
+      if (!events) return fail(SAVE_FAILED);
+      const pointsReverted = 0 - events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
+      return ok({ order: updated, pointsReverted });
+    },
+
+    /**
+     * Annulation : retire les pizzas créditées et restitue les récompenses (réservées ou consommées).
+     * Commande encaissée : le remboursement éventuel se fait hors de Ferrari Manager.
+     */
+    cancelOrder(orderId: string): Result<{ order: Order; pointsReverted: number; rewardsRestored: number; wasPaid: boolean }> {
       const order = findOrder(orderId);
       if (!order) return fail('Commande introuvable.');
       if (!canCancelOrder(order)) return fail('Cette commande ne peut pas être annulée.');
@@ -455,9 +495,9 @@ export function createAppStore(deps: StoreDeps) {
       const cart = data.cart.editingOrderId === orderId ? emptyCart(newId('ord')) : undefined;
       const events = commitOrder(cancelled, { cart });
       if (!events) return fail(SAVE_FAILED);
-      const pointsReverted = -events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
-      const rewardsRestored = -events.filter((e) => e.type === 'rewards_used').reduce((s, e) => s + e.delta, 0);
-      return ok({ order: cancelled, pointsReverted, rewardsRestored });
+      const pointsReverted = 0 - events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
+      const rewardsRestored = 0 - events.filter((e) => e.type === 'rewards_used').reduce((s, e) => s + e.delta, 0);
+      return ok({ order: cancelled, pointsReverted, rewardsRestored, wasPaid: isPaid(order) });
     },
 
     /** Ouverture de la fenêtre d'impression : tracée, mais jamais considérée comme une impression réussie. */
@@ -475,10 +515,10 @@ export function createAppStore(deps: StoreDeps) {
       return netForOrder(data.loyaltyEvents, orderId, customerId).points;
     },
 
-    endService(): Result<{ archived: number; stillActive: number }> {
-      const { orders, archived, stillActive } = closeService(data.orders, nowIso());
-      // Numérotation remise à 1 seulement si plus aucune commande n'est en cours (évite les doublons).
-      const counters = stillActive === 0 ? { nextOrderNumber: 1 } : data.counters;
+    endService(): Result<{ archived: number; stillActive: number; waitingPayment: number }> {
+      const { orders, archived, stillActive, waitingPayment } = closeService(data.orders, nowIso());
+      // Numérotation remise à 1 seulement si plus aucune commande n'est affichée (évite les doublons de numéro).
+      const counters = stillActive + waitingPayment === 0 ? { nextOrderNumber: 1 } : data.counters;
       const serviceStartedAt = nowIso();
       const archivedOrders = orders.filter((o, i) => o !== data.orders[i]);
       if (!persist(() => repo.closeService({ archivedOrders, nextOrderNumber: counters.nextOrderNumber, serviceStartedAt }))) {
@@ -486,7 +526,7 @@ export function createAppStore(deps: StoreDeps) {
       }
       data = { ...data, orders, counters, serviceStartedAt };
       notify();
-      return ok({ archived, stillActive });
+      return ok({ archived, stillActive, waitingPayment });
     },
 
     /* ---------- Paramètres & données ---------- */

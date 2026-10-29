@@ -126,6 +126,24 @@ export interface StatusChange {
   at: string;
 }
 
+/** Suivi d'encaissement, indépendant du statut de préparation. Ce n'est pas une caisse. */
+export type PaymentStatus = 'a_encaisser' | 'encaissee';
+
+export type PaymentMethod = 'especes' | 'carte' | 'non_precise';
+
+export interface Payment {
+  status: PaymentStatus;
+  /** Facultatif : renseigné au moment de l'encaissement. */
+  method: PaymentMethod | null;
+  paidAt: string | null;
+  /**
+   * Commande enregistrée avant le suivi des paiements : statut de paiement inconnu.
+   * Ses points avaient été crédités dès l'enregistrement (ancienne règle) : on les conserve
+   * tant qu'aucune action explicite (encaissement annulé, annulation) ne change la commande.
+   */
+  legacy?: boolean;
+}
+
 export interface Order {
   id: string;
   /** Numéro court lisible en cuisine (remis à 1 en fin de service). */
@@ -144,6 +162,7 @@ export interface Order {
   totals: OrderTotals;
   status: OrderStatus;
   statusHistory: StatusChange[];
+  payment: Payment;
   /**
    * Dates d'ouverture de la boîte de dialogue d'impression.
    * Ce n'est PAS une preuve d'impression physique : le navigateur ne le confirme pas.
@@ -158,19 +177,24 @@ export interface Order {
 export type LoyaltyEventType = 'points' | 'rewards_used';
 
 export type LoyaltyReason =
-  | 'commande_validee'
+  | 'commande_encaissee'
+  | 'encaissement_annule'
   | 'commande_modifiee'
   | 'commande_annulee'
-  | 'statut_modifie'
-  | 'recompense_utilisee'
+  | 'recompense_reservee'
   | 'recompense_restituee'
-  | 'reprise_demo';
+  | 'reprise_demo'
+  // Raisons des anciennes données (règle « crédit à l'enregistrement ») : conservées pour l'affichage du journal.
+  | 'commande_validee'
+  | 'statut_modifie'
+  | 'recompense_utilisee';
 
 /**
  * Journal de fidélité (append-only). Le solde d'un client est toujours recalculé
  * à partir de ce journal : aucune valeur n'est stockée « en dur », donc pas de dérive possible.
- * - type 'points' : delta de pizzas payantes comptabilisées.
- * - type 'rewards_used' : +1 quand une récompense est consommée, -1 quand elle est restituée.
+ * - type 'points' : delta de pizzas payantes comptabilisées (crédit à l'encaissement).
+ * - type 'rewards_used' : +1 quand une commande enregistrée prend une récompense (réservée tant que
+ *   la commande n'est pas encaissée, consommée ensuite), -1 quand elle est restituée.
  */
 export interface LoyaltyEvent {
   id: string;
@@ -183,14 +207,11 @@ export interface LoyaltyEvent {
   label?: string;
 }
 
-/** Moment d'attribution des points. V1 : à la validation. 'terminee' est prêt pour une évolution. */
-export type AwardMoment = 'validation' | 'terminee';
-
+/** Règle fixe (validée par le gérant) : les pizzas payantes sont créditées à l'encaissement. */
 export interface LoyaltyRules {
   pizzasPerReward: number;
   eligiblePizzaIds: string[];
   eligibleDrinkIds: string[];
-  awardOn: AwardMoment;
 }
 
 /* ---------- Paramètres ---------- */

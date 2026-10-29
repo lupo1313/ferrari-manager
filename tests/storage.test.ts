@@ -103,14 +103,14 @@ describe('valeurs par défaut des champs manquants', () => {
     const old = JSON.parse(JSON.stringify(data));
     old.settings.deliveryFee = 350;
     delete old.settings.ticketWidthMm;
-    delete old.settings.loyalty.awardOn;
+    old.settings.loyalty.awardOn = 'validation'; // ancien réglage, supprimé (règle fixe : crédit à l'encaissement)
     delete old.settings.pizzeria.phone;
     const r = normalizeAppData(old, defaults);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.data.settings.deliveryFee).toBe(350);
     expect(r.data.settings.ticketWidthMm).toBe(defaultSettings.ticketWidthMm);
-    expect(r.data.settings.loyalty.awardOn).toBe('validation');
+    expect('awardOn' in r.data.settings.loyalty).toBe(false);
     expect(r.data.settings.loyalty.eligiblePizzaIds).toEqual(data.settings.loyalty.eligiblePizzaIds);
     expect(r.data.settings.pizzeria.phone).toBe(defaultSettings.pizzeria.phone);
   });

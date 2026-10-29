@@ -121,6 +121,21 @@ export function rewardLineCount(lines: OrderLine[]): number {
   return lines.filter((l) => l.reward).length;
 }
 
+/** Pizzas achetées (hors pizzas offertes) : ce sont elles qui comptent pour la fidélité. */
+export function paidPizzaCount(lines: OrderLine[]): number {
+  return lines.filter((l) => l.category === 'pizza' && !l.reward).reduce((sum, l) => sum + l.quantity, 0);
+}
+
+export const REWARD_NEEDS_PAID_PIZZA = 'Une pizza payante est nécessaire pour bénéficier de cette récompense.';
+
+/**
+ * Règle commerciale : un cadeau fidélité n'est valable qu'avec au moins une pizza payante dans la commande.
+ * Le cadeau s'ajoute à la commande, il ne remplace jamais une pizza payante.
+ */
+export function hasRewardWithoutPaidPizza(lines: OrderLine[]): boolean {
+  return rewardLineCount(lines) > 0 && paidPizzaCount(lines) === 0;
+}
+
 export function withoutRewardLines(cart: Cart): Cart {
   return { ...cart, lines: cart.lines.filter((l) => !l.reward) };
 }

@@ -28,13 +28,14 @@ describe('scénario de validation V1 (store complet)', () => {
     const order = result.value;
     // 14 + (14 + 0,50) + 4 + 0 (Fanta offert) + 2 livraison
     expect(order.totals).toEqual({ subtotal: 3250, deliveryFee: 200, total: 3450 });
-    expect(balance()).toMatchObject({ available: 0, progress: 4 });
+    // Enregistrée, non encaissée : récompense réservée, pizzas pas encore créditées.
+    expect(balance()).toMatchObject({ available: 0, progress: 2 });
 
     // Double clic : la seconde validation ne crée rien.
     const again = store.validateCart();
     expect(again.ok).toBe(false);
     expect(store.getData().orders.filter((o) => o.customerId === jean.id)).toHaveLength(1);
-    expect(balance()).toMatchObject({ available: 0, progress: 4 });
+    expect(balance()).toMatchObject({ available: 0, progress: 2 });
 
     // Ticket
     const ticket = buildTicket(order, store.getData().settings);
@@ -46,6 +47,11 @@ describe('scénario de validation V1 (store complet)', () => {
 
     // Statut
     expect(store.setOrderStatus(order.id, 'en_preparation').ok).toBe(true);
+
+    // Encaissement : les 2 pizzas payantes sont créditées.
+    const pay = store.markOrderPaid(order.id, 'carte');
+    expect(pay.ok && pay.value.pointsCredited).toBe(2);
+    expect(balance()).toMatchObject({ available: 0, progress: 4 });
 
     // Annulation : points retirés et récompense restituée.
     const cancel = store.cancelOrder(order.id);
@@ -71,7 +77,7 @@ describe('scénario de validation V1 (store complet)', () => {
     expect(store.getData().customers.find((c) => c.id === jean.id)?.address).toBe('1 place Castellane');
   });
 
-  it('modifier une commande validée ajuste les points sans doublon', () => {
+  it('modifier une commande encaissée ajuste les points sans doublon', () => {
     const { store, customer } = createTestStore();
     const marie = customer('Lambert');
     const points = () => computeBalance(store.getData().loyaltyEvents, marie.id, store.getData().settings.loyalty).totalPoints;
@@ -81,6 +87,8 @@ describe('scénario de validation V1 (store complet)', () => {
     store.addProduct('reine');
     const r = store.validateCart();
     if (!r.ok) throw new Error(r.error);
+    expect(points()).toBe(before);
+    expect(store.markOrderPaid(r.value.id).ok).toBe(true);
     expect(points()).toBe(before + 2);
 
     expect(store.startEditOrder(r.value.id).ok).toBe(true);
@@ -119,19 +127,21 @@ describe('scénario de validation V1 (store complet)', () => {
   it('changer de client retire les récompenses du panier', () => {
     const { store, customer } = createTestStore();
     store.selectCustomer(customer('Dupont').id);
-    store.addReward('pizza', 'margarita');
+    store.addProduct('reine');
+    expect(store.addReward('pizza', 'margarita').ok).toBe(true);
     const r = store.selectCustomer(customer('Martin').id);
     expect(r.ok && r.value.removedRewards).toBe(1);
-    expect(store.getData().cart.lines).toHaveLength(0);
+    expect(store.getData().cart.lines.map((l) => l.productId)).toEqual(['reine']);
   });
 
-  it('fin de service : archive terminées/annulées, garde les actives et le journal de fidélité', () => {
+  it('fin de service : archive terminées encaissées et annulées, garde les actives et le journal de fidélité', () => {
     const { store } = createTestStore();
     const [first, second] = store.getData().orders;
     store.setOrderStatus(first.id, 'terminee');
+    store.markOrderPaid(first.id, 'especes');
     const eventsBefore = store.getData().loyaltyEvents.length;
     const r = store.endService();
-    expect(r.ok && r.value).toEqual({ archived: 1, stillActive: 1 });
+    expect(r.ok && r.value).toEqual({ archived: 1, stillActive: 1, waitingPayment: 0 });
     expect(store.getData().orders.find((o) => o.id === second.id)?.archivedAt).toBeNull();
     expect(store.getData().loyaltyEvents.length).toBe(eventsBefore);
   });

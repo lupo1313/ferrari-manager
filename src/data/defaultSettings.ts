@@ -15,6 +15,5 @@ export const defaultSettings: Settings = {
     // Liste volontairement restreinte : toutes les pizzas ne sont pas éligibles.
     eligiblePizzaIds: ['margarita', 'reine', 'fromage', 'napolitaine', 'anchois'],
     eligibleDrinkIds: ['coca-150', 'fanta-150', 'sprite-150'],
-    awardOn: 'validation',
   },
 };
