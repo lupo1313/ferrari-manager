@@ -1,0 +1,65 @@
+/* Police auto-hébergée (aucun appel externe) : fichier variable couvrant les graisses 400 à 700. */
+@font-face {
+  font-family: 'Inter';
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../assets/fonts/inter-variable.woff2') format('woff2');
+}
+
+:root {
+  /* Palette validée */
+  --bg: #f5f6f7;
+  --surface: #ffffff;
+  --nav: #202327;
+  --nav-2: #2a2e33;
+  --text: #24272b;
+  --red: #c71920;
+  --green: #16804a;
+  --gold: #c39a3f;
+
+  /* Dérivés (contrastes accessibles sur fond blanc) */
+  --text-2: #565c63;
+  --text-3: #80868d;
+  --line: #e4e7ea;
+  --line-strong: #cfd4d9;
+  --surface-2: #f8f9fa;
+  --red-ink: #a8141a;
+  --red-soft: #fdeced;
+  --green-ink: #10653a;
+  --green-soft: #e8f4ed;
+  --gold-ink: #7a5b18;
+  --gold-soft: #faf4e6;
+  --gold-line: #ead9b0;
+  --amber-soft: #fff7e1;
+  --amber-ink: #7a5300;
+  --blue-soft: #eaf1fb;
+  --blue-ink: #1f4f8f;
+
+  --radius-s: 8px;
+  --radius: 12px;
+  --radius-l: 16px;
+  --shadow-1: 0 1px 2px rgba(24, 27, 31, 0.05);
+  --shadow-2: 0 10px 30px rgba(24, 27, 31, 0.14);
+  --focus: 0 0 0 3px rgba(199, 25, 32, 0.25);
+
+  /* Zones tactiles */
+  --tap: 48px;
+  --tap-l: 60px;
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --sidebar-w: 176px;
+  --topbar-h: 72px;
+}
+
+@media (max-width: 1399px) {
+  :root {
+    --sidebar-w: 88px;
+    --topbar-h: 64px;
+  }
+}
+
+@media (max-width: 899px) {
+  :root {
+    --sidebar-w: 68px;
+  }
+}
