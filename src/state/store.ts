@@ -13,7 +13,8 @@ import type { IdFactory } from '../domain/ids';
 import { createId } from '../domain/ids';
 import type { AppRepository } from '../storage/repository';
 import type { AppData } from '../storage/schema';
-import { isAppData } from '../storage/schema';
+import { normalizeAppData } from '../storage/schema';
+import { defaultSettings } from '../data/defaultSettings';
 import {
   addLine,
   addProduct,
@@ -81,11 +82,28 @@ export function createAppStore(deps: StoreDeps) {
   const listeners = new Set<() => void>();
 
   let persistError: string | null = null;
+  /**
+   * Renseigné quand des données existent mais ne peuvent pas être relues (version inconnue, JSON corrompu,
+   * stockage inaccessible). Aucune écriture n'est alors faite : les données d'origine restent intactes
+   * tant que l'utilisateur ne choisit pas explicitement « Réinitialiser les données de démonstration ».
+   */
+  let storageLocked: string | null = null;
   let data: AppData = loadOrSeed();
 
   function loadOrSeed(): AppData {
-    const raw = repo.load();
-    if (isAppData(raw)) return raw;
+    const loaded = repo.load();
+    if (loaded.kind === 'data') {
+      const normalized = normalizeAppData(loaded.value, {
+        settings: defaultSettings,
+        newCartId: () => newId('ord'),
+        nowIso: now().toISOString(),
+      });
+      if (normalized.ok) return normalized.data;
+      return lockStorage(normalized.reason);
+    }
+    if (loaded.kind === 'error') return lockStorage(loaded.error);
+
+    // Premier lancement : rien d'enregistré, on installe le jeu de démonstration.
     const seeded = deps.seed(catalog, now(), newId);
     try {
       repo.save(seeded);
@@ -95,8 +113,21 @@ export function createAppStore(deps: StoreDeps) {
     return seeded;
   }
 
+  function lockStorage(reason: string): AppData {
+    storageLocked =
+      `Données locales non chargées (${reason}). Elles sont conservées intactes et rien ne sera enregistré : ` +
+      'les données affichées sont celles de démonstration. Pour repartir de zéro, utilisez Paramètres → Réinitialiser les données de démonstration.';
+    persistError = storageLocked;
+    return deps.seed(catalog, now(), newId);
+  }
+
   function commit(next: AppData) {
     data = next;
+    if (storageLocked) {
+      persistError = storageLocked;
+      listeners.forEach((l) => l());
+      return;
+    }
     try {
       repo.save(next);
       persistError = null;
@@ -390,6 +421,8 @@ export function createAppStore(deps: StoreDeps) {
 
     /** Efface toutes les données locales et recharge le jeu de démonstration. */
     resetDemoData() {
+      // Choix explicite de l'utilisateur : seule action autorisée à remplacer des données illisibles.
+      storageLocked = null;
       repo.clear();
       commit(deps.seed(catalog, now(), newId));
     },
