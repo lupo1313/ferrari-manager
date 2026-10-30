@@ -166,7 +166,7 @@ Ces commandes n'ont pas de statut de paiement. Elles ne sont **ni supposées enc
 4. Vérifier le total : 14,00 + 14,50 + 4,00 = **32,50 €** (livraison toujours offerte).
 5. **Utiliser une récompense** → Grande bouteille → Fanta 1,5L (offert, le total ne change pas).
 6. **Valider et imprimer** → aperçu du ticket → *Imprimer* ouvre la boîte de dialogue du navigateur.
-7. **Commandes** : retrouver la commande, changer son statut (boutons de statut ou « Lancer la préparation »).
+7. **Commandes** : retrouver la commande, la faire avancer avec le bouton principal (« Lancer la préparation », « Marquer prête », « Terminer la commande ») ; corriger un statut via le menu « ••• ».
 8. Page **Fidélité** : Jean a toujours 2/10 (pizzas en attente d'encaissement) et 1 récompense réservée.
 9. Sur la commande : **Marquer encaissée** → *Carte bancaire*. Jean passe à 4/10, la récompense est consommée.
 10. **Annuler** la commande (confirmation « remboursement traité ») : Jean revient à 2/10 avec 1 récompense disponible.

@@ -1,6 +1,6 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, intervention 4 (statistiques) sur la branche `feat/statistiques`, **en prévisualisation, non fusionnée**.
+Dernière mise à jour : 30/10/2026, intervention 4A (refonte de l'écran Commandes) sur la branche `feat/commandes-cartes`, partie de `feat/statistiques` (intervention 4) ; **les deux en prévisualisation, non fusionnées**.
 Ce document décrit ce qui existe **réellement** dans le code de cette branche. La production (`main`) reste à l'état des interventions 3 et 3.1 tant que la fusion n'est pas validée. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
 
 ## 1. En production
@@ -35,6 +35,10 @@ Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `mai
 | B3 | Reprendre un service fermé par erreur | **Non développé** (principe retenu, à faire après validation) |
 | B4 | Fermeture avec commandes restantes (« Examiner les commandes ») | **Non développé** (intervention séparée) |
 
+### Intervention 4A en cours de validation (branche `feat/commandes-cartes`)
+
+Refonte de l'écran Commandes pour la tablette en paysage (cartes compactes), **sans changement de règle métier**. Branche créée à partir de `feat/statistiques` (dernière version en prévisualisation) : la fusionner suppose d'avoir validé l'intervention 4, ou de la rebaser sur `main` si l'intervention 4 était refusée.
+
 Prévisualisation : build de la branche, libellé « Prévisualisation · statistiques », mêmes clés isolées `ferrari-manager-apercu-i3:*` (les données de test de l'intervention 3 y sont reprises, ce qui sert aussi de test de compatibilité).
 
 ## 2. Fonctionnalités opérationnelles
@@ -50,6 +54,11 @@ Prévisualisation : build de la branche, libellé « Prévisualisation · statis
 
 ### Suivi des commandes (page Commandes)
 - Statuts : À préparer → En préparation → Prête → Terminée, ou Annulée (définitif, avec confirmation).
+- Cartes compactes (intervention 4A) : deux colonnes sur la tablette en paysage, trois seulement si chaque carte garde 380 px (`components/orders/columns.ts`), une sur écran étroit ; hauteur libre, ordre de traitement lu de gauche à droite (plus anciennes en premier).
+- Carte : numéro, heure, statut, ancienneté (commandes en cours, rafraîchie toutes les 30 s) ; client, téléphone, mode, heure souhaitée, adresse complète avec complément et consignes de livraison ; produits avec quantité, personnalisations, suppléments, cadeau « Offert fidélité » et montant de ligne ; note ; total ; paiement.
+- Une seule action principale par statut (`primaryAction`) : « Lancer la préparation », « Marquer prête », « Terminer la commande », aucune une fois terminée. « Marquer encaissée » directement sur la carte si non encaissée. « Modifier » (ou « Ticket » quand la commande ne se modifie plus).
+- Menu « ••• » (`components/ui/ActionMenu.tsx`, tactile et clavier, sans survol) : Ticket, Corriger le statut (tous les autres statuts du flux, comme l'ancien sélecteur), Annuler l'encaissement, Annuler la commande. Confirmations et avertissements inchangés.
+- « En préparation » passe en bleu (au lieu d'orange) pour ne plus se confondre avec « À encaisser ».
 - Filtres : En cours / Terminées et annulées / Archives ; recherche par numéro, nom ou téléphone.
 - Ticket : aperçu et impression via la boîte de dialogue du navigateur (58 ou 80 mm). La demande d'impression est tracée, jamais présentée comme une impression réussie.
 
@@ -115,7 +124,7 @@ Prévisualisation : build de la branche, libellé « Prévisualisation · statis
 
 ## 4. Tests
 
-151 tests Vitest, tous réussis au 30/10 (branche `feat/statistiques`) :
+165 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -129,13 +138,15 @@ Prévisualisation : build de la branche, libellé « Prévisualisation · statis
 | `apercu-isolation.test.ts` (4) | Isolation des clés de la prévisualisation |
 | `services.test.ts` (17) | Historique des services, rattachement, anciennes données sans réécriture, livraison offerte, module masquable |
 | `statistiques.test.ts` (22) | Indicateurs, quantités, cadeaux, annulations (dont après encaissement), modifications, encaissements tardifs, minuit, changement d'heure, anciennes données, jour/semaine/mois, lecture seule |
+| `commandes-cartes.test.ts` (14) | Action principale par statut, correction de statut, actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.
 
 ## 5. Bugs connus, limites et éléments absents
 
 - **Non vérifié par Claude** : utilisation réelle sur la tablette Samsung (seulement en émulation 1280×800, 1024×700 et 800×1100) et parcours complet en production après la mise en ligne du 30/10.
-- Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne.
+- Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne (intervention 4B).
+- Écran Commandes : vérifié à l'écran (Chromium, 1280×800, 1024×700, 800×1100, 375×812, 1440×900) avec un service fictif ; **pas encore sur la tablette Samsung**. Les consignes permanentes du client (ex. allergie) ne s'affichent que pour les livraisons, comme sur le ticket.
 - Pas d'alerte sur les heures de retrait dépassées, pas de statuts propres à la livraison, pas de gestion des livreurs.
 - Le ticket n'affiche pas le statut de paiement ; aucune imprimante thermique n'est pilotée.
 - Une commande encaissée puis modifiée reste « Encaissée » : un écart de montant se règle hors de l'appli.

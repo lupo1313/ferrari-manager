@@ -14,6 +14,14 @@ export function formatDateTime(iso: string): string {
   return `${formatDate(iso)} ${formatTime(iso)}`;
 }
 
+/** Ancienneté d'une commande : « < 1 min », « 18 min », « 1 h 05 ». */
+export function elapsedLabel(fromIso: string, nowIso: string): string {
+  const minutes = Math.max(0, Math.floor((new Date(nowIso).getTime() - new Date(fromIso).getTime()) / 60_000));
+  if (minutes < 1) return '< 1 min';
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${pad(minutes % 60)}`;
+}
+
 /** "19:45" → affichage "19h45" */
 export function formatTimeOfDay(value: string): string {
   return value.replace(':', 'h');

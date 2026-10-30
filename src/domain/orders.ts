@@ -45,6 +45,48 @@ export function nextStatus(status: OrderStatus): OrderStatus | null {
   return i >= 0 && i < STATUS_FLOW.length - 1 ? STATUS_FLOW[i + 1] : null;
 }
 
+/* ---------- Actions proposées sur une carte de commande ---------- */
+
+const PRIMARY_LABELS: Partial<Record<OrderStatus, string>> = {
+  a_preparer: 'Lancer la préparation',
+  en_preparation: 'Marquer prête',
+  prete: 'Terminer la commande',
+};
+
+/**
+ * Action principale de préparation : une seule, l'étape suivante du flux.
+ * Aucune pour une commande terminée, annulée ou archivée.
+ */
+export function primaryAction(order: Order): { to: OrderStatus; label: string } | null {
+  if (order.archivedAt || order.status === 'annulee') return null;
+  const to = nextStatus(order.status);
+  return to ? { to, label: PRIMARY_LABELS[order.status] ?? STATUS_LABELS[to] } : null;
+}
+
+/** Statuts proposés pour corriger une erreur de saisie : tous ceux du flux sauf l'actuel (mêmes transitions qu'avant). */
+export function statusCorrections(order: Order): OrderStatus[] {
+  return STATUS_FLOW.filter((s) => canChangeStatus(order, s));
+}
+
+/** « Marquer encaissée » visible directement sur la carte. */
+export function canMarkPaidFromCard(order: Order): boolean {
+  return !order.archivedAt && order.status !== 'annulee' && !isPaid(order);
+}
+
+export type OrderMenuAction = 'ticket' | 'corriger_statut' | 'annuler_encaissement' | 'annuler';
+
+/**
+ * Actions secondaires d'une carte (menu « ••• »), dans l'ordre d'affichage. Aucune n'est automatique :
+ * l'annulation et l'annulation d'encaissement gardent leurs confirmations.
+ */
+export function secondaryActions(order: Order): OrderMenuAction[] {
+  const actions: OrderMenuAction[] = ['ticket'];
+  if (statusCorrections(order).length > 0) actions.push('corriger_statut');
+  if (isPaid(order) && !order.archivedAt && order.status !== 'annulee') actions.push('annuler_encaissement');
+  if (canCancelOrder(order)) actions.push('annuler');
+  return actions;
+}
+
 export interface CartValidationContext {
   customer: Customer | null;
   /** Récompenses restantes une fois celles du panier déduites (voir rewardsRemainingForCart). */
