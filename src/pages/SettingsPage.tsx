@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '../components/ui/Icon';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useToast } from '../components/ui/Toast';
@@ -6,6 +6,119 @@ import { useAppData, useStore } from '../state/StoreContext';
 import { formatPrice, parseEuros } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
 import { PAYMENT_SOUND_KINDS, PAYMENT_SOUND_LABELS, paymentSound, type PaymentSoundKind } from '../audio/paymentSound';
+import {
+  backupFileName,
+  backupToText,
+  browserStorage,
+  createBackup,
+  matchesStorage,
+  verifyBackupText,
+  type BackupSummary,
+} from '../storage/export';
+
+interface PreparedBackup {
+  name: string;
+  url: string;
+  file: File;
+  summary: BackupSummary;
+  sizeKb: number;
+}
+
+/**
+ * Sauvegarde des données locales : le fichier est préparé et vérifié, puis téléchargé par un vrai appui
+ * sur un lien (Safari iPhone n'autorise pas toujours un téléchargement déclenché après un calcul).
+ * Lecture seule : aucune donnée n'est modifiée ni supprimée.
+ */
+function BackupCard() {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [prepared, setPrepared] = useState<PreparedBackup | null>(null);
+  useEffect(() => () => {
+    if (prepared) URL.revokeObjectURL(prepared.url);
+  }, [prepared]);
+
+  const prepare = async () => {
+    const storage = browserStorage();
+    if (!storage) {
+      toast('Stockage du navigateur inaccessible : sauvegarde impossible.', 'error');
+      return;
+    }
+    setBusy(true);
+    try {
+      const now = new Date();
+      const backup = await createBackup(storage, { now, origin: window.location.origin + window.location.pathname });
+      if (Object.keys(backup.stockage).length === 0) {
+        toast('Aucune donnée Ferrari Manager enregistrée dans ce navigateur.', 'error');
+        return;
+      }
+      const text = backupToText(backup);
+      // Vérification du texte exact qui sera téléchargé, et comparaison avec le stockage à cet instant.
+      const check = await verifyBackupText(text);
+      if (!check.ok || !matchesStorage(check.backup, storage)) {
+        toast(check.ok ? 'Les données ont changé pendant la sauvegarde : recommencez.' : check.error, 'error');
+        return;
+      }
+      const name = backupFileName(now);
+      const file = new File([text], name, { type: 'application/json' });
+      setPrepared({ name, url: URL.createObjectURL(file), file, summary: backup.resume, sizeKb: Math.max(1, Math.round(file.size / 1024)) });
+    } catch {
+      toast('Sauvegarde impossible sur ce navigateur.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canShare = Boolean(prepared && typeof navigator.canShare === 'function' && navigator.canShare({ files: [prepared.file] }));
+  const share = async () => {
+    if (!prepared) return;
+    try {
+      await navigator.share({ files: [prepared.file], title: prepared.name });
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') toast('Partage impossible : utilisez « Télécharger le fichier ».', 'error');
+    }
+  };
+  const s = prepared?.summary;
+
+  return (
+    <section className="card settings-grid__wide">
+      <h2 className="card__title">
+        <Icon name="database" /> Sauvegarde des données
+      </h2>
+      <p>
+        Crée un fichier contenant toutes les données Ferrari Manager de ce navigateur (commandes, clients, paiements, fidélité, état du
+        service, paramètres et commande en cours). Rien n’est modifié ni supprimé.
+      </p>
+      <button type="button" className="btn btn--dark" onClick={prepare} disabled={busy}>
+        <Icon name="file" /> {busy ? 'Préparation…' : 'Sauvegarder mes données'}
+      </button>
+      {prepared && s && (
+        <div className="backup-result" role="status">
+          <p className="backup-result__ok">
+            <Icon name="check" size={18} /> Fichier prêt et vérifié : <strong>{prepared.name}</strong> ({prepared.sizeKb} Ko)
+          </p>
+          <ul className="backup-result__summary">
+            <li>{s.commandes} commandes ({s.commandesEnCours} en cours, {s.commandesArchivees} archivées, {s.commandesEncaissees} encaissées)</li>
+            <li>{s.clients} clients · {s.evenementsFidelite} opérations de fidélité</li>
+            <li>
+              Prochain numéro : {s.prochainNumero ?? 'non enregistré'} · Service {s.serviceOuvert === null ? 'non renseigné' : s.serviceOuvert ? 'ouvert' : 'fermé'}
+            </li>
+            {!s.lisible && <li className="backup-result__warn">Données principales illisibles ou absentes : copiées telles quelles.</li>}
+          </ul>
+          <div className="backup-result__actions">
+            <a className="btn btn--success" href={prepared.url} download={prepared.name}>
+              <Icon name="check" /> Télécharger le fichier
+            </a>
+            {canShare && (
+              <button type="button" className="btn" onClick={share}>
+                <Icon name="file" /> Partager ou enregistrer dans Fichiers
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function SettingsPage() {
   const store = useStore();
@@ -185,6 +298,8 @@ export function SettingsPage() {
             ))}
           </div>
         </section>
+
+        <BackupCard />
 
         <section className="card settings-grid__wide card--danger">
           <h2 className="card__title">
