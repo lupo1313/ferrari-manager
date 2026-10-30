@@ -65,7 +65,7 @@ export function createPaymentSound(
 
   function play(kind: PaymentSoundKind): boolean {
     try {
-      const p = player(isPaymentSoundKind(kind) ? kind : 'vente');
+      const p = player(isPaymentSoundKind(kind) ? kind : 'caisse');
       if (!p) return false;
       p.currentTime = 0; // un nouvel encaissement relance le son depuis le début
       const result = p.play();

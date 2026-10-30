@@ -11,7 +11,7 @@ export const defaultSettings: Settings = {
   deliveryFee: euros(2),
   ticketWidthMm: 80,
   paymentSound: true,
-  paymentSoundKind: 'vente',
+  paymentSoundKind: 'caisse',
   loyalty: {
     pizzasPerReward: 10,
     // Liste volontairement restreinte : toutes les pizzas ne sont pas éligibles.

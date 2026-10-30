@@ -247,7 +247,7 @@ describe('Son de confirmation d’encaissement', () => {
     expect(createPaymentSound(() => throwing).play('vente')).toBe(false);
   });
 
-  it('le son choisi dans les paramètres est celui joué (par défaut : notification de vente)', () => {
+  it('le son choisi dans les paramètres est celui joué (par défaut : caisse enregistreuse)', () => {
     const played: string[] = [];
     let n = 0;
     const store = createAppStore({
@@ -258,7 +258,7 @@ describe('Son de confirmation d’encaissement', () => {
       newId: (p) => `${p}_k${++n}`,
       effects: { playPaymentSound: (kind) => void played.push(kind) },
     });
-    expect(store.getData().settings.paymentSoundKind).toBe('vente');
+    expect(store.getData().settings.paymentSoundKind).toBe('caisse');
     const jean = store.getData().customers.find((c) => c.lastName === 'Dupont')!;
     const pay = () => {
       store.selectCustomer(jean.id);
@@ -268,18 +268,27 @@ describe('Son de confirmation d’encaissement', () => {
       store.markOrderPaid(r.value.id);
     };
     pay();
-    store.updateSettings({ paymentSoundKind: 'caisse' });
+    store.updateSettings({ paymentSoundKind: 'vente' });
     pay();
-    expect(played).toEqual(['vente', 'caisse']);
+    expect(played).toEqual(['caisse', 'vente']);
     // Valeur invalide : retour au son par défaut, jamais d'erreur.
     store.updateSettings({ paymentSoundKind: 'klaxon' as never });
-    expect(store.getData().settings.paymentSoundKind).toBe('vente');
+    expect(store.getData().settings.paymentSoundKind).toBe('caisse');
   });
 
-  it('le choix du son est conservé après rechargement', () => {
+  it('le choix du son est conservé après rechargement, même s’il diffère du nouveau défaut', () => {
     const t = setup();
-    t.store.updateSettings({ paymentSoundKind: 'caisse' });
-    expect(setup(t.repo, 'r').store.getData().settings.paymentSoundKind).toBe('caisse');
+    t.store.updateSettings({ paymentSoundKind: 'vente' });
+    expect(setup(t.repo, 'r').store.getData().settings.paymentSoundKind).toBe('vente');
+  });
+
+  it('préférences enregistrées avant ce réglage : son activé, Caisse enregistreuse ; préférence « désactivé » respectée', () => {
+    const t = setup();
+    const doc = JSON.parse(t.repo.raw()!);
+    delete doc.settings.paymentSoundKind;
+    doc.settings.paymentSound = false;
+    const s = setup(createMemoryRepository(null, JSON.stringify(doc)), 'p').store;
+    expect(s.getData().settings).toMatchObject({ paymentSound: false, paymentSoundKind: 'caisse' });
   });
 
   it('lecteur : bon fichier, volume discret, relance depuis le début à chaque encaissement', () => {
