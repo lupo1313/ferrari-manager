@@ -1,6 +1,6 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, mise en production de l'intervention 6 (trajets en scooter, adresse de livraison de la commande ; fusion `c8cf885`).
+Dernière mise à jour : 30/10/2026, après la mise en production de l'intervention 6 (trajets en scooter, adresse de livraison de la commande ; fusion `c8cf885`). **Aucune intervention en cours** ; la suite est dans `docs/ROADMAP.md`.
 Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 
 ## 1. En production
@@ -8,10 +8,10 @@ Ce document décrit ce qui existe **réellement** dans le code de `main`. Les r�
 | Élément | Valeur |
 | --- | --- |
 | URL | https://lupo1313.github.io/ferrari-manager/ |
-| Commit sur `main` | `c8cf885` (fusion `--no-ff` de `feat/intervention-6-trajets-scooter`) |
-| Build servi (vérifié le 30/10) | `assets/index-CvFZA6CO.js` |
+| Commit sur `main` | Code : `c8cf885` (fusion `--no-ff` de `feat/intervention-6-trajets-scooter`), suivi uniquement de commits de documentation |
+| Build servi (vérifié le 30/10) | `assets/index-CvFZA6CO.js` (déploiement `github-pages` en succès, 6 modules contrôlés sans erreur JavaScript) |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
-| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; sert l'intervention 6 (`a913a77`, avant l'ajout du contact de l'exploitant). |
+| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; sert l'intervention 6 au commit `a913a77` (`index-CE0PYSFL.js`), c'est-à-dire **sans** le contact de l'exploitant ajouté ensuite : légèrement en retard sur la production. |
 
 Historique des interventions sur `main` :
 
@@ -83,24 +83,27 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ### Prise de commande (écran principal, 3 colonnes ; onglets sur écran étroit)
 - Recherche client par téléphone (partiel) ou par nom (sans accents), recherche globale clients + produits.
-- Fiche client : création, modification, doublon de téléphone refusé, notes permanentes, historique des commandes.
+- Fiche client : création, modification, doublon de téléphone refusé, repères de livraison facultatifs (bâtiment, étage, interphone, digicode, complément), notes permanentes, historique des commandes.
 - Commande comptoir sans fiche (nom facultatif, à emporter uniquement).
 - Catalogue de démonstration (15 pizzas, 11 boissons dont 3 alcoolisées, 4 desserts, 12 suppléments), filtres par famille.
 - Personnalisation : ingrédients retirés (sans effet sur le prix), suppléments payants, note de préparation, quantité. Les lignes identiques non personnalisées sont fusionnées.
 - Livraison (**toujours offerte, 0 €**, adresse obligatoire) ou à emporter ; heure souhaitée ou « dès que possible ». Aucun réglage de frais ; les anciennes commandes gardent leurs frais figés (ticket compris), une commande modifiée est recalculée à 0 €.
-- Validation idempotente (double clic sans doublon) ; modification d'une commande enregistrée (même numéro, révision +1).
+- Livraison : adresse habituelle du client par défaut, ou **adresse ponctuelle** pour cette seule commande (« Modifier l'adresse », fiche client jamais modifiée, voir intervention 6) ; **trajet en scooter** facultatif (« Calculer le trajet ») imprimé sur le ticket livreur.
+- **Paiement prévu** facultatif (à côté de l'heure souhaitée) : moyen unique ou mixte, simple information pour la cuisine et le livreur (voir intervention 5).
+- Validation idempotente (double clic sans doublon) ; modification d'une commande enregistrée (même numéro, révision +1) ; pendant une modification, le client reste celui de la commande (intervention 4B).
+- « Valider et imprimer » enregistre d'abord la commande, puis propose les tickets ; « Enregistrer sans imprimer » ne propose rien.
 
 ### Suivi des commandes (page Commandes)
 - Statuts : À préparer → En préparation → Prête → Terminée, ou Annulée (définitif, avec confirmation).
 - Cartes compactes (intervention 4A) : deux colonnes sur la tablette en paysage, trois seulement si chaque carte garde 380 px (`components/orders/columns.ts`), une sur écran étroit ; hauteur libre, ordre de traitement lu de gauche à droite (plus anciennes en premier).
 - Carte : numéro, heure, statut, ancienneté (commandes en cours, rafraîchie toutes les 30 s) ; client, téléphone, mode, heure souhaitée, adresse complète avec complément et consignes de livraison ; produits avec quantité, personnalisations, suppléments, cadeau « Offert fidélité » et montant de ligne ; note ; total ; paiement.
-- Une seule action principale par statut (`primaryAction`) : « Lancer la préparation », « Marquer prête », « Terminer la commande », aucune une fois terminée. « Marquer encaissée » directement sur la carte si non encaissée. « Modifier » (ou « Ticket » quand la commande ne se modifie plus).
-- Menu « ••• » (`components/ui/ActionMenu.tsx`, tactile et clavier, sans survol, liste simple sans sous-menu) : Ticket, Corriger le statut…, Annuler l'encaissement, Annuler la commande. Confirmations et avertissements inchangés. Le menu ne se ferme jamais sur une simple perte de focus (correctif Safari, voir ci-dessous).
+- Une seule action principale par statut (`primaryAction`) : « Lancer la préparation », « Marquer prête », « Terminer la commande », aucune une fois terminée. « Marquer encaissée » directement sur la carte si non encaissée. « Modifier » (ou « Ticket » quand la commande ne se modifie plus). Paiement prévu (« Prévu : … ») et détail de l'encaissement (« Encaissée · Espèces 10,00 € + Carte bancaire 14,00 € ») affichés sur la carte ; écart signalé si une commande encaissée a été modifiée.
+- Menu « ••• » (`components/ui/ActionMenu.tsx`, tactile et clavier, sans survol, liste simple sans sous-menu) : « Tickets cuisine et livreur » (ou « Ticket cuisine » à emporter), « Paiement prévu… », « Corriger le statut… », « Annuler l'encaissement », « Annuler la commande » (selon l'état de la commande). Confirmations et avertissements inchangés. Le menu ne se ferme jamais sur une simple perte de focus (correctif Safari, voir ci-dessous).
 - **Corriger le statut** ouvre une petite fenêtre (`StatusDialog`) qui affiche les quatre statuts, le statut actuel signalé ; un appui applique le statut choisi (mêmes transitions qu'avant, ex. Terminée → En préparation). Seuls le statut et son historique changent ; un message indique l'onglet où retrouver la commande.
-- Correctif Safari (30/10/2026) : sur Safari (macOS, iPad), « Corriger le statut » d'une commande terminée ne faisait rien. Cause : le menu se fermait sur toute perte de focus sans cible ; Safari en produit une quand on touche un bouton (il ne lui donne pas le focus) et quand l'élément qui a le focus disparaît (ici le premier élément du menu, remplacé par le sous-menu). Le sous-menu a été remplacé par la fenêtre ci-dessus et la fermeture sur perte de focus supprimée. Vérifié dans Chromium en rejouant la séquence d'événements de Safari ; **pas encore vérifié sur un vrai Safari ou iPad**.
+- Correctif Safari (30/10/2026) : sur Safari (macOS, iPad), « Corriger le statut » d'une commande terminée ne faisait rien. Cause : le menu se fermait sur toute perte de focus sans cible ; Safari en produit une quand on touche un bouton (il ne lui donne pas le focus) et quand l'élément qui a le focus disparaît (ici le premier élément du menu, remplacé par le sous-menu). Le sous-menu a été remplacé par la fenêtre ci-dessus et la fermeture sur perte de focus supprimée. Vérifié dans Chromium en rejouant la séquence d'événements de Safari ; le menu a ensuite été utilisé par le gérant sur Safari iPhone (réimpression des tickets, intervention 5), la correction de statut elle-même n'a pas été revérifiée explicitement sur Safari.
 - « En préparation » passe en bleu (au lieu d'orange) pour ne plus se confondre avec « À encaisser ».
 - Filtres : En cours / Terminées et annulées / Archives ; recherche par numéro, nom ou téléphone.
-- Ticket : aperçu et impression via la boîte de dialogue du navigateur (58 ou 80 mm). La demande d'impression est tracée, jamais présentée comme une impression réussie.
+- Tickets cuisine et livreur : aperçu et impression via la boîte de dialogue du navigateur (largeur 58 ou 80 mm, réglage Paramètres). La demande d'impression est tracée (`printRequests`), jamais présentée comme une impression réussie ; réimprimer ne modifie rien d'autre.
 
 ### Encaissement (suivi uniquement, pas une caisse)
 - Statut de paiement **À encaisser / Encaissée**, indépendant de la préparation.
@@ -155,8 +158,10 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
   - service sans état : considéré ouvert ;
   - réglages absents : valeurs par défaut (son activé, « caisse », module Statistiques affiché) ; les anciens réglages `awardOn` et `deliveryFee` sont ignorés ;
   - historique des services absent : un service est reconstitué en mémoire à partir de `serviceStartedAt`, avec un identifiant déterministe (`svc-<date d'ouverture>`), sans réécriture ; enregistré à la prochaine ouverture ou fermeture ;
-  - historique en retard sur l'état du service (ancienne version utilisée entre-temps) : rattrapé en mémoire.
-- Compatibilité vérifiée le 30/10 sur un instantané réel de l'ancienne production : aucune alerte, aucune réécriture au chargement, commandes et points intacts.
+  - historique en retard sur l'état du service (ancienne version utilisée entre-temps) : rattrapé en mémoire ;
+  - fiches sans repères de livraison (intervention 5) : bâtiment, étage, interphone, digicode vides, en mémoire seulement ;
+  - panier sans paiement prévu, trajet ni adresse ponctuelle : `null` ; commandes sans `paymentPlan`, `deliveryTrip`, `payment.tenders` ni `customer.addressOverridden` : lues comme avant (champs facultatifs, jamais ajoutés au chargement).
+- Compatibilité vérifiée le 30/10 avant chaque fusion (interventions 4, 5 et 6) par des tests temporaires non commités : sauvegarde réelle de l'iPhone (format d'avant l'intervention 3) et données générées avec le code de la production précédente (`752d3f3`, puis `de88a7c`) ; aucune alerte, aucune réécriture au chargement, commandes, fidélité, statistiques et tickets identiques à l'ancienne version. La sauvegarde réelle est conservée **hors du dépôt** (dossier temporaire de la session) : à redemander au gérant si nécessaire.
 - Prévisualisation : clés `ferrari-manager-apercu-i3:*` (variable `VITE_STORAGE_NAMESPACE`), totalement séparées de la production, même origine.
 - **Retour à l'ancienne version** possible : elle conserve les champs ajoutés (`services`, `serviceId`) car le dépôt réécrit le document en gardant les champs inconnus. Elle réafficherait toutefois 2 € de frais par défaut (son propre réglage).
 - **Sauvegarde** (Paramètres → « Sauvegarder mes données », `src/storage/export.ts`) : fichier JSON nommé avec la date et l'heure, contenant le texte exact de chaque clé `ferrari-manager:*` (historique et panier), la longueur et l'empreinte SHA-256 de chacune, et un résumé (commandes, encaissées, clients, fidélité, prochain numéro, état du service). Lecture seule : aucune écriture ni suppression. Le fichier est vérifié avant d'être proposé (empreintes, résumé, identité avec le stockage), puis téléchargé par un appui sur « Télécharger le fichier » (ou « Partager » si le navigateur le permet). Pas de fonction d'import à ce stade : une restauration consisterait à remettre ces textes dans les deux clés.
@@ -190,16 +195,19 @@ Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à 
 
 ## 5. Bugs connus, limites et éléments absents
 
-- **Non vérifié par Claude** : utilisation réelle sur la tablette Samsung (seulement en émulation 1280×800, 1024×700 et 800×1100) et parcours complet en production après la mise en ligne du 30/10.
+- **Non vérifié** : utilisation réelle sur la tablette Samsung (seulement en émulation 1280×800, 1024×700 et 800×1100) ; **impression physique** des tickets (aucune impression papier testée) ; parcours complet en conditions de service. Les interventions 4B, 5 et 6 ont été validées par le gérant sur Safari iPhone (prévisualisation).
 - Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne (prévue initialement comme « 4B », numéro repris par le correctif de navigation du 30/10).
 - Écran Commandes : vérifié à l'écran (Chromium, 1280×800, 1024×700, 800×1100, 375×812, 1440×900) avec un service fictif ; **pas encore sur la tablette Samsung**. Les consignes permanentes du client (ex. allergie) ne s'affichent que pour les livraisons, comme sur le ticket.
 - Pas d'alerte sur les heures de retrait dépassées, pas de statuts propres à la livraison, pas de gestion des livreurs.
 - Aucune imprimante thermique n'est pilotée : impression par la boîte de dialogue du navigateur ; la découpe entre les deux tickets dépend de l'imprimante et de son pilote.
+- Trajet en scooter : estimation sans trafic, vitesses urbaines du modèle prudentes (proche de la voiture en centre-ville), profil cyclomoteur 45 km/h sans distinction 50/125 cm³ (décision du gérant) ; serveur public FOSSGIS sans garantie de disponibilité (en cas de panne, ticket sans trajet) et réservé à un usage non essentiel / non commercial : à réexaminer avant une exploitation commerciale (fournisseur payant possible, par exemple Valhalla hébergé chez Stadia Maps avec authentification par domaine). Changer seulement le digicode, l'étage ou les consignes ne recalcule pas le trajet (même itinéraire).
+- Mise en page : en 1024×700, une commande en modification dépasse légèrement (le panneau défile) ; sur la tablette 1280×800, une commande en modification avec adresse ponctuelle fait défiler légèrement le panneau.
+- La prévisualisation (`a913a77`) n'a pas le contact de l'exploitant ajouté ensuite en production.
 - Les consignes permanentes du client (champ unique, ex. « Allergique aux noix » ou « Sonner deux fois ») figurent sur le ticket livreur, pas sur le ticket cuisine (décision à prendre : champ séparé « consignes cuisine »).
 - Une commande encaissée puis modifiée reste « Encaissée » : un écart de montant se règle hors de l'appli.
 - Carte figée dans le code (`src/data/catalog.ts`, prix de démonstration) ; l'entrée « Carte » de la maquette n'existe pas.
 - Statistiques : une commande encaissée puis modifiée compte pour son nouveau montant (l'écart réel se règle hors de l'appli) ; le classement par montant ignore les suppléments ; la nuit du changement d'heure, les deux « 2 h » sont regroupées ; un bilan clôturé peut encore évoluer si une commande est encaissée après coup (affiché « après la clôture »).
 - Pas d'authentification, pas de rôles, pas de suppression de fiche client (RGPD), sauvegarde manuelle uniquement (pas d'import ni de sauvegarde automatique).
-- Le README contient encore le parcours de validation et les « points à valider » de la V1 : à relire lors d'une future intervention.
-- Décisions encore ouvertes : liste définitive des pizzas éligibles ; reprise d'un service fermé par erreur (B3) ; intérêt définitif du module Statistiques (masquable en attendant).
+- Le README contient encore le parcours de validation et les « points à valider » de la V1 et ne décrit pas les interventions 4 à 6 : à relire lors d'une future intervention (`CLAUDE.md` et ce document font foi).
+- Décisions encore ouvertes (détail dans `docs/ROADMAP.md`) : liste définitive des pizzas éligibles ; reprise d'un service fermé par erreur (B3) ; intérêt définitif du module Statistiques ; champ « consignes cuisine » (allergies) ; encaissement partiel ; statistiques par moyen de paiement ; fournisseur de calcul de trajet pour une exploitation commerciale.
 - Instantané réel testé le 30/10 (règle CLAUDE.md) : sauvegarde Safari iPhone de la production (14h15, 5 clients, 4 commandes au format d'avant l'intervention 3 : sans suivi de paiement, `awardOn`, frais de livraison 2 €, sans état du service). Test temporaire non commité sur la branche 4 + 4A + 4B : chargement sans alerte ni réécriture, données, montants et frais historiques conservés, soldes de fidélité identiques, 4 commandes « Paiement non suivi » dans les Statistiques, encaissement sans double crédit, modification, fermeture du service et rechargement corrects. À noter : modifier une ancienne commande avec frais de livraison la recalcule à 0 € (règle validée de la livraison offerte).
