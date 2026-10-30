@@ -8,7 +8,8 @@ import { defaultSettings } from '../src/data/defaultSettings';
 import { computeBalance } from '../src/domain/loyalty';
 import { SERVICE_CLOSED_MESSAGE } from '../src/domain/orders';
 import { serviceIndicator } from '../src/domain/service';
-import { createPaymentSound } from '../src/audio/paymentSound';
+import { createPaymentSound, type AudioLike } from '../src/audio/paymentSound';
+import { readFileSync } from 'node:fs';
 
 /** Store de test avec un compteur de sons joués (effet injecté). */
 function setup(repo = createMemoryRepository(), prefix = 's') {
@@ -236,52 +237,82 @@ describe('Son de confirmation d’encaissement', () => {
     expect(t.store.getData().orders.find((x) => x.id === o.value.id)!.payment.status).toBe('encaissee');
 
     // Le lecteur lui-même ne lève jamais d'exception.
-    expect(createPaymentSound(() => undefined).play()).toBe(false);
-    const Broken = class {
-      constructor() {
-        throw new Error('NotAllowedError');
-      }
-    } as unknown as new () => AudioContext;
-    expect(createPaymentSound(() => Broken).play()).toBe(false);
+    expect(createPaymentSound(() => undefined).play('vente')).toBe(false);
+    expect(createPaymentSound(() => {
+      throw new Error('NotSupportedError');
+    }).play('caisse')).toBe(false);
+    const refusing: AudioLike = { currentTime: 0, volume: 1, play: () => Promise.reject(new Error('NotAllowedError')) };
+    expect(createPaymentSound(() => refusing).play('vente')).toBe(true); // refus asynchrone ignoré, sans exception
+    const throwing: AudioLike = { currentTime: 0, volume: 1, play: () => { throw new Error('boom'); } };
+    expect(createPaymentSound(() => throwing).play('vente')).toBe(false);
   });
 
-  it('signature sonore : deux notes courtes et montantes, volume discret', () => {
-    const calls = { oscillators: [] as number[], started: 0, gains: [] as number[] };
-    const param = () => ({ value: 0, setValueAtTime: () => undefined, exponentialRampToValueAtTime: () => undefined });
-    const Fake = class {
-      state = 'running';
-      currentTime = 0;
-      destination = {};
-      resume() {
-        return Promise.resolve();
-      }
-      createGain() {
-        const g = { gain: param(), connect: () => undefined };
-        return new Proxy(g, {
-          set(target, key, value) {
-            (target as Record<string, unknown>)[key as string] = value;
-            return true;
-          },
-          get(target, key) {
-            if (key === 'gain') return new Proxy(target.gain, { set: (gt, k, v) => ((gt as Record<string, unknown>)[k as string] = v, calls.gains.push(v), true) });
-            return (target as Record<string, unknown>)[key as string];
-          },
-        });
-      }
-      createOscillator() {
-        return {
-          type: 'sine',
-          frequency: { setValueAtTime: (f: number) => void calls.oscillators.push(f) },
-          connect: () => undefined,
-          start: () => void calls.started++,
-          stop: () => undefined,
-        };
-      }
-    } as unknown as new () => AudioContext;
-    expect(createPaymentSound(() => Fake).play()).toBe(true);
-    // 2 notes × (fondamentale + harmonique) ; fondamentales montantes.
-    expect(calls.started).toBe(4);
-    expect(calls.oscillators[0]).toBeLessThan(calls.oscillators[2]);
-    expect(Math.max(...calls.gains)).toBeLessThanOrEqual(0.2);
+  it('le son choisi dans les paramètres est celui joué (par défaut : notification de vente)', () => {
+    const played: string[] = [];
+    let n = 0;
+    const store = createAppStore({
+      repo: createMemoryRepository(),
+      catalog: demoCatalog,
+      seed: buildDemoData,
+      now: () => new Date('2026-10-30T22:30:00'),
+      newId: (p) => `${p}_k${++n}`,
+      effects: { playPaymentSound: (kind) => void played.push(kind) },
+    });
+    expect(store.getData().settings.paymentSoundKind).toBe('vente');
+    const jean = store.getData().customers.find((c) => c.lastName === 'Dupont')!;
+    const pay = () => {
+      store.selectCustomer(jean.id);
+      store.addProduct('reine');
+      const r = store.validateCart();
+      if (!r.ok) throw new Error(r.error);
+      store.markOrderPaid(r.value.id);
+    };
+    pay();
+    store.updateSettings({ paymentSoundKind: 'caisse' });
+    pay();
+    expect(played).toEqual(['vente', 'caisse']);
+    // Valeur invalide : retour au son par défaut, jamais d'erreur.
+    store.updateSettings({ paymentSoundKind: 'klaxon' as never });
+    expect(store.getData().settings.paymentSoundKind).toBe('vente');
+  });
+
+  it('le choix du son est conservé après rechargement', () => {
+    const t = setup();
+    t.store.updateSettings({ paymentSoundKind: 'caisse' });
+    expect(setup(t.repo, 'r').store.getData().settings.paymentSoundKind).toBe('caisse');
+  });
+
+  it('lecteur : bon fichier, volume discret, relance depuis le début à chaque encaissement', () => {
+    const made: { url: string; audio: AudioLike & { plays: number } }[] = [];
+    const sound = createPaymentSound((url) => {
+      const audio = { currentTime: 0.7, volume: 1, plays: 0, play() { this.plays++; return Promise.resolve(); } };
+      made.push({ url, audio });
+      return audio;
+    }, { vente: 'vente.wav', caisse: 'caisse.wav' });
+    expect(sound.play('caisse')).toBe(true);
+    expect(sound.play('caisse')).toBe(true);
+    expect(made).toHaveLength(1); // un seul lecteur par son, réutilisé
+    expect(made[0].url).toBe('caisse.wav');
+    expect(made[0].audio.plays).toBe(2);
+    expect(made[0].audio.currentTime).toBe(0);
+    expect(made[0].audio.volume).toBeLessThanOrEqual(0.7);
+    sound.play('vente');
+    expect(made.map((m) => m.url)).toEqual(['caisse.wav', 'vente.wav']);
+  });
+
+  it('fichiers audio : WAV valides, courts (≤ 1,5 s), légers, sans saturation', () => {
+    for (const name of ['vente', 'caisse']) {
+      const b = readFileSync(new URL(`../src/assets/sounds/${name}.wav`, import.meta.url));
+      expect(b.toString('ascii', 0, 4)).toBe('RIFF');
+      expect(b.toString('ascii', 8, 12)).toBe('WAVE');
+      const rate = b.readUInt32LE(24);
+      const samples = b.readUInt32LE(40) / 2;
+      expect(samples / rate).toBeLessThanOrEqual(1.5);
+      expect(b.length).toBeLessThan(150 * 1024);
+      let peak = 0;
+      for (let i = 0; i < samples; i++) peak = Math.max(peak, Math.abs(b.readInt16LE(44 + i * 2)));
+      expect(peak).toBeLessThan(32767 * 0.99);
+      expect(peak).toBeGreaterThan(32767 * 0.5);
+    }
   });
 });

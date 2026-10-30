@@ -81,7 +81,7 @@ export interface StoreDeps {
   now?: () => Date;
   newId?: IdFactory;
   /** Effets hors données (son). Un effet qui échoue n'annule jamais l'action. */
-  effects?: { playPaymentSound?: () => void };
+  effects?: { playPaymentSound?: (kind: Settings['paymentSoundKind']) => void };
 }
 
 const withoutCart = ({ cart: _cart, ...rest }: AppData): PersistedData => (void _cart, rest);
@@ -479,7 +479,7 @@ export function createAppStore(deps: StoreDeps) {
       // Son : uniquement pour une vraie transition vers « Encaissée » enregistrée avec succès.
       if (!alreadyPaid && data.settings.paymentSound) {
         try {
-          deps.effects?.playPaymentSound?.();
+          deps.effects?.playPaymentSound?.(data.settings.paymentSoundKind === 'caisse' ? 'caisse' : 'vente');
         } catch {
           /* le son est un confort : son échec n'affecte pas l'encaissement */
         }
@@ -577,6 +577,7 @@ export function createAppStore(deps: StoreDeps) {
       }
       if (next.ticketWidthMm !== 58 && next.ticketWidthMm !== 80) return fail('Largeur de ticket invalide.');
       next.paymentSound = next.paymentSound !== false;
+      if (next.paymentSoundKind !== 'vente' && next.paymentSoundKind !== 'caisse') next.paymentSoundKind = 'vente';
       // Les garde-fous d'éligibilité filtrent toute entrée non autorisée (alcool, dessert…).
       next.loyalty = {
         ...next.loyalty,

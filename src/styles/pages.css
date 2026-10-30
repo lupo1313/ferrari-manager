@@ -503,3 +503,42 @@
 .confirm-list__warn {
   color: var(--amber-ink);
 }
+
+/* Choix du son d'encaissement */
+.sound-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sound-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sound-option__choice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  font-weight: 600;
+  text-align: left;
+}
+.sound-option__radio {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  flex: none;
+}
+.sound-option__choice[aria-pressed='true'] {
+  border-color: var(--red);
+}
+.sound-option__choice[aria-pressed='true'] .sound-option__radio {
+  border-color: var(--red);
+  background: radial-gradient(circle, var(--red) 0 45%, transparent 50%);
+}

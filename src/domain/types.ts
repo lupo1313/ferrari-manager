@@ -218,6 +218,8 @@ export interface LoyaltyRules {
 
 export type TicketWidth = 58 | 80;
 
+export type PaymentSoundKind = 'vente' | 'caisse';
+
 export interface Settings {
   pizzeria: {
     name: string;
@@ -228,5 +230,7 @@ export interface Settings {
   ticketWidthMm: TicketWidth;
   /** Petit son de confirmation à chaque encaissement réussi. */
   paymentSound: boolean;
+  /** Son choisi : « Notification de vente » ou « Caisse enregistreuse ». */
+  paymentSoundKind: PaymentSoundKind;
   loyalty: LoyaltyRules;
 }

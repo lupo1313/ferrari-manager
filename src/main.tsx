@@ -24,8 +24,11 @@ const store = createAppStore({
   catalog: demoCatalog,
   seed: buildDemoData,
   // Joué par le store uniquement après un encaissement réellement enregistré (et si le réglage est actif).
-  effects: { playPaymentSound: () => void paymentSound.play() },
+  effects: { playPaymentSound: (kind) => void paymentSound.play(kind) },
 });
+
+// Fichiers sonores préparés dès le premier appui (geste utilisateur exigé par les navigateurs).
+window.addEventListener('pointerdown', () => paymentSound.preload(), { once: true });
 
 // Panier en cours de saisie : enregistré sans attendre si la tablette met l'onglet en arrière-plan ou le ferme.
 window.addEventListener('pagehide', () => store.flushPendingWrites());

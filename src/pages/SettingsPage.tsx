@@ -5,7 +5,7 @@ import { useToast } from '../components/ui/Toast';
 import { useAppData, useStore } from '../state/StoreContext';
 import { formatPrice, parseEuros } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
-import { paymentSound } from '../audio/paymentSound';
+import { PAYMENT_SOUND_KINDS, PAYMENT_SOUND_LABELS, paymentSound, type PaymentSoundKind } from '../audio/paymentSound';
 
 export function SettingsPage() {
   const store = useStore();
@@ -118,16 +118,38 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              if (!paymentSound.play()) toast('Son indisponible sur cet appareil (vérifiez le volume ou le mode silencieux).', 'info');
-            }}
-          >
-            <Icon name="volume" /> Écouter
-          </button>
-          <span className="field__hint">Court signal joué uniquement quand une commande passe à « Encaissée ». Pensez au volume de la tablette.</span>
+          <div className="field">
+            <span className="field__label">Choisir le son</span>
+            <div className="sound-options">
+              {PAYMENT_SOUND_KINDS.map((kind: PaymentSoundKind) => (
+                <div key={kind} className="sound-option">
+                  <button
+                    type="button"
+                    className="sound-option__choice"
+                    aria-pressed={data.settings.paymentSoundKind === kind}
+                    onClick={() => {
+                      const r = store.updateSettings({ paymentSoundKind: kind });
+                      if (!r.ok) toast(r.error, 'error');
+                      else setDraft((d) => ({ ...d, paymentSoundKind: kind }));
+                    }}
+                  >
+                    <span className="sound-option__radio" aria-hidden="true" />
+                    {PAYMENT_SOUND_LABELS[kind]}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--sm"
+                    onClick={() => {
+                      if (!paymentSound.play(kind)) toast('Son indisponible sur cet appareil (vérifiez le volume ou le mode silencieux).', 'info');
+                    }}
+                  >
+                    <Icon name="volume" size={18} /> Écouter
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <span className="field__hint">Joué uniquement quand une commande passe à « Encaissée ». Choix enregistré immédiatement. Pensez au volume de la tablette.</span>
         </section>
 
         <section className="card settings-grid__wide">
