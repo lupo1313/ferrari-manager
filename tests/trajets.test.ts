@@ -199,10 +199,9 @@ describe('commande et tickets', () => {
     expect(reloaded.store.getData().cart.deliveryTrip).toEqual(r.trip);
   });
 
-  it('modification de l’adresse : ancien trajet invalidé (jamais réimprimé), nouveau calcul possible', async () => {
+  it('fiche modifiée après la commande : la commande garde son adresse et son trajet ; adresse habituelle = trajet caduc', async () => {
     const t = setup();
     const o = await t.deliveryWithTrip();
-    // Adresse de la fiche modifiée, puis commande modifiée : la copie d'adresse change.
     const updated = t.store.updateCustomer(t.jean.id, {
       firstName: 'Jean',
       lastName: 'Dupont',
@@ -214,10 +213,17 @@ describe('commande et tickets', () => {
       instructions: '',
     });
     expect(updated.ok).toBe(true);
-    // Tant que la commande n'est pas modifiée, elle garde son adresse figée ET son trajet (cohérents).
     expect(buildDeliveryTicket(t.get(o.id), t.store.getData().settings)!.trip).not.toBeNull();
+    // Réouverture : l'adresse réellement enregistrée sur la commande est reprise, avec son trajet.
     t.store.startEditOrder(o.id);
-    expect(validTripFor(t.store.getData().cart.deliveryTrip, 'livraison', t.store.getData().customers.find((c) => c.id === t.jean.id)!)).toBeNull();
+    expect(t.store.getData().cart.deliveryAddress?.address).toBe('15 rue de Rome');
+    const kept = t.store.validateCart();
+    expect(kept.ok && kept.value.customer!.address).toBe('15 rue de Rome');
+    expect(kept.ok && kept.value.deliveryTrip).toEqual(o.deliveryTrip);
+    // « Utiliser l'adresse habituelle » : nouvelle adresse, l'ancien trajet est retiré immédiatement.
+    t.store.startEditOrder(o.id);
+    expect(t.store.setCartDeliveryAddress(null).ok).toBe(true);
+    expect(t.store.getData().cart.deliveryTrip).toBeNull();
     const saved = t.store.validateCart();
     expect(saved.ok && saved.value.customer!.address).toBe('40 rue Paradis');
     expect(saved.ok && saved.value.deliveryTrip).toBeNull();
@@ -230,6 +236,7 @@ describe('commande et tickets', () => {
     expect(t.store.setCartDeliveryTrip(r.trip).ok).toBe(true);
     const resaved = t.store.validateCart();
     expect(resaved.ok && resaved.value.deliveryTrip?.addressKey).toBe(deliveryAddressKey(jean));
+    expect(validTripFor(t.get(o.id).deliveryTrip, 'livraison', t.get(o.id).customer)).not.toBeNull();
   });
 
   it('calcul terminé après un changement de client ou de mode : refusé, jamais rattaché à une autre adresse', async () => {

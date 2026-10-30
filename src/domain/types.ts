@@ -78,6 +78,21 @@ export interface CustomerSnapshot {
   intercom?: string;
   doorCode?: string;
   instructions: string;
+  /** Adresse ponctuelle saisie pour cette commande (différente de l'adresse habituelle de la fiche). */
+  addressOverridden?: boolean;
+}
+
+/** Adresse de livraison d'une commande et consignes propres à cette livraison (voir domain/delivery.ts). */
+export interface DeliveryAddressInput {
+  address: string;
+  postalCode: string;
+  city: string;
+  building: string;
+  floor: string;
+  intercom: string;
+  doorCode: string;
+  complement: string;
+  instructions: string;
 }
 
 /* ---------- Commandes ---------- */
@@ -127,6 +142,11 @@ export interface Cart {
   paymentPlan?: PaymentPlan | null;
   /** Trajet en scooter calculé pendant la saisie (valable seulement pour l'adresse utilisée). */
   deliveryTrip?: DeliveryTrip | null;
+  /**
+   * Adresse de livraison ponctuelle de cette commande ; null = adresse habituelle du client.
+   * Ne modifie jamais la fiche client ; remise à zéro quand le client change.
+   */
+  deliveryAddress?: DeliveryAddressInput | null;
 }
 
 /**

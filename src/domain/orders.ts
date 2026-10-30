@@ -1,4 +1,5 @@
 import type { Cart, Customer, Order, OrderMode, OrderStatus } from './types';
+import { addressOf, effectiveDeliveryAddress, sameDeliveryAddress, snapshotWithDeliveryAddress } from './delivery';
 import { computeTotals } from './pricing';
 import { hasDeliveryAddress, snapshotCustomer } from './customers';
 import { isValidTimeOfDay } from './time';
@@ -101,8 +102,9 @@ export function validateCart(cart: Cart, ctx: CartValidationContext): string[] {
   if (cart.lines.length === 0) errors.push('La commande est vide.');
   if (cart.customerId && !ctx.customer) errors.push('Le client sélectionné est introuvable.');
   if (cart.mode === 'livraison') {
+    const address = effectiveDeliveryAddress(cart, ctx.customer);
     if (!ctx.customer) errors.push('Une livraison nécessite une fiche client.');
-    else if (!hasDeliveryAddress(ctx.customer)) errors.push("L'adresse de livraison du client est incomplète.");
+    else if (!address || !hasDeliveryAddress(address)) errors.push("L'adresse de livraison est incomplète.");
   }
   if (cart.requestedTime !== null && !isValidTimeOfDay(cart.requestedTime)) {
     errors.push("L'heure souhaitée est invalide.");
@@ -139,7 +141,8 @@ export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
   const totals = computeTotals(cart.lines);
   const base = {
     customerId: p.customer?.id ?? null,
-    customer: p.customer ? snapshotCustomer(p.customer) : null,
+    // Livraison à une adresse ponctuelle : elle remplace l'adresse et les consignes habituelles sur la copie.
+    customer: p.customer ? snapshotWithDeliveryAddress(snapshotCustomer(p.customer), cart.mode, cart.deliveryAddress) : null,
     counterName: p.customer ? '' : cart.counterName.trim(),
     mode: cart.mode,
     requestedTime: cart.requestedTime,
@@ -149,7 +152,7 @@ export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
     // Paiement prévu : simple intention, sans effet sur le statut de paiement ni la fidélité.
     paymentPlan: asPaymentPlan(cart.paymentPlan),
     // Trajet : conservé seulement s'il correspond à l'adresse copiée sur la commande (sinon caduc).
-    deliveryTrip: validTripFor(cart.deliveryTrip, cart.mode, p.customer),
+    deliveryTrip: validTripFor(cart.deliveryTrip, cart.mode, effectiveDeliveryAddress(cart, p.customer)),
     updatedAt: p.nowIso,
   };
   if (p.previous) {
@@ -180,8 +183,15 @@ export function withStatus(order: Order, status: OrderStatus, nowIso: string): O
   };
 }
 
-/** Recharge une commande enregistrée dans le panier pour modification. */
-export function orderToCart(order: Order): Cart {
+/**
+ * Recharge une commande enregistrée dans le panier pour modification. Une livraison garde l'adresse
+ * réellement enregistrée sur la commande : si elle diffère de la fiche actuelle du client, elle devient
+ * l'adresse ponctuelle de la saisie (la fiche n'est pas consultée pour la remplacer).
+ */
+export function orderToCart(order: Order, currentCustomer: Customer | null = null): Cart {
+  const recorded = order.customer ? addressOf(order.customer) : null;
+  const deliveryAddress =
+    order.mode === 'livraison' && recorded && (!currentCustomer || !sameDeliveryAddress(recorded, addressOf(currentCustomer))) ? recorded : null;
   return {
     draftId: order.id,
     editingOrderId: order.id,
@@ -193,6 +203,7 @@ export function orderToCart(order: Order): Cart {
     note: order.note,
     paymentPlan: asPaymentPlan(order.paymentPlan),
     deliveryTrip: asDeliveryTrip(order.deliveryTrip),
+    deliveryAddress,
   };
 }
 

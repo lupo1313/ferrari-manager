@@ -2,6 +2,7 @@ import type {
   Cart,
   Catalog,
   Customer,
+  DeliveryAddressInput,
   DeliveryTrip,
   Order,
   OrderMode,
@@ -61,6 +62,13 @@ import {
 import { isValidTimeOfDay } from '../domain/time';
 import { computeTotals } from '../domain/pricing';
 import { asDeliveryTrip, deliveryAddressKey } from '../domain/trip';
+import {
+  addressOf,
+  cleanDeliveryAddress,
+  effectiveDeliveryAddress,
+  sameDeliveryAddress,
+  validateDeliveryAddress,
+} from '../domain/delivery';
 import { asPaymentPlan, canPlanPayment, cannotMarkPaid, isPaid, markPaid, markUnpaid, planProblem, tendersProblem } from '../domain/payment';
 import { closeServiceRecord, currentService, openServiceRecord } from '../domain/service';
 
@@ -275,15 +283,23 @@ export function createAppStore(deps: StoreDeps) {
 
     /* ---------- Clients ---------- */
 
-    selectCustomer(customerId: string | null): Result<{ removedRewards: number }> {
+    selectCustomer(customerId: string | null): Result<{ removedRewards: number; addressReset: boolean }> {
       if (customerId && !findCustomer(customerId)) return fail('Client introuvable.');
-      if (data.cart.customerId === customerId) return ok({ removedRewards: 0 });
+      if (data.cart.customerId === customerId) return ok({ removedRewards: 0, addressReset: false });
       if (!canChangeCartCustomer(data.cart, customerId, editedOrder())) return fail(EDIT_CUSTOMER_LOCKED_MESSAGE);
       // Les récompenses appartiennent au client : on les retire si on change de client.
       const removedRewards = rewardLineCount(data.cart.lines);
-      const cart = { ...withoutRewardLines(data.cart), customerId, counterName: customerId ? '' : data.cart.counterName };
+      // L'adresse ponctuelle et le trajet appartiennent au client précédent : jamais transférés au nouveau.
+      const addressReset = Boolean(data.cart.deliveryAddress);
+      const cart = {
+        ...withoutRewardLines(data.cart),
+        customerId,
+        counterName: customerId ? '' : data.cart.counterName,
+        deliveryAddress: null,
+        deliveryTrip: null,
+      };
       setCart(cart);
-      return ok({ removedRewards });
+      return ok({ removedRewards, addressReset });
     },
 
     createCustomer(input: CustomerInput, options: { select?: boolean } = {}): Result<Customer> {
@@ -299,7 +315,9 @@ export function createAppStore(deps: StoreDeps) {
       const customer = buildCustomer(input, newId('cus'), nowIso());
       // Pendant une modification, la fiche est créée mais la commande garde son client d'origine.
       const select = options.select && canChangeCartCustomer(data.cart, customer.id, editedOrder());
-      const cart = select ? { ...withoutRewardLines(data.cart), customerId: customer.id, counterName: '' } : undefined;
+      const cart = select
+        ? { ...withoutRewardLines(data.cart), customerId: customer.id, counterName: '', deliveryAddress: null, deliveryTrip: null }
+        : undefined;
       if (!commitCustomer(customer, cart)) return fail(SAVE_FAILED);
       return ok(customer);
     },
@@ -398,12 +416,34 @@ export function createAppStore(deps: StoreDeps) {
         return ok(undefined);
       }
       const valid = asDeliveryTrip(trip);
-      const customer = findCustomer(data.cart.customerId);
-      if (!valid || data.cart.mode !== 'livraison' || !customer || valid.addressKey !== deliveryAddressKey(customer)) {
+      const address = effectiveDeliveryAddress(data.cart, findCustomer(data.cart.customerId));
+      if (!valid || data.cart.mode !== 'livraison' || !address || valid.addressKey !== deliveryAddressKey(address)) {
         return fail('Le client ou l’adresse a changé pendant le calcul : relancez le calcul du trajet.');
       }
       setCart({ ...data.cart, deliveryTrip: valid });
       return ok(undefined);
+    },
+
+    /**
+     * Adresse de livraison de la commande en cours (null = adresse habituelle). La fiche client n'est jamais
+     * modifiée. Si l'adresse change, le trajet calculé devient caduc immédiatement.
+     */
+    setCartDeliveryAddress(input: DeliveryAddressInput | null): Result<{ usesHabitual: boolean }> {
+      const customer = findCustomer(data.cart.customerId);
+      if (!customer) return fail('Sélectionnez d’abord un client.');
+      let next: DeliveryAddressInput | null = null;
+      if (input) {
+        const fieldErrors = validateDeliveryAddress(input);
+        if (Object.keys(fieldErrors).length) return fail('Vérifiez les champs signalés.', { fieldErrors });
+        const cleaned = cleanDeliveryAddress(input);
+        // Identique à l'adresse habituelle : rien de ponctuel à retenir.
+        next = sameDeliveryAddress(cleaned, addressOf(customer)) ? null : cleaned;
+      }
+      const before = effectiveDeliveryAddress(data.cart, customer)!;
+      const after = next ?? addressOf(customer);
+      const keepTrip = deliveryAddressKey(before) === deliveryAddressKey(after);
+      setCart({ ...data.cart, deliveryAddress: next, deliveryTrip: keepTrip ? data.cart.deliveryTrip ?? null : null });
+      return ok({ usesHabitual: next === null });
     },
 
     /** Paiement prévu de la commande en cours de saisie (null = non renseigné). Refusé s'il dépasse le total. */
@@ -498,7 +538,7 @@ export function createAppStore(deps: StoreDeps) {
       const order = findOrder(orderId);
       if (!order) return fail('Commande introuvable.');
       if (!canEditOrder(order)) return fail('Cette commande ne peut plus être modifiée.');
-      setCart(orderToCart(order));
+      setCart(orderToCart(order, findCustomer(order.customerId)));
       return ok(order);
     },
 

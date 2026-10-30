@@ -21,6 +21,7 @@ export function emptyCart(draftId: string): Cart {
     note: '',
     paymentPlan: null,
     deliveryTrip: null,
+    deliveryAddress: null,
   };
 }
 

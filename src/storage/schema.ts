@@ -2,6 +2,7 @@ import type { Cart, Customer, LoyaltyEvent, Order, Payment, ServiceRecord, Setti
 import { emptyCart } from '../domain/cart';
 import { asPaymentPlan, legacyPayment } from '../domain/payment';
 import { asDeliveryTrip } from '../domain/trip';
+import { asDeliveryAddress } from '../domain/delivery';
 import { serviceIdFromStart } from '../domain/service';
 
 export const SCHEMA_VERSION = 1;
@@ -126,6 +127,7 @@ export function normalizeAppData(raw: unknown, defaults: NormalizeDefaults): Nor
   if (!Array.isArray(cart.lines)) cart.lines = [];
   cart.paymentPlan = asPaymentPlan(cart.paymentPlan);
   cart.deliveryTrip = asDeliveryTrip(cart.deliveryTrip);
+  cart.deliveryAddress = asDeliveryAddress(cart.deliveryAddress);
 
   // Compteur absent : on repart après le plus grand numéro encore affiché, pour éviter les doublons.
   const counters = isObject(raw.counters) && typeof raw.counters.nextOrderNumber === 'number'
