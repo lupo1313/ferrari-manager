@@ -1,7 +1,7 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, mise en production des interventions 4, 4A et 4B (fusion `cb49242`), après la sauvegarde des données (`7f9f392`).
-Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
+Dernière mise à jour : 30/10/2026, intervention 5 (tickets cuisine/livreur, paiements) sur la branche `feat/intervention-5-tickets-paiements`, **en prévisualisation, non fusionnée**.
+Ce document décrit ce qui existe **réellement** dans le code de cette branche. La production (`main`, `752d3f3`) est à l'état des interventions 4, 4A et 4B tant que la fusion n'est pas validée. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
 
 ## 1. En production
 
@@ -50,6 +50,17 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - **« Enregistrer » inaccessible sur iPhone en paysage** : le panneau Commande avait une hauteur fixe (`overflow: hidden`), seule la liste des produits défilait, avec une hauteur minimale de 120 px ; sur un écran d'environ 340 px de haut, le récapitulatif et les boutons sortaient du panneau sans pouvoir être atteints. Désormais le panneau défile s'il déborde, et sur un écran peu haut (`max-height: 560px`) tout le panneau défile d'un bloc avec les actions collées en bas (une seule ligne en pleine largeur). L'application évite aussi l'encoche et la barre d'accueil de l'iPhone (`viewport-fit=cover` était déjà actif sans marges de sécurité). Sans effet sur la tablette en 1280×800 (vérifié : aucun défilement du panneau, actions inchangées).
 - Vérifié dans Chromium en émulation 844×340 (iPhone paysage), 375×660, 1024×700 et 1280×800, puis validé par le gérant sur un vrai iPhone avec Safari (prévisualisation). En 1024×700, une commande en modification dépasse légèrement : le panneau défile pour atteindre « Enregistrer sans imprimer ».
 
+### Intervention 5 en cours de validation (branche `feat/intervention-5-tickets-paiements`)
+
+- **Deux tickets** (`domain/ticket.ts`, `components/ticket/`) : *cuisine* (numéro et mode en gros, heure demandée, produits groupés pizzas / desserts / boissons, personnalisations en puces, notes, nombre de pizzas ; ni téléphone, ni adresse, ni prix, ni paiement ; nom du client seul) et *livreur* (livraisons uniquement : nom, téléphone, adresse, repères renseignés seulement, consignes, contenu du sac, total, bloc paiement encadré). À emporter : 1 ticket ; livraison : 2.
+- **Impression** : après « Valider et imprimer », la commande est déjà enregistrée ; une fenêtre propose « Imprimer les deux » (une seule boîte de dialogue, un ticket par page), « Cuisine », « Livreur » ou « Terminer sans imprimer ». Même fenêtre depuis la carte (menu « ••• » → « Tickets cuisine et livreur » ou « Ticket cuisine »). Imprimer ne modifie que la trace `printRequests`. Aucune impression silencieuse : le navigateur demande toujours une confirmation.
+- **Bloc paiement du livreur** : « COMMANDE DÉJÀ PAYÉE » + reste 0,00 € + détail payé ; ou « À ENCAISSER : X € » + « Mode prévu » (et « Non affecté ») ; ou « MODE DE PAIEMENT À CONFIRMER » ; « PAIEMENT NON SUIVI » pour les anciennes commandes ; écart signalé si une commande encaissée a été modifiée. Un paiement prévu n'est jamais présenté comme effectué.
+- **Paiement prévu** (`paymentPlan`, intention du client) : dans le panier (bouton « Paiement prévu » à côté de l'heure) et depuis la carte (« Paiement prévu… ») ; moyen unique (suit le total) ou mixte (incomplet autorisé, supérieur au total refusé). Sans effet sur le statut de paiement, la fidélité ou les statistiques.
+- **Encaissement confirmé** : Espèces, Carte bancaire, Titres-restaurant en un appui (montant = total), « Paiement mixte… » (montants par moyen, bouton « Reste », confirmation seulement si la somme égale le total), « Non précisé ». Détail enregistré dans `payment.tenders` ; **tout ou rien** (pas d'encaissement partiel, pas de rendu de monnaie). Fidélité, annulations et statistiques inchangées.
+- **Compatibilité** : `payment.method` garde ses trois valeurs (espèces, carte, non précisé), seules relues par la version précédente (une valeur inconnue y ferait passer la commande en « Paiement non suivi », puis serait réécrite) ; titres-restaurant et mixte y sont résumés par « non_precise », le détail est dans `tenders`.
+- **Fiche client** : bâtiment, étage, interphone, digicode (facultatifs), à côté du complément ; complétés à vide en mémoire pour les anciennes fiches, sans réécriture. Le texte existant du complément n'est pas découpé.
+- Vérifié dans Chromium (1280×800, 844×340, 390×750, 1440×900) avec des données fictives et sur la sauvegarde réelle de l'iPhone (test temporaire) ; **impression physique, iPhone et tablette réels non vérifiés**.
+
 ## 2. Fonctionnalités opérationnelles
 
 ### Prise de commande (écran principal, 3 colonnes ; onglets sur écran étroit)
@@ -75,7 +86,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ### Encaissement (suivi uniquement, pas une caisse)
 - Statut de paiement **À encaisser / Encaissée**, indépendant de la préparation.
-- « Marquer encaissée » puis Espèces / Carte bancaire / Non précisé (moyen facultatif).
+- « Marquer encaissée » puis Espèces / Carte bancaire / Titres-restaurant / Paiement mixte / Non précisé (intervention 5, voir ci-dessus).
 - « Annuler l'encaissement » (correction d'erreur, avec confirmation).
 - Annuler une commande encaissée : confirmation « remboursement traité hors de Ferrari Manager ».
 - Modifier une commande encaissée : confirmation ; elle reste encaissée.
@@ -136,7 +147,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ## 4. Tests
 
-197 tests Vitest, tous réussis au 30/10 :
+230 tests Vitest, tous réussis au 30/10 (branche `feat/intervention-5-tickets-paiements`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -152,6 +163,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 | `statistiques.test.ts` (26) | Indicateurs, libellé « Reste à encaisser » (encaissées, en attente, non suivies), quantités, cadeaux, annulations (dont après encaissement), modifications, encaissements tardifs, minuit, changement d'heure, anciennes données, jour/semaine/mois, lecture seule |
 | `modification-navigation.test.ts` (10) | Intervention 4B : client verrouillé pendant une modification (tous les chemins), annulation, abandon sans toucher la commande enregistrée, service fermé, commande encaissée modifiée service fermé, fidélité sans double crédit, contrat CSS des actions sur petit écran |
 | `commandes-cartes.test.ts` (19) | Action principale par statut, correction de statut (dont Terminée → En préparation : paiement, fidélité, produits préservés, retour dans « En cours »), actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
+| `tickets-paiements.test.ts` (33) | Intervention 5 : tickets cuisine et livreur (repères, champs absents, notes, personnalisations, payé, à encaisser, mode à confirmer, non affecté, anciennes commandes, frais historiques), réimpression sans modification, pas de doublon, espèces / carte / titres / mixte, montants incohérents, centimes, correction, modification et annulation d'une commande encaissée, fidélité sans double crédit, paiement prévu, service fermé, compatibilité (`method`, anciennes données, sauvegarde, clés, statistiques) |
 | `sauvegarde.test.ts` (13) | Export à l'identique, aucune écriture (stockage espion), restauration possible, intégrité (fichier tronqué, modifié, résumé falsifié), données illisibles |
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.
@@ -162,7 +174,8 @@ Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à 
 - Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne (prévue initialement comme « 4B », numéro repris par le correctif de navigation du 30/10).
 - Écran Commandes : vérifié à l'écran (Chromium, 1280×800, 1024×700, 800×1100, 375×812, 1440×900) avec un service fictif ; **pas encore sur la tablette Samsung**. Les consignes permanentes du client (ex. allergie) ne s'affichent que pour les livraisons, comme sur le ticket.
 - Pas d'alerte sur les heures de retrait dépassées, pas de statuts propres à la livraison, pas de gestion des livreurs.
-- Le ticket n'affiche pas le statut de paiement ; aucune imprimante thermique n'est pilotée.
+- Aucune imprimante thermique n'est pilotée : impression par la boîte de dialogue du navigateur ; la découpe entre les deux tickets dépend de l'imprimante et de son pilote.
+- Les consignes permanentes du client (champ unique, ex. « Allergique aux noix » ou « Sonner deux fois ») figurent sur le ticket livreur, pas sur le ticket cuisine (décision à prendre : champ séparé « consignes cuisine »).
 - Une commande encaissée puis modifiée reste « Encaissée » : un écart de montant se règle hors de l'appli.
 - Carte figée dans le code (`src/data/catalog.ts`, prix de démonstration) ; l'entrée « Carte » de la maquette n'existe pas.
 - Statistiques : une commande encaissée puis modifiée compte pour son nouveau montant (l'écart réel se règle hors de l'appli) ; le classement par montant ignore les suppléments ; la nuit du changement d'heure, les deux « 2 h » sont regroupées ; un bilan clôturé peut encore évoluer si une commande est encaissée après coup (affiché « après la clôture »).
