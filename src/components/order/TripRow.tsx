@@ -3,7 +3,7 @@ import { Icon } from '../ui/Icon';
 import { useAppSelector, useStore } from '../../state/StoreContext';
 import { formatDistance, formatDuration, validTripFor } from '../../domain/trip';
 import { computeScooterTrip, DEFAULT_ROUTING_URL } from '../../services/trajet';
-import type { Customer } from '../../domain/types';
+import type { DeliveryAddressInput } from '../../domain/types';
 
 const ROUTING_URL = import.meta.env.VITE_ROUTING_URL || DEFAULT_ROUTING_URL;
 
@@ -11,7 +11,7 @@ const ROUTING_URL = import.meta.env.VITE_ROUTING_URL || DEFAULT_ROUTING_URL;
  * Trajet en scooter de la commande en livraison, calculé à la demande pour le ticket livreur.
  * Discret et jamais bloquant : en cas d'échec, un message s'affiche et la commande s'enregistre normalement.
  */
-export function TripRow({ customer }: { customer: Customer }) {
+export function TripRow({ customerId, address }: { customerId: string; address: DeliveryAddressInput }) {
   const store = useStore();
   const cart = useAppSelector((d) => d.cart);
   const pizzeriaAddress = useAppSelector((d) => d.settings.pizzeria.address);
@@ -20,14 +20,15 @@ export function TripRow({ customer }: { customer: Customer }) {
   const mounted = useRef(true);
   useEffect(() => () => void (mounted.current = false), []);
   // Une autre adresse (client changé, fiche modifiée) : l'ancien message ne s'applique plus.
-  useEffect(() => setError(null), [customer.id, customer.address, customer.postalCode, customer.city]);
+  useEffect(() => setError(null), [customerId, address.address, address.postalCode, address.city]);
 
-  const trip = validTripFor(cart.deliveryTrip, cart.mode, customer);
+  // Toujours l'adresse effective de livraison de la commande (ponctuelle ou habituelle).
+  const trip = validTripFor(cart.deliveryTrip, cart.mode, address);
 
   const calculate = async () => {
     setBusy(true);
     setError(null);
-    const r = await computeScooterTrip(pizzeriaAddress, customer, {
+    const r = await computeScooterTrip(pizzeriaAddress, address, {
       routingUrl: ROUTING_URL,
       isOnline: () => (typeof navigator === 'undefined' ? true : navigator.onLine),
     });

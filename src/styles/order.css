@@ -30,6 +30,35 @@
   color: var(--red-ink);
   font-weight: 600;
 }
+/* Adresse de livraison de la commande : modifiable sans toucher à la fiche client. */
+.delivery-address {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.delivery-line__text {
+  flex: 1;
+  min-width: 0;
+}
+.delivery-line__edit {
+  flex: none;
+  min-height: 44px;
+}
+.delivery-address--ponctual {
+  padding: 4px 8px;
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-s);
+  background: var(--gold-soft);
+}
+.delivery-address--ponctual .delivery-line {
+  color: var(--text);
+}
+.delivery-line__badge {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  color: var(--gold-ink);
+}
 /* Trajet en scooter (ticket livreur) : une ligne discrète sous l'adresse. */
 .trip-row {
   display: flex;

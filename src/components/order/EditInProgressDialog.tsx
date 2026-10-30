@@ -98,6 +98,7 @@ export function useOrderForCustomer(onGoToOrderTaking: () => void) {
       return;
     }
     if (r.value.removedRewards > 0) toast('Récompenses du client précédent retirées de la commande.', 'info');
+    if (r.value.addressReset) toast('Adresse ponctuelle retirée : adresse habituelle du nouveau client utilisée.', 'info');
     toast(`${customerFullName(customer)} sélectionné`, 'success');
     onGoToOrderTaking();
   };
