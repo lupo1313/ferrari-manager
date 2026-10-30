@@ -220,7 +220,7 @@ Appareil : **Samsung Galaxy TabPro S, Windows 10, Microsoft Edge, orientation pa
 - Fonctionnement après une coupure de connexion (l'application est servie en ligne ; aucun mode hors ligne n'a été conçu ni testé) et après mise en veille de la tablette.
 - Parcours complet en conditions réelles de service.
 - Sur la tablette : trajet en scooter, adresse ponctuelle, paiements mixtes et titres-restaurant, son d'encaissement.
-- **Largeur réelle de la fenêtre d'Edge sur la tablette** : la TabPro S (2160×1440) affiche environ 1080 px de large à l'échelle Windows de 200 %, ce qui correspond à la mise en page « tablette compacte » (Client et Carte en onglets, barre latérale réduite au monogramme), pas aux 1280×800 utilisés jusqu'ici pour les vérifications. À relever avant l'intervention 7.
+- **Taille réelle de la fenêtre d'Edge sur la tablette** : réglages confirmés par le gérant le 31/10 : écran 2160×1440, **échelle Windows 150 %**, zoom Edge 100 %, soit une largeur théorique d'environ **1440 px CSS** avec Edge maximisé (l'hypothèse précédente de 1080 px, fondée sur une échelle de 200 %, était fausse). La largeur et la hauteur réelles de la fenêtre (barre des tâches, barres d'Edge, fenêtre non maximisée ou ancrée) n'ont pas été mesurées ; hauteur estimée autour de 800 à 840 px. À ces 1440 px, l'application affiche les trois colonnes, la barre latérale complète (logo et libellés) et la colonne Commande de 380 px.
 
 ## 5. Bugs connus, limites et éléments absents
 

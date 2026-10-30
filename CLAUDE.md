@@ -42,7 +42,7 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 - Toute règle métier va dans `src/domain/` (fonction pure) **et** est appliquée par le store, pas seulement par un bouton désactivé. Exception : les calculs propres au module Statistiques restent dans son dossier pour qu'il reste supprimable.
 - Les commandes gardent des **copies figées** (client, adresse de livraison effective, prix) : modifier une fiche ne change pas l'historique.
 - Fidélité = **journal d'événements** + réconciliation idempotente (`reconcileOrderLoyalty`) : on n'écrit jamais un solde, seulement l'écart. Crédit à l'encaissement confirmé uniquement.
-- Conserver la direction artistique (tokens dans `src/styles/tokens.css`), cibles tactiles ≥ 44 px, pas de refonte non demandée. Vérifier à chaque intervention que le panneau Commande tient sans défilement en 1280×800 et que les actions restent accessibles en 844×340 (iPhone paysage) et 390×750.
+- Conserver la direction artistique (tokens dans `src/styles/tokens.css`), cibles tactiles ≥ 44 px, pas de refonte non demandée. Vérifier à chaque intervention que le panneau Commande tient sans défilement en **1440 px de large** (tablette Samsung réelle : échelle Windows 150 %, Edge maximisé, hauteur estimée 800 à 840 px, à confirmer) et en 1280×800, et que les actions restent accessibles en 844×340 (iPhone paysage) et 390×750.
 - Les fichiers du dépôt sont en fins de ligne CRLF (Windows) : un script de remplacement doit les normaliser puis les restaurer. Les heredocs bash contenant des backticks échouent dans cet environnement : écrire les scripts de remplacement dans un fichier `.cjs` du scratchpad.
 
 ## Données existantes : précautions impératives
