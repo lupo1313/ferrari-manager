@@ -8,6 +8,11 @@ export interface CustomerInput {
   postalCode: string;
   city: string;
   complement: string;
+  /** Repères de livraison facultatifs (absents des saisies d'avant l'intervention 5). */
+  building?: string;
+  floor?: string;
+  intercom?: string;
+  doorCode?: string;
   instructions: string;
 }
 
@@ -21,6 +26,10 @@ export const EMPTY_CUSTOMER_INPUT: CustomerInput = {
   postalCode: '',
   city: 'Marseille',
   complement: '',
+  building: '',
+  floor: '',
+  intercom: '',
+  doorCode: '',
   instructions: '',
 };
 
@@ -52,6 +61,10 @@ const LIMITS: Partial<Record<keyof CustomerInput, number>> = {
   address: 160,
   city: 60,
   complement: 160,
+  building: 40,
+  floor: 40,
+  intercom: 40,
+  doorCode: 40,
   instructions: 300,
 };
 
@@ -70,7 +83,7 @@ export function validateCustomerInput(input: CustomerInput): CustomerFieldErrors
     errors.address = "Indiquez l'adresse correspondant au code postal.";
   }
   for (const [field, max] of Object.entries(LIMITS) as [keyof CustomerInput, number][]) {
-    if (input[field].trim().length > max) errors[field] = `${max} caractères maximum.`;
+    if ((input[field] ?? '').trim().length > max) errors[field] = `${max} caractères maximum.`;
   }
   return errors;
 }
@@ -88,6 +101,10 @@ function cleanInput(input: CustomerInput) {
     postalCode: input.postalCode.trim(),
     city: input.city.trim() || 'Marseille',
     complement: input.complement.trim(),
+    building: (input.building ?? '').trim(),
+    floor: (input.floor ?? '').trim(),
+    intercom: (input.intercom ?? '').trim(),
+    doorCode: (input.doorCode ?? '').trim(),
     instructions: input.instructions.trim(),
   };
 }
@@ -109,6 +126,10 @@ export function customerToInput(c: Customer): CustomerInput {
     postalCode: c.postalCode,
     city: c.city,
     complement: c.complement,
+    building: c.building,
+    floor: c.floor,
+    intercom: c.intercom,
+    doorCode: c.doorCode,
     instructions: c.instructions,
   };
 }
@@ -164,6 +185,10 @@ export function snapshotCustomer(c: Customer): CustomerSnapshot {
     postalCode: c.postalCode,
     city: c.city,
     complement: c.complement,
+    building: c.building,
+    floor: c.floor,
+    intercom: c.intercom,
+    doorCode: c.doorCode,
     instructions: c.instructions,
   };
 }

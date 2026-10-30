@@ -3,7 +3,7 @@ import { computeTotals } from './pricing';
 import { hasDeliveryAddress, snapshotCustomer } from './customers';
 import { isValidTimeOfDay } from './time';
 import { hasRewardWithoutPaidPizza, hasTooManyRewards, MAX_QUANTITY, ONE_REWARD_PER_ORDER, REWARD_NEEDS_PAID_PIZZA } from './cart';
-import { isLegacyUnpaid, isPaid, unpaid } from './payment';
+import { asPaymentPlan, isLegacyUnpaid, isPaid, planProblem, unpaid } from './payment';
 
 export const STATUS_FLOW: OrderStatus[] = ['a_preparer', 'en_preparation', 'prete', 'terminee'];
 
@@ -115,6 +115,9 @@ export function validateCart(cart: Cart, ctx: CartValidationContext): string[] {
     if (hasRewardWithoutPaidPizza(cart.lines)) errors.push(REWARD_NEEDS_PAID_PIZZA);
     if (hasTooManyRewards(cart.lines)) errors.push(ONE_REWARD_PER_ORDER);
   }
+  const plan = asPaymentPlan(cart.paymentPlan);
+  const planError = plan && planProblem(plan, computeTotals(cart.lines).total);
+  if (planError) errors.push(planError);
   return errors;
 }
 
@@ -141,6 +144,8 @@ export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
     lines: cart.lines.map((l) => ({ ...l, addedToppings: [...l.addedToppings], removedIngredients: [...l.removedIngredients] })),
     note: cart.note.trim(),
     totals,
+    // Paiement prévu : simple intention, sans effet sur le statut de paiement ni la fidélité.
+    paymentPlan: asPaymentPlan(cart.paymentPlan),
     updatedAt: p.nowIso,
   };
   if (p.previous) {
@@ -182,6 +187,7 @@ export function orderToCart(order: Order): Cart {
     requestedTime: order.requestedTime,
     lines: order.lines.map((l) => ({ ...l })),
     note: order.note,
+    paymentPlan: asPaymentPlan(order.paymentPlan),
   };
 }
 

@@ -19,6 +19,7 @@ export function emptyCart(draftId: string): Cart {
     requestedTime: null,
     lines: [],
     note: '',
+    paymentPlan: null,
   };
 }
 
