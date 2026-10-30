@@ -96,7 +96,7 @@ export function DeliveryTicketView({ ticket }: { ticket: DeliveryTicket }) {
             <span>DURÉE ESTIMÉE</span>
             <span>{ticket.trip.duration}</span>
           </p>
-          <p className="ticket__small">Estimation sans trafic · données © OpenStreetMap</p>
+          <p className="ticket__small">Estimation sans trafic · données © contributeurs OpenStreetMap (ODbL)</p>
         </>
       )}
       <hr />

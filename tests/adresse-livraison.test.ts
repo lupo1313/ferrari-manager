@@ -54,7 +54,7 @@ function setup(repo = createMemoryRepository()) {
   };
   const trip = async () => {
     const customer = store.getData().customers.find((c) => c.id === store.getData().cart.customerId)!;
-    const r = await computeScooterTrip(PIZZERIA, effectiveDeliveryAddress(store.getData().cart, customer), { fetchFn, routingUrl: 'https://r.test/route' });
+    const r = await computeScooterTrip(PIZZERIA, effectiveDeliveryAddress(store.getData().cart, customer), { fetchFn, routingUrl: 'https://r.test/route', minIntervalMs: 0 });
     if (!r.ok) throw new Error(r.message);
     const saved = store.setCartDeliveryTrip(r.trip);
     if (!saved.ok) throw new Error(saved.error);

@@ -16,6 +16,8 @@ export const DEFAULT_ROUTING_URL = 'https://valhalla1.openstreetmap.de/route';
 /** Vitesse maximale du profil scooter (km/h) : 45 = cyclomoteur, valeur par défaut de Valhalla. */
 export const SCOOTER_TOP_SPEED_KMH = 45;
 const TIMEOUT_MS = 10_000;
+/** Conditions du serveur public FOSSGIS : au plus une requête d'itinéraire par seconde. */
+export const MIN_ROUTING_INTERVAL_MS = 1000;
 /** En dessous, la correspondance d'adresse est jugée trop incertaine pour calculer un trajet. */
 const MIN_SCORE = 0.5;
 
@@ -48,6 +50,10 @@ export interface TripDeps {
   routingUrl?: string;
   now?: () => Date;
   isOnline?: () => boolean;
+  /** Horloge et attente injectables (tests) pour l'espacement des requêtes d'itinéraire. */
+  nowMs?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+  minIntervalMs?: number;
 }
 
 interface GeoPoint {
@@ -101,6 +107,15 @@ async function geocode(fetchFn: typeof fetch, query: string, postcode: string | 
 }
 
 const departCache = new Map<string, GeoPoint>();
+let lastRoutingAt = Number.NEGATIVE_INFINITY;
+
+/** Espace les requêtes d'itinéraire d'au moins MIN_ROUTING_INTERVAL_MS (appuis répétés sur « Recalculer »). */
+async function respectRoutingInterval(deps: TripDeps) {
+  const nowMs = deps.nowMs ?? (() => Date.now());
+  const wait = lastRoutingAt + (deps.minIntervalMs ?? MIN_ROUTING_INTERVAL_MS) - nowMs();
+  if (wait > 0) await (deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms))))(wait);
+  lastRoutingAt = nowMs();
+}
 
 /** Calcule le trajet en scooter de la pizzeria jusqu'à l'adresse de livraison. */
 export async function computeScooterTrip(pizzeriaAddress: string, destination: DeliveryAddress | null, deps: TripDeps = {}): Promise<TripResult> {
@@ -130,6 +145,7 @@ export async function computeScooterTrip(pizzeriaAddress: string, destination: D
       units: 'kilometers',
       directions_type: 'none',
     };
+    await respectRoutingInterval(deps);
     const { status, body } = await getJson(fetchFn, `${routingUrl}?json=${encodeURIComponent(JSON.stringify(request))}`);
     if (status === 429) return fail('quota');
     const summary = (body as { trip?: { summary?: { length?: unknown; time?: unknown } } } | null)?.trip?.summary;
@@ -158,4 +174,5 @@ export async function computeScooterTrip(pizzeriaAddress: string, destination: D
 /** Réservé aux tests : oublie la position de la pizzeria mémorisée. */
 export function resetTripCache() {
   departCache.clear();
+  lastRoutingAt = Number.NEGATIVE_INFINITY;
 }

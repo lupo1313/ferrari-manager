@@ -49,7 +49,7 @@ function setup(repo = createMemoryRepository()) {
   const store = createAppStore({ repo, catalog: demoCatalog, seed: buildDemoData, now: () => new Date('2026-10-30T19:00:00'), newId: (p) => `${p}_${++n}` });
   const jean = store.getData().customers.find((c) => c.lastName === 'Dupont')!;
   const get = (id: string) => store.getData().orders.find((o) => o.id === id)!;
-  const deps = (net: FakeNet) => ({ fetchFn: net.fetchFn, routingUrl: ROUTING, now: () => new Date('2026-10-30T19:00:00') });
+  const deps = (net: FakeNet) => ({ fetchFn: net.fetchFn, routingUrl: ROUTING, now: () => new Date('2026-10-30T19:00:00'), minIntervalMs: 0 });
   /** Saisie d'une livraison pour Jean Dupont, trajet calculé par le service (réseau simulé). */
   const deliveryWithTrip = async (net = fakeNet()) => {
     store.selectCustomer(jean.id);
@@ -86,6 +86,28 @@ describe('calcul du trajet en scooter', () => {
     // Géocodage du client filtré sur son code postal.
     const geo = net.calls.filter((u) => u.startsWith(GEOCODING_URL)).map((u) => new URL(u).searchParams);
     expect(geo.some((p) => p.get('postcode') === '13001' && p.get('q')!.includes('15 rue de Rome'))).toBe(true);
+  });
+
+  it('serveur public : au plus une requête d’itinéraire par seconde, même en recalculant vite', async () => {
+    const t = setup();
+    let clock = 0;
+    const waits: number[] = [];
+    const net = fakeNet();
+    const deps = {
+      fetchFn: net.fetchFn,
+      routingUrl: ROUTING,
+      nowMs: () => clock,
+      sleep: async (ms: number) => {
+        waits.push(ms);
+        clock += ms;
+      },
+    };
+    for (let i = 0; i < 3; i++) {
+      expect((await computeScooterTrip(PIZZERIA, t.jean, deps)).ok).toBe(true);
+      clock += 200; // nouvel appui 200 ms plus tard
+    }
+    expect(waits).toEqual([800, 800]);
+    expect(net.calls.filter((u) => u.startsWith(ROUTING))).toHaveLength(3);
   });
 
   it('formats : kilomètres à une décimale, minutes arrondies au-dessus', () => {

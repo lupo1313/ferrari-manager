@@ -74,7 +74,8 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
   - Modèle : `cart.deliveryAddress` (null = adresse habituelle) ; sur la commande, la copie client (`order.customer`) porte l'adresse et les consignes effectives, plus `addressOverridden: true` si ponctuelle. Aucun nouveau champ de commande : tickets, historique et anciennes versions lisent l'adresse au même endroit.
   - Trajet : calculé et validé sur l'adresse effective ; changement de rue, code postal ou ville = trajet retiré immédiatement (digicode, étage ou consignes seuls : trajet conservé, même itinéraire).
   - Commande rouverte : l'adresse réellement enregistrée est reprise (adresse ponctuelle si elle diffère de la fiche actuelle) ; abandon = commande inchangée. Changement de client : adresse ponctuelle et trajet remis à zéro (message) ; nouvelle commande : adresse habituelle.
-  - Liste des produits du panneau : hauteur minimale 100 px (au lieu de 120) pour que l'adresse ponctuelle tienne sur la tablette 1280×800 sans défilement.
+  - Liste des produits du panneau : hauteur minimale 90 px (au lieu de 120) pour que l'adresse ponctuelle tienne sur la tablette 1280×800 sans défilement.
+- **Conditions du serveur public FOSSGIS** (vérifiées le 30/10 sur fossgis.de) : attribution « © OpenStreetMap (ODbL) · signaler une erreur » avec les trois liens sous le résultat, et « données © contributeurs OpenStreetMap (ODbL) » sur le ticket ; au plus une requête d'itinéraire par seconde (espacement imposé dans ) ; une requête à la fois ; User-Agent et Referer envoyés par le navigateur. **Condition non remplie : adresse e-mail de l'exploitant visible sur le site** (à fournir par le gérant) ; usage commercial autorisé seulement si le service n'est pas une partie essentielle de l'offre.
 - **Limites** : estimation sans trafic en temps réel ; vitesses urbaines du modèle prudentes (2,2 km ≈ 13 min en centre-ville, proche de la voiture) ; profil cyclomoteur 45 km/h (un 125 cm³ va plus vite) ; serveur public FOSSGIS sans garantie de disponibilité, 1 requête/s.
 
 ## 2. Fonctionnalités opérationnelles
@@ -163,7 +164,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ## 4. Tests
 
-266 tests Vitest, tous réussis au 30/10 (branche `feat/intervention-6-trajets-scooter`) :
+267 tests Vitest, tous réussis au 30/10 (branche `feat/intervention-6-trajets-scooter`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -180,7 +181,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 | `modification-navigation.test.ts` (10) | Intervention 4B : client verrouillé pendant une modification (tous les chemins), annulation, abandon sans toucher la commande enregistrée, service fermé, commande encaissée modifiée service fermé, fidélité sans double crédit, contrat CSS des actions sur petit écran |
 | `commandes-cartes.test.ts` (19) | Action principale par statut, correction de statut (dont Terminée → En préparation : paiement, fidélité, produits préservés, retour dans « En cours »), actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
 | `tickets-paiements.test.ts` (33) | Intervention 5 : tickets cuisine et livreur (repères, champs absents, notes, personnalisations, payé, à encaisser, mode à confirmer, non affecté, anciennes commandes, frais historiques), réimpression sans modification, pas de doublon, espèces / carte / titres / mixte, montants incohérents, centimes, correction, modification et annulation d'une commande encaissée, fidélité sans double crédit, paiement prévu, service fermé, compatibilité (`method`, anciennes données, sauvegarde, clés, statistiques) |
-| `trajets.test.ts` (17) | Intervention 6 : profil motor_scooter (jamais voiture), formats, adresse introuvable / incertaine / incomplète, service indisponible, coupure, quota, aucun itinéraire, hors ligne, commande enregistrable sans trajet, ticket livreur avec trajet et ticket cuisine sans, réimpression et rechargement, modification d'adresse (trajet caduc), calcul terminé après changement de client ou de mode, passage à emporter, anciennes commandes, aucun impact paiement / fidélité / statistiques, sauvegarde |
+| `trajets.test.ts` (18) | Intervention 6 : profil motor_scooter (jamais voiture), une requête par seconde au plus, formats, adresse introuvable / incertaine / incomplète, service indisponible, coupure, quota, aucun itinéraire, hors ligne, commande enregistrable sans trajet, ticket livreur avec trajet et ticket cuisine sans, réimpression et rechargement, modification d'adresse (trajet caduc), calcul terminé après changement de client ou de mode, passage à emporter, anciennes commandes, aucun impact paiement / fidélité / statistiques, sauvegarde |
 | `adresse-livraison.test.ts` (19) | Adresse de livraison propre à la commande : adresse habituelle, adresse exceptionnelle, fiche inchangée, rechargement, ticket livreur (repères et consignes de la livraison, jamais ceux du domicile), formulaire vierge, trajet recalculé et ancien trajet invalidé, retour à l'adresse habituelle, commande existante, abandon, changement de client, nouvelle commande, commandes historiques, ticket cuisine, paiement / fidélité / statistiques, sauvegarde |
 | `sauvegarde.test.ts` (13) | Export à l'identique, aucune écriture (stockage espion), restauration possible, intégrité (fichier tronqué, modifié, résumé falsifié), données illisibles |
 

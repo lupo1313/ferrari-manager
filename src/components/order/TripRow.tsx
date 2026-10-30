@@ -47,10 +47,7 @@ export function TripRow({ customerId, address }: { customerId: string; address: 
       {trip ? (
         <span className="trip-row__result" title={trip.matchedLabel ? `Adresse reconnue : ${trip.matchedLabel}` : undefined}>
           <Icon name="check" size={16} /> Scooter : <strong>{formatDistance(trip.distanceM)}</strong> · <strong>{formatDuration(trip.durationS)}</strong>
-          {trip.approximate && <small> (numéro non trouvé, calcul sur la rue)</small>}
-          <a className="trip-row__credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
-            © OpenStreetMap
-          </a>
+          {trip.approximate && <small title="Numéro de rue non trouvé : calcul sur la rue."> (rue)</small>}
         </span>
       ) : error ? (
         <span className="trip-row__error">
@@ -62,6 +59,23 @@ export function TripRow({ customerId, address }: { customerId: string; address: 
       <button type="button" className="btn btn--sm trip-row__btn" onClick={calculate} disabled={busy}>
         {busy ? 'Calcul…' : trip ? 'Recalculer' : error ? 'Réessayer' : 'Calculer le trajet'}
       </button>
+      {trip && (
+        // Attribution exigée par la licence ODbL et les conditions du serveur public FOSSGIS.
+        <small className="trip-row__credit">
+          ©{' '}
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+            OpenStreetMap
+          </a>{' '}
+          (
+          <a href="https://opendatacommons.org/licenses/odbl/index.html" target="_blank" rel="noreferrer">
+            ODbL
+          </a>
+          ) ·{' '}
+          <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer">
+            signaler une erreur
+          </a>
+        </small>
+      )}
     </div>
   );
 }
