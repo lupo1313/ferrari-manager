@@ -542,3 +542,39 @@
   border-color: var(--red);
   background: radial-gradient(circle, var(--red) 0 45%, transparent 50%);
 }
+
+/* Sauvegarde des données (Paramètres) */
+.backup-result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.backup-result__ok {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.backup-result__summary {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+.backup-result__warn {
+  color: var(--red-ink);
+  font-weight: 600;
+}
+.backup-result__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.backup-result__actions .btn {
+  text-decoration: none;
+}

@@ -1,6 +1,6 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, après la mise en production des interventions 3 et 3.1.
+Dernière mise à jour : 30/10/2026, après la mise en production des interventions 3 et 3.1, puis de la sauvegarde des données (Paramètres).
 Ce document décrit ce qui existe **réellement** dans le code. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
 
 ## 1. En production
@@ -80,11 +80,12 @@ Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `mai
   - réglages absents : valeurs par défaut (son activé, « caisse ») ; l'ancien réglage `awardOn` est ignoré.
 - Compatibilité vérifiée le 30/10 sur un instantané réel de l'ancienne production : aucune alerte, aucune réécriture au chargement, commandes et points intacts.
 - Prévisualisation : clés `ferrari-manager-apercu-i3:*` (variable `VITE_STORAGE_NAMESPACE`), totalement séparées de la production, même origine.
-- **Limites** : données propres à chaque appareil et à chaque navigateur, sans synchronisation ni sauvegarde ; perdues si le navigateur est vidé ; deux onglets ouverts = le dernier qui écrit gagne.
+- **Sauvegarde** (Paramètres → « Sauvegarder mes données », `src/storage/export.ts`) : fichier JSON nommé avec la date et l'heure, contenant le texte exact de chaque clé `ferrari-manager:*` (historique et panier), la longueur et l'empreinte SHA-256 de chacune, et un résumé (commandes, encaissées, clients, fidélité, prochain numéro, état du service). Lecture seule : aucune écriture ni suppression. Le fichier est vérifié avant d'être proposé (empreintes, résumé, identité avec le stockage), puis téléchargé par un appui sur « Télécharger le fichier » (ou « Partager » si le navigateur le permet). Pas de fonction d'import à ce stade : une restauration consisterait à remettre ces textes dans les deux clés.
+- **Limites** : données propres à chaque appareil et à chaque navigateur, sans synchronisation ; perdues si le navigateur est vidé (sauf sauvegarde manuelle) ; deux onglets ouverts = le dernier qui écrit gagne.
 
 ## 4. Tests
 
-112 tests Vitest, tous réussis au 30/10 :
+125 tests Vitest, tous réussis au 30/10 :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -96,6 +97,7 @@ Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `mai
 | `store.test.ts` (9) | Parcours complet de validation |
 | `persistence.test.ts` (12), `storage.test.ts` (10) | Persistance, échecs d'écriture, données corrompues |
 | `apercu-isolation.test.ts` (4) | Isolation des clés de la prévisualisation |
+| `sauvegarde.test.ts` (13) | Export à l'identique, aucune écriture (stockage espion), restauration possible, intégrité (fichier tronqué, modifié, résumé falsifié), données illisibles |
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.
 
@@ -107,6 +109,6 @@ Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à 
 - Le ticket n'affiche pas le statut de paiement ; aucune imprimante thermique n'est pilotée.
 - Une commande encaissée puis modifiée reste « Encaissée » : un écart de montant se règle hors de l'appli.
 - Carte figée dans le code (`src/data/catalog.ts`, prix de démonstration) ; les entrées « Carte » et « Statistiques » de la maquette n'existent pas.
-- Pas d'authentification, pas de rôles, pas de suppression de fiche client (RGPD), pas de sauvegarde.
+- Pas d'authentification, pas de rôles, pas de suppression de fiche client (RGPD), sauvegarde manuelle uniquement (pas d'import ni de sauvegarde automatique).
 - Le README contient encore le parcours de validation et les « points à valider » de la V1 : à relire lors d'une future intervention.
 - Décisions encore ouvertes : liste définitive des pizzas éligibles, frais de livraison réels (le site annonce une livraison gratuite dans certains arrondissements).
