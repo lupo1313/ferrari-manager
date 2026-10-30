@@ -104,7 +104,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 ### Statistiques (module facultatif, intervention 4)
 - Onglet *Statistiques* entre Fidélité et Paramètres. Vues **Service / Jour / Semaine / Mois**, flèches pour remonter l'historique, retour au plus récent. Service clôturé consultable sans le rouvrir ; un nouveau service part de zéro.
 - Indicateurs : total encaissé (dominant, avec « avant / après la clôture »), commandes enregistrées et montant total, reste à encaisser, pizzas vendues (payantes, produits offerts à part), panier moyen, boissons, desserts, livraisons, à emporter, annulées.
-- Situations signalées à part : encaissements de services précédents, « Paiement non suivi », annulées après encaissement, anciennes commandes avec frais de livraison, bloc « Avant le suivi des services ».
+- Situations signalées à part : encaissements de services précédents, « Paiement non suivi », annulées après encaissement, anciennes commandes avec frais de livraison, bloc « Avant le suivi des services ». Sous « Reste à encaisser », le libellé distingue les commandes en attente de paiement et les anciennes au paiement non suivi ; « Tout est encaissé » n’apparaît que si toutes les commandes le sont (`dueHint`).
 - Graphique SVG maison (sans bibliothèque) : commandes enregistrées et encaissements confirmés par heure, axe continu après minuit, pic d'activité. Tableau équivalent pour les lecteurs d'écran.
 - Meilleures ventes : top 5 pizzas, boissons, desserts, par quantité ou montant (hors suppléments), « Voir tout ».
 - Avertissement permanent : chiffres indicatifs, ni caisse ni comptabilité certifiée.
@@ -134,7 +134,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ## 4. Tests
 
-193 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
+197 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -147,7 +147,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 | `persistence.test.ts` (12), `storage.test.ts` (10) | Persistance, échecs d'écriture, données corrompues |
 | `apercu-isolation.test.ts` (4) | Isolation des clés de la prévisualisation |
 | `services.test.ts` (17) | Historique des services, rattachement, anciennes données sans réécriture, livraison offerte, module masquable |
-| `statistiques.test.ts` (22) | Indicateurs, quantités, cadeaux, annulations (dont après encaissement), modifications, encaissements tardifs, minuit, changement d'heure, anciennes données, jour/semaine/mois, lecture seule |
+| `statistiques.test.ts` (26) | Indicateurs, libellé « Reste à encaisser » (encaissées, en attente, non suivies), quantités, cadeaux, annulations (dont après encaissement), modifications, encaissements tardifs, minuit, changement d'heure, anciennes données, jour/semaine/mois, lecture seule |
 | `modification-navigation.test.ts` (10) | Intervention 4B : client verrouillé pendant une modification (tous les chemins), annulation, abandon sans toucher la commande enregistrée, service fermé, commande encaissée modifiée service fermé, fidélité sans double crédit, contrat CSS des actions sur petit écran |
 | `commandes-cartes.test.ts` (19) | Action principale par statut, correction de statut (dont Terminée → En préparation : paiement, fidélité, produits préservés, retour dans « En cours »), actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
 | `sauvegarde.test.ts` (13) | Export à l'identique, aucune écriture (stockage espion), restauration possible, intégrité (fichier tronqué, modifié, résumé falsifié), données illisibles |

@@ -3,7 +3,7 @@ import monogram from '../../assets/monogram-ferrari.webp';
 import { Icon, type IconName } from '../../components/ui/Icon';
 import { useAppSelector } from '../../state/StoreContext';
 import { formatPrice } from '../../domain/money';
-import { availablePeriods, computePeriodStats, hasOrdersBeforeTracking, periodLabel, type Period, type PeriodKind, type PeriodStats } from './calculs';
+import { availablePeriods, computePeriodStats, dueHint, hasOrdersBeforeTracking, periodLabel, type Period, type PeriodKind, type PeriodStats } from './calculs';
 import { HourlyChart } from './HourlyChart';
 import { BestSellers } from './BestSellers';
 import './statistiques.css';
@@ -123,7 +123,7 @@ export default function StatistiquesPage() {
               icon="clock"
               label="Reste à encaisser"
               value={formatPrice(stats.due)}
-              hint={stats.dueCount ? `${stats.dueCount} commande${s(stats.dueCount)} non encaissée${s(stats.dueCount)}` : 'Tout est encaissé'}
+              hint={dueHint(stats)}
               tone={stats.due > 0 ? 'warn' : undefined}
             />
             <Kpi

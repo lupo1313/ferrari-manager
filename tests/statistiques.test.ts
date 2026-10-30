@@ -9,6 +9,7 @@ import {
   availablePeriods,
   computePeriodStats,
   dayKey,
+  dueHint,
   hasOrdersBeforeTracking,
   monthKey,
   periodLabel,
@@ -406,5 +407,41 @@ describe('statistiques : jour, semaine, mois', () => {
     expect(s.pizzas).toBe(2);
     // Vue service : chacun le sien.
     expect(t.stats().orderCount).toBe(1);
+  });
+});
+
+describe('libellé « Reste à encaisser » : encaissées, en attente et non suivies distinguées', () => {
+  const hint = (orderCount: number, dueCount: number, untracked: number) => dueHint({ orderCount, dueCount, untracked: { count: untracked, amount: 0 } });
+
+  it('« Tout est encaissé » uniquement si aucune commande n’est en attente ni au paiement non suivi', () => {
+    expect(hint(3, 0, 0)).toBe('Tout est encaissé');
+    expect(hint(0, 0, 0)).toBe('Aucune commande');
+  });
+
+  it('anciennes commandes sans suivi : jamais présentées comme encaissées', () => {
+    expect(hint(4, 0, 4)).toBe('Aucune en attente · 4 anciennes au paiement non suivi');
+    expect(hint(2, 0, 1)).toBe('Aucune en attente · 1 ancienne au paiement non suivi');
+  });
+
+  it('commandes en attente, seules ou avec des anciennes non suivies', () => {
+    expect(hint(2, 1, 0)).toBe('1 commande en attente de paiement');
+    expect(hint(5, 2, 3)).toBe('2 commandes en attente de paiement · 3 anciennes au paiement non suivi');
+  });
+
+  it('données au format d’avant le suivi des paiements : jamais « Tout est encaissé »', () => {
+    const now = () => new Date('2026-10-30T19:00:00');
+    const repo = createMemoryRepository();
+    createAppStore({ repo, catalog: demoCatalog, seed: buildDemoData, now });
+    // Les commandes de démonstration deviennent d'anciennes commandes sans suivi de paiement (format d'avant l'intervention 3).
+    const doc = JSON.parse(repo.raw()!);
+    for (const o of doc.orders) delete o.payment;
+    const legacy = createAppStore({ repo: createMemoryRepository(doc), catalog: demoCatalog, seed: buildDemoData, now });
+    const d = legacy.getData();
+    const period = availablePeriods('service', d.services, hasOrdersBeforeTracking(d.orders, d.services))[0];
+    const stats = computePeriodStats(period, d.orders, d.services, '2026-10-30T19:00:00.000Z');
+    expect(stats.dueCount).toBe(0);
+    expect(stats.untracked.count).toBe(d.orders.length);
+    expect(dueHint(stats)).not.toContain('Tout est encaissé');
+    expect(dueHint(stats)).toContain('au paiement non suivi');
   });
 });

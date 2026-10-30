@@ -115,6 +115,21 @@ export function periodLabel(period: Period): string {
   return capitalize(monthFormat.format(fromKey(period.key)));
 }
 
+const plural = (n: number) => (n > 1 ? 's' : '');
+
+/**
+ * Sous-titre de « Reste à encaisser » : distingue les commandes en attente de paiement et les anciennes
+ * commandes au paiement non suivi. « Tout est encaissé » seulement si toutes les commandes le sont vraiment.
+ */
+export function dueHint(stats: Pick<PeriodStats, 'orderCount' | 'dueCount' | 'untracked'>): string {
+  const due = stats.dueCount;
+  const old = stats.untracked.count;
+  const untracked = `${old} ancienne${plural(old)} au paiement non suivi`;
+  if (due > 0) return `${due} commande${plural(due)} en attente de paiement${old > 0 ? ` · ${untracked}` : ''}`;
+  if (old > 0) return `Aucune en attente · ${untracked}`;
+  return stats.orderCount > 0 ? 'Tout est encaissé' : 'Aucune commande';
+}
+
 /* ---------- Indicateurs ---------- */
 
 export interface RankedProduct {
