@@ -45,6 +45,7 @@ export const CustomerPanel = memo(function CustomerPanel() {
   const select = (c: Customer) => {
     const r = store.selectCustomer(c.id);
     if (r.ok && r.value.removedRewards > 0) toast('Les récompenses du client précédent ont été retirées de la commande.', 'info');
+    if (r.ok && r.value.addressReset) toast('Adresse ponctuelle retirée : adresse habituelle du nouveau client utilisée.', 'info');
     setQuery('');
   };
 

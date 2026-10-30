@@ -5,6 +5,7 @@ import { formatPrice } from './money';
 import { MODE_LABELS } from './orders';
 import { asPaymentPlan, isLegacyUnpaid, isPaid, paidGap, paidTenders, planBreakdown, TENDER_LABELS } from './payment';
 import { formatDate, formatTime, formatTimeOfDay } from './time';
+import { formatDistance, formatDuration, validTripFor } from './trip';
 
 /**
  * Deux documents distincts, indépendants de l'affichage (le même modèle servira en V2 à générer
@@ -83,6 +84,8 @@ export interface DeliveryTicket extends TicketHeader {
     details: { label: string; value: string }[];
     instructions: string | null;
   } | null;
+  /** Trajet en scooter calculé pour l'adresse de la commande ; null si non calculé ou caduc. */
+  trip: { distance: string; duration: string } | null;
   lines: DeliveryLine[];
   itemCount: number;
   total: string;
@@ -188,6 +191,10 @@ export function buildDeliveryTicket(order: Order, settings: Settings): DeliveryT
           instructions: c.instructions.trim() || null,
         }
       : null,
+    trip: (() => {
+      const t = validTripFor(order.deliveryTrip, order.mode, c);
+      return t ? { distance: formatDistance(t.distanceM), duration: formatDuration(t.durationS) } : null;
+    })(),
     lines: order.lines.map((l) => ({ quantity: l.quantity, name: l.name, offered: l.reward !== null })),
     itemCount: order.lines.reduce((s, l) => s + l.quantity, 0),
     total: formatPrice(order.totals.total),

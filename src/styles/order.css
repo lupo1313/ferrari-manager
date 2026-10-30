@@ -11,7 +11,7 @@
 .order-panel__settings {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
   flex: none;
@@ -29,6 +29,83 @@
 .delivery-line--warn {
   color: var(--red-ink);
   font-weight: 600;
+}
+/* Adresse de livraison de la commande : modifiable sans toucher à la fiche client. */
+.delivery-address {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.delivery-line__text {
+  flex: 1;
+  min-width: 0;
+}
+.delivery-line__edit {
+  flex: none;
+  min-height: 44px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.delivery-address--ponctual {
+  gap: 0;
+  padding-left: 8px;
+  border-left: 4px solid var(--gold);
+  border-radius: var(--radius-s);
+  background: var(--gold-soft);
+}
+.delivery-address--ponctual .delivery-line {
+  color: var(--text);
+}
+.delivery-line__badge {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  color: var(--gold-ink);
+}
+/* Trajet en scooter (ticket livreur) : une ligne discrète sous l'adresse. */
+.trip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.trip-row > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.trip-row > span > svg {
+  flex: none;
+}
+.trip-row__result {
+  color: var(--green-ink);
+}
+.trip-row__result strong {
+  color: var(--text);
+}
+.trip-row__error {
+  color: var(--red-ink);
+  font-weight: 600;
+}
+.trip-row__credit {
+  flex-basis: 100%;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--text-3);
+}
+.trip-row__credit a {
+  color: inherit;
+  text-decoration: underline;
+}
+.trip-row__btn {
+  flex: none;
+  min-height: 44px;
 }
 .time-row {
   display: flex;
@@ -83,7 +160,7 @@
 
 .order-panel__lines {
   flex: 1;
-  min-height: 120px;
+  min-height: 90px;
   padding: 4px 14px 12px;
 }
 .cart-lines {

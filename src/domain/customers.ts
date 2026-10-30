@@ -55,7 +55,7 @@ export function customerFullName(c: Pick<Customer, 'firstName' | 'lastName'>): s
   return `${c.firstName} ${c.lastName}`.trim();
 }
 
-const LIMITS: Partial<Record<keyof CustomerInput, number>> = {
+export const CUSTOMER_FIELD_LIMITS: Partial<Record<keyof CustomerInput, number>> = {
   firstName: 60,
   lastName: 60,
   address: 160,
@@ -82,7 +82,7 @@ export function validateCustomerInput(input: CustomerInput): CustomerFieldErrors
   if (input.postalCode.trim() && !input.address.trim()) {
     errors.address = "Indiquez l'adresse correspondant au code postal.";
   }
-  for (const [field, max] of Object.entries(LIMITS) as [keyof CustomerInput, number][]) {
+  for (const [field, max] of Object.entries(CUSTOMER_FIELD_LIMITS) as [keyof CustomerInput, number][]) {
     if ((input[field] ?? '').trim().length > max) errors[field] = `${max} caractères maximum.`;
   }
   return errors;

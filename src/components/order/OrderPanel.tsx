@@ -8,6 +8,8 @@ import { TimePickerModal } from './TimePickerModal';
 import { CustomizeModal } from '../catalog/CustomizeModal';
 import { TicketModal } from '../ticket/TicketModal';
 import { PaymentPlanDialog } from '../orders/PaymentPlanDialog';
+import { TripRow } from './TripRow';
+import { DeliveryAddressModal } from './DeliveryAddressModal';
 import { computeTotals, rewardSavings } from '../../domain/pricing';
 import { hasRewardWithoutPaidPizza, itemCount, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
 import { asPaymentPlan, isPaid, planBreakdown, TENDER_LABELS } from '../../domain/payment';
@@ -15,6 +17,7 @@ import { SERVICE_CLOSED_MESSAGE } from '../../domain/orders';
 import { formatPrice } from '../../domain/money';
 import { formatTimeOfDay } from '../../domain/time';
 import { hasDeliveryAddress } from '../../domain/customers';
+import { asDeliveryAddress, effectiveDeliveryAddress, emptyDeliveryAddress } from '../../domain/delivery';
 import type { OrderLine } from '../../domain/types';
 
 interface OrderPanelProps {
@@ -32,6 +35,7 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
 
   const [timeOpen, setTimeOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
+  const [addressOpen, setAddressOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(cart.note !== '');
   const [confirmClear, setConfirmClear] = useState(false);
   const [customizing, setCustomizing] = useState<OrderLine | null>(null);
@@ -73,8 +77,16 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
       : planBreakdown(plan, totals.total).excess > 0
         ? 'Mixte · à corriger'
         : 'Mixte';
+  // Adresse de livraison de CETTE commande : ponctuelle si saisie, sinon l'adresse habituelle de la fiche.
+  const deliveryAddress = effectiveDeliveryAddress(cart, customer);
+  const ponctual = asDeliveryAddress(cart.deliveryAddress) !== null;
   const deliveryProblem =
-    cart.mode === 'livraison' && (!customer ? 'Sélectionnez un client pour la livraison.' : !hasDeliveryAddress(customer) ? 'Adresse du client incomplète.' : null);
+    cart.mode === 'livraison' &&
+    (!customer ? 'Sélectionnez un client pour la livraison.' : !deliveryAddress || !hasDeliveryAddress(deliveryAddress) ? 'Adresse de livraison incomplète.' : null);
+  const useHabitualAddress = () => {
+    const r = store.setCartDeliveryAddress(null);
+    toast(r.ok ? 'Adresse habituelle du client rétablie' : r.error, r.ok ? 'info' : 'error');
+  };
 
   /** Protection double clic : verrou synchrone + validation idempotente côté store. */
   const validate = (print: boolean) => {
@@ -142,10 +154,32 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
           </button>
         </div>
         {cart.mode === 'livraison' && (
-          <p className={`delivery-line ${deliveryProblem ? 'delivery-line--warn' : ''}`}>
-            <Icon name={deliveryProblem ? 'alert' : 'pin'} size={16} />
-            {deliveryProblem ?? `${customer!.address}, ${customer!.postalCode} ${customer!.city}`}
-          </p>
+          <div className={`delivery-address ${ponctual ? 'delivery-address--ponctual' : ''}`}>
+            <p className={`delivery-line ${deliveryProblem ? 'delivery-line--warn' : ''}`}>
+              <Icon name={deliveryProblem ? 'alert' : 'pin'} size={16} />
+              <span className="delivery-line__text">
+                {deliveryProblem ?? `${deliveryAddress!.address}, ${deliveryAddress!.postalCode} ${deliveryAddress!.city}`}
+              </span>
+              {customer && (
+                <button type="button" className="btn btn--sm delivery-line__edit" onClick={() => setAddressOpen(true)}>
+                  Modifier l’adresse
+                </button>
+              )}
+            </p>
+            {ponctual && (
+              <p className="delivery-line delivery-line--ponctual">
+                <span className="delivery-line__badge" title="Pour cette commande seulement : la fiche client n’est pas modifiée.">
+                  Adresse ponctuelle
+                </span>
+                <button type="button" className="btn btn--sm btn--ghost delivery-line__edit" onClick={useHabitualAddress}>
+                  Utiliser l’adresse habituelle
+                </button>
+              </p>
+            )}
+          </div>
+        )}
+        {cart.mode === 'livraison' && !deliveryProblem && customer && deliveryAddress && (
+          <TripRow customerId={customer.id} address={deliveryAddress} />
         )}
         <div className={`order-panel__when-pay ${showPlan ? '' : 'order-panel__when-pay--single'}`}>
           <button type="button" className="time-row" onClick={() => setTimeOpen(true)} aria-label="Heure souhaitée, changer">
@@ -329,6 +363,21 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
             setNoteOpen(false);
             setConfirmClear(false);
             toast(editing ? 'Modification abandonnée' : 'Commande vidée', 'info');
+          }}
+        />
+      )}
+      {addressOpen && customer && deliveryAddress && (
+        <DeliveryAddressModal
+          customer={customer}
+          // Nouvelle adresse ponctuelle : formulaire vierge, pour ne jamais reprendre par erreur les repères
+          // et consignes du domicile habituel. Adresse ponctuelle déjà saisie : reprise pour correction.
+          initial={ponctual ? deliveryAddress : emptyDeliveryAddress(deliveryAddress.city)}
+          onClose={() => setAddressOpen(false)}
+          onSave={(address) => {
+            const r = store.setCartDeliveryAddress(address);
+            if (!r.ok) return r.fieldErrors ?? { address: r.error };
+            toast(r.value.usesHabitual ? 'Adresse identique à la fiche : adresse habituelle utilisée' : 'Adresse de livraison enregistrée pour cette commande', 'success');
+            return null;
           }}
         />
       )}

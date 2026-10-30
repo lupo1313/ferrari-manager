@@ -20,6 +20,8 @@ export function emptyCart(draftId: string): Cart {
     lines: [],
     note: '',
     paymentPlan: null,
+    deliveryTrip: null,
+    deliveryAddress: null,
   };
 }
 

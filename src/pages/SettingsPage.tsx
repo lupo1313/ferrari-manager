@@ -6,6 +6,7 @@ import { useAppData, useStore } from '../state/StoreContext';
 import { formatPrice } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
 import { PAYMENT_SOUND_KINDS, PAYMENT_SOUND_LABELS, paymentSound, type PaymentSoundKind } from '../audio/paymentSound';
+import { OPERATOR_CONTACT_EMAIL } from '../services/trajet';
 import {
   backupFileName,
   backupToText,
@@ -324,6 +325,32 @@ export function SettingsPage() {
         </section>
 
         <BackupCard />
+
+        {/* Mentions exigées par les conditions du serveur public FOSSGIS et la licence OpenStreetMap. */}
+        <section className="card settings-grid__wide">
+          <h2 className="card__title">
+            <Icon name="truck" /> Calcul des trajets de livraison
+          </h2>
+          <p>
+            Distance et durée en scooter calculées avec le serveur public d’itinéraires du FOSSGIS e.V. (Valhalla) et la Base Adresse
+            Nationale (IGN). Données ©{' '}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+              contributeurs OpenStreetMap
+            </a>{' '}
+            (
+            <a href="https://opendatacommons.org/licenses/odbl/index.html" target="_blank" rel="noreferrer">
+              ODbL
+            </a>
+            ),{' '}
+            <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer">
+              signaler une erreur
+            </a>
+            .
+          </p>
+          <p>
+            Contact technique de l’exploitant : <a href={`mailto:${OPERATOR_CONTACT_EMAIL}`}>{OPERATOR_CONTACT_EMAIL}</a>
+          </p>
+        </section>
 
         <section className="card settings-grid__wide card--danger">
           <h2 className="card__title">
