@@ -1,7 +1,17 @@
 # Feuille de route Ferrari Manager
 
-Mise à jour le 30/10/2026, après la mise en production de l'intervention 6. L'état actuel de chaque sujet est décrit dans `docs/ETAT_PROJET.md` ; ce document ne liste que ce qui reste à faire et les décisions en attente.
+Mise à jour le 31/10/2026 : tests manuels sur la tablette Samsung intégrés (`docs/ETAT_PROJET.md`, section 4) et décisions produit du 31/10 enregistrées. L'état actuel de chaque sujet est décrit dans `docs/ETAT_PROJET.md` ; ce document ne liste que ce qui reste à faire et les décisions en attente.
 Chaque intervention suit les règles de `CLAUDE.md` : branche dédiée, tests, validation sur la prévisualisation, puis mise en production après accord. **Aucune intervention n'est en cours** ; ne pas commencer l'intervention 7 sans demande explicite du gérant.
+
+## Décisions produit du 31/10/2026 (non développées)
+
+Ordre de démarrage annoncé : la barre latérale rétractable en premier. Le découpage en interventions est une **proposition en attente de validation**.
+
+- **A · Barre latérale rétractable** : menu ouvert = logo principal ; menu fermé = monogramme PF et icônes seules ; dépliage/repliage manuel ; repli automatique après la sélection d'un client, sans saut de mise en page ; préférence mémorisée ; l'espace libéré profite aux trois colonnes. Logos existants (ne pas les recréer) : `Bureau/Pizza Ferrari/logo/` (le dossier s'appelle « Pizza Ferrari ») ; déjà intégrés en V1 sous `src/assets/logo-ferrari.webp` (462×160, issu de « Logo Pizzeria Ferrari Italienne.png ») et `src/assets/monogram-ferrari.webp` (512×512, issu de « Monogramme Pizza Italienne Doré.png »).
+- **B · Gestion de la carte depuis Paramètres** : ajouter, modifier (nom, ingrédients, catégorie, prix), désactiver et réactiver pizzas, boissons, desserts ; gérer les suppléments et leurs tarifs. Les commandes enregistrées ne doivent jamais être altérées. Carte actuelle provisoire, vraie carte fournie plus tard.
+- **C · Rapport PDF de fin de service** : total encaissé, nombre de commandes, panier moyen, quantités, meilleures ventes, répartition par moyen de paiement, livraison / emporter, annulations, horaires d'activité ; lisible sur ordinateur, enregistrable sur clé USB.
+- **D · Nouvelle clôture** : « Télécharger le rapport PDF et clôturer » ou « Clôturer sans télécharger » (téléchargement facultatif). Après clôture : CA et statistiques du nouveau service à zéro, aucune donnée financière du service précédent visible dans l'interface courante ; clients, fidélité (compteurs et récompenses), carte, paramètres et commandes non terminées conservés.
+- **E · Infrastructure** : migration Supabase **reportée** ; l'architecture locale actuelle est conservée. Sauvegarde **et restauration** à fiabiliser avant l'utilisation quotidienne (l'import n'existe pas encore).
 
 ## Déjà en production (rappel)
 
@@ -9,9 +19,9 @@ Interventions 1 à 3.1 (stockage protégé, persistance, encaissement et fidéli
 
 ## Priorité 1 · Stabiliser la version en production
 
-1. **Tests sur tablette Samsung en paysage** : lisibilité, tailles tactiles, clavier (téléphone, adresse, notes), son (volume, mode silencieux), « Ajouter à l'écran d'accueil », comportement après mise en veille et redémarrage, panneau Commande sans défilement (adresse ponctuelle comprise), trajet en scooter.
-2. **Impression physique des tickets** : sortie papier réelle des tickets cuisine et livreur (80 mm), « Imprimer les deux » (découpe entre les tickets selon l'imprimante), lisibilité en monochrome, réimpression.
-3. **Validation du parcours complet** en conditions de service : ouvrir le service, commande téléphone avec livraison (adresse habituelle puis ponctuelle, trajet), commande comptoir, cadeau fidélité, paiement prévu, modification, encaissement simple et mixte, annulation, fermeture du service, sauvegarde JSON.
+1. **Tests sur tablette Samsung en paysage** : *premier test manuel réussi* (Galaxy TabPro S, Windows 10, Edge : commandes, statuts, encaissement, statistiques, clôture/réouverture, clients, aperçu des tickets, impression PDF, export JSON sur clé USB ; détail dans `docs/ETAT_PROJET.md`, 4.2). Restent : largeur réelle de la fenêtre d'Edge, cycle complet de fidélité, clavier (téléphone, adresse, notes), son (volume, mode silencieux), mise en veille et redémarrage, coupure de connexion, trajet en scooter, adresse ponctuelle, paiements mixtes.
+2. **Impression physique des tickets** : Microsoft Print to PDF réussi ; reste la sortie papier réelle des tickets cuisine et livreur (80 mm), « Imprimer les deux » (découpe entre les tickets selon l'imprimante), lisibilité en monochrome, réimpression.
+3. **Validation du parcours complet** en conditions de service : ouvrir le service, commande téléphone avec livraison (adresse habituelle puis ponctuelle, trajet), commande comptoir, cadeau fidélité, paiement prévu, modification, encaissement simple et mixte, annulation, fermeture du service, sauvegarde JSON. Non réalisée à ce jour.
 4. **Mettre à jour la prévisualisation** au niveau de la production (elle sert `a913a77`, sans le contact de l'exploitant) lors de la prochaine intervention.
 
 Livrable attendu : une liste de corrections, sans nouvelle fonctionnalité.
@@ -48,7 +58,7 @@ Livrable attendu : une liste de corrections, sans nouvelle fonctionnalité.
 
 1. **Préparer la persistance réelle et la synchronisation** : tablette et PC partagent les mêmes données, sauvegardes automatiques. Points techniques déjà identifiés : `README.md`, section *Persistance locale*, « À reprendre côté serveur en V2 ».
 2. **Saturation du stockage local** (environ 55 services de 50 commandes, quota partagé avec les autres sites `lupo1313.github.io`) : purge validée des anciennes commandes ou base distante ; import d'une sauvegarde JSON (non développé) ; conserver les bilans des services avant toute purge.
-3. **Passage éventuel à Supabase** : réimplémenter `AppRepository` en asynchrone, calcul du prix et de la fidélité côté serveur, numérotation par séquence, unicité du téléphone. Migration des données locales existantes à concevoir sans perte.
+3. **Passage éventuel à Supabase** (**reporté**, décision du 31/10) : réimplémenter `AppRepository` en asynchrone, calcul du prix et de la fidélité côté serveur, numérotation par séquence, unicité du téléphone. Migration des données locales existantes à concevoir sans perte.
 4. **Préparer l'utilisation quotidienne** : remplacer la carte de démonstration par la vraie carte et les vrais prix, authentification du personnel, conformité RGPD (conservation, suppression des fiches), fournisseur de trajet adapté à un usage commercial. Ce n'est qu'à cette étape que de vraies données clients pourront être saisies.
 5. **Remettre à jour le README** (parcours de validation et « points à valider » de la V1 dépassés).
 

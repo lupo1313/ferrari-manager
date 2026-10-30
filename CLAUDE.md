@@ -15,7 +15,7 @@ Application de **prise de commandes** pour la Pizzeria Ferrari (Marseille), util
 
 **Livraison toujours offerte** (règle définitive) : 0 €, sans exception, aucun réglage (`DELIVERY_FEE` dans `domain/pricing.ts`), quelle que soit la distance. Les anciennes commandes gardent leurs frais figés.
 
-**Version de test** : données fictives, pas d'exploitation commerciale réelle tant que le gérant ne l'a pas décidé (tablette Samsung et impression physique encore à valider).
+**Version de test** : données fictives, pas d'exploitation commerciale réelle tant que le gérant ne l'a pas décidé. Tablette Samsung (Galaxy TabPro S, Windows 10, Edge) testée manuellement sur les fonctions principales le 31/10, sans validation exhaustive ; impression thermique, restauration d'une sauvegarde, cycle complet de fidélité, coupure de connexion et parcours réel restent à valider (`docs/ETAT_PROJET.md`, section 4). Ne jamais présenter un test manuel partiel comme une validation complète.
 
 ## Stack
 

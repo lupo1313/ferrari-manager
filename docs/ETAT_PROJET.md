@@ -1,6 +1,6 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, après la mise en production de l'intervention 6 (trajets en scooter, adresse de livraison de la commande ; fusion `c8cf885`). **Aucune intervention en cours** ; la suite est dans `docs/ROADMAP.md`.
+Dernière mise à jour : 31/10/2026, intégration des tests manuels réalisés sur la tablette Samsung (section 4.2), sans changement de code depuis la mise en production de l'intervention 6 (fusion `c8cf885`). **Aucune intervention en cours** ; la suite est dans `docs/ROADMAP.md`.
 Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 
 ## 1. En production
@@ -61,7 +61,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - **Encaissement confirmé** : Espèces, Carte bancaire, Titres-restaurant en un appui (montant = total), « Paiement mixte… » (montants par moyen, bouton « Reste », confirmation seulement si la somme égale le total), « Non précisé ». Détail enregistré dans `payment.tenders` ; **tout ou rien** (pas d'encaissement partiel, pas de rendu de monnaie). Fidélité, annulations et statistiques inchangées.
 - **Compatibilité** : `payment.method` garde ses trois valeurs (espèces, carte, non précisé), seules relues par la version précédente (une valeur inconnue y ferait passer la commande en « Paiement non suivi », puis serait réécrite) ; titres-restaurant et mixte y sont résumés par « non_precise », le détail est dans `tenders`.
 - **Fiche client** : bâtiment, étage, interphone, digicode (facultatifs), à côté du complément ; complétés à vide en mémoire pour les anciennes fiches, sans réécriture. Le texte existant du complément n'est pas découpé.
-- Vérifié dans Chromium (1280×800, 844×340, 390×750, 1440×900), sur la sauvegarde réelle de l'iPhone et sur des données au format de la production `752d3f3` (tests temporaires : aucune réécriture, statistiques et fidélité identiques), puis validé par le gérant sur Safari iPhone (prévisualisation). **Impression physique et tablette réelle non vérifiées.**
+- Vérifié dans Chromium (1280×800, 844×340, 390×750, 1440×900), sur la sauvegarde réelle de l'iPhone et sur des données au format de la production `752d3f3` (tests temporaires : aucune réécriture, statistiques et fidélité identiques), puis validé par le gérant sur Safari iPhone (prévisualisation). Sur la tablette Samsung : aperçu des tickets et impression vers Microsoft Print to PDF réussis (section 4.2). **Impression thermique réelle, paiement mixte et titres-restaurant sur la tablette non vérifiés.**
 - Décisions par défaut (réversibles) : pas d'encaissement partiel ; montant supérieur au total refusé (pas de rendu de monnaie) ; commande encaissée puis modifiée = reste encaissée, écart affiché ; consignes client sur le ticket livreur seulement ; pas de statistiques par moyen de paiement.
 
 ### Intervention 6 (en production depuis le 30/10)
@@ -70,7 +70,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - **Calcul** (`services/trajet.ts`) : géocodage par la Base Adresse Nationale (Géoplateforme IGN, `data.geopf.fr/geocodage`, service public gratuit, sans clé ; filtre sur le code postal ; correspondance refusée sous un score de 0,5 ; rue seule acceptée et signalée « numéro non trouvé ») puis itinéraire **Valhalla, profil `motor_scooter`** (deux-roues motorisé, vitesse plafonnée à 45 km/h, voies interdites aux cyclomoteurs évitées). Départ : adresse de la pizzeria des Paramètres (« 178 rue Ferrari, 13005 Marseille »), géocodée puis mémorisée pendant la session. Aucune clé API dans le code ; serveur Valhalla configurable au build (`VITE_ROUTING_URL`), par défaut le serveur public FOSSGIS `valhalla1.openstreetmap.de`.
 - **Interface** : sous l'adresse de livraison du panier, « Calculer le trajet » (états « Calcul… », résultat « Scooter : 2,2 km · 13 min », « Recalculer », message d'erreur court + « Trajet facultatif »). Jamais bloquant : adresse incomplète ou introuvable, service indisponible, quota, hors ligne → message, commande enregistrable, ticket sans trajet. Aucune valeur inventée.
 - **Données** : `cart.deliveryTrip` et `order.deliveryTrip` (distance en mètres, durée en secondes, clé de l'adresse utilisée, adresse reconnue, date, source). Le trajet n'est utilisé que si la commande est une livraison **et** que la clé correspond à l'adresse copiée sur la commande : adresse modifiée → trajet caduc (jamais réimprimé), recalcul possible ; passage à emporter → aucun trajet. Champ facultatif, absent des anciennes commandes, sans réécriture au chargement ; inclus dans la sauvegarde JSON.
-- Vérifié en réel dans Chromium (calcul effectif depuis l'aperçu local, adresse introuvable, impression), 1280×800, 844×340, 390×750, et sur la sauvegarde réelle de l'iPhone (test temporaire). Validé par le gérant sur Safari iPhone (prévisualisation) ; compatibilité vérifiée avant fusion sur la sauvegarde réelle et sur des données au format de la production `de88a7c` (commandes, statistiques et tickets identiques). Décisions : profil `motor_scooter` sans distinction 50/125 cm³ ; serveur public FOSSGIS conservé pour la version de test. **Tablette Samsung et impression physique non vérifiées.**
+- Vérifié en réel dans Chromium (calcul effectif depuis l'aperçu local, adresse introuvable, impression), 1280×800, 844×340, 390×750, et sur la sauvegarde réelle de l'iPhone (test temporaire). Validé par le gérant sur Safari iPhone (prévisualisation) ; compatibilité vérifiée avant fusion sur la sauvegarde réelle et sur des données au format de la production `de88a7c` (commandes, statistiques et tickets identiques). Décisions : profil `motor_scooter` sans distinction 50/125 cm³ ; serveur public FOSSGIS conservé pour la version de test. **Trajet et adresse ponctuelle non testés sur la tablette Samsung ; impression thermique non vérifiée.**
 - **Adresse de livraison propre à la commande** (correctif du 30/10, `domain/delivery.ts`) : sous « Livraison », l'adresse effective est affichée avec « Modifier l'adresse » (formulaire dédié : adresse, code postal, ville, bâtiment, étage, interphone, digicode, complément, consignes de cette livraison ; mêmes contrôles que la fiche, **fiche client jamais modifiée**). Une adresse ponctuelle est signalée (« Adresse ponctuelle ») avec « Utiliser l'adresse habituelle ». Nouvelle adresse ponctuelle = formulaire vierge (aucun repère ni consigne du domicile repris par erreur) ; adresse ponctuelle déjà saisie = reprise pour correction. Saisir exactement l'adresse habituelle revient à l'adresse habituelle.
   - Modèle : `cart.deliveryAddress` (null = adresse habituelle) ; sur la commande, la copie client (`order.customer`) porte l'adresse et les consignes effectives, plus `addressOverridden: true` si ponctuelle. Aucun nouveau champ de commande : tickets, historique et anciennes versions lisent l'adresse au même endroit.
   - Trajet : calculé et validé sur l'adresse effective ; changement de rue, code postal ou ville = trajet retiré immédiatement (digicode, étage ou consignes seuls : trajet conservé, même itinéraire).
@@ -143,7 +143,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - Meilleures ventes : top 5 pizzas, boissons, desserts, par quantité ou montant (hors suppléments), « Voir tout ».
 - Avertissement permanent : chiffres indicatifs, ni caisse ni comptabilité certifiée.
 - **Module masquable** : Paramètres → Modules facultatifs. Masqué, l'onglet disparaît et `#/statistiques` ramène à la prise de commande ; aucune donnée n'est supprimée ni modifiée. Code isolé dans `src/modules/statistiques/`, chargé à la demande (fichier séparé), en lecture seule.
-- Vérifié à l'écran (Chromium) en 1280×800 et 1024×700 avec une semaine fictive de 90 commandes ; **pas encore sur la tablette Samsung**.
+- Vérifié à l'écran (Chromium) en 1280×800 et 1024×700 avec une semaine fictive de 90 commandes ; consulté sur la tablette Samsung par le gérant (vue service, test manuel, section 4.2).
 
 ### Son d'encaissement
 - Joué uniquement sur une vraie transition vers « Encaissée » enregistrée avec succès ; jamais au rechargement, au double clic, au changement de moyen ni à l'annulation d'un encaissement. Un échec audio ne bloque jamais l'encaissement.
@@ -170,6 +170,10 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ## 4. Tests
 
+Trois niveaux à ne pas confondre : tests automatisés (4.1), tests manuels réalisés avec le gérant sur l'appareil réel (4.2), vérifications encore à faire (4.3). Un test manuel réussi ne vaut pas validation exhaustive de tous les scénarios.
+
+### 4.1 Tests automatisés
+
 268 tests Vitest, tous réussis au 30/10 :
 
 | Fichier | Sujet |
@@ -193,11 +197,36 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.
 
+### 4.2 Tests manuels sur la tablette Samsung (production `c8cf885`)
+
+Appareil : **Samsung Galaxy TabPro S, Windows 10, Microsoft Edge, orientation paysage**. Tests réalisés par le gérant avec l'utilisateur, signalés le 31/10/2026. Résultats déclarés, non mesurés par Claude (taille réelle de la fenêtre d'Edge non relevée).
+
+| Domaine | Testé avec succès | Non couvert par ce test |
+| --- | --- | --- |
+| Prise de commande | Création d'une commande, sélection et création de clients, ajout de produits au panier, modification d'une commande existante, absence de doublon | Adresse ponctuelle, trajet en scooter, cadeau fidélité, paiement prévu |
+| Commandes | Passage entre les statuts, préparation et finalisation, marquage « Encaissée », suivi des commandes | Détail des moyens testés (mixte, titres-restaurant) non précisé |
+| Statistiques | Consultation du chiffre d'affaires, statistiques du service, cohérence après plusieurs opérations | Vues jour / semaine / mois non précisées |
+| Clôture / réouverture | Clôture, ouverture d'un nouveau service, conservation des commandes en cours, comportement des archives et des statistiques | Reprise d'un service fermé (non développée) |
+| Clients et fidélité | Clients conservés, compteurs de fidélité toujours visibles après clôture, informations clients conservées | **Cycle complet de fidélité** (progression jusqu'à 10, obtention puis utilisation d'une récompense) |
+| Tickets | Aperçu des tickets, impression via **Microsoft Print to PDF** | **Impression sur une vraie imprimante thermique** |
+| Sauvegarde | Export JSON, fichier ouvert dans le Bloc-notes, copie sur clé USB, contenu vérifié | **Restauration** : l'application n'a **aucune fonction d'import** ; aucune restauration n'a donc été testée |
+| Tablette | Application utilisable dans Edge en paysage, navigation et interactions principales fonctionnelles | Mode portrait, clavier tactile, son d'encaissement, mise en veille, « Ajouter à l'écran d'accueil » |
+
+### 4.3 Restent à vérifier
+
+- Cycle complet de fidélité sur l'appareil réel : progression, obtention d'une récompense, utilisation, annulation.
+- Restauration effective d'une sauvegarde JSON (fonction d'import à développer d'abord, voir `docs/ROADMAP.md`).
+- Impression sur une véritable imprimante thermique (80 mm) : lisibilité, découpe entre les deux tickets, réimpression.
+- Fonctionnement après une coupure de connexion (l'application est servie en ligne ; aucun mode hors ligne n'a été conçu ni testé) et après mise en veille de la tablette.
+- Parcours complet en conditions réelles de service.
+- Sur la tablette : trajet en scooter, adresse ponctuelle, paiements mixtes et titres-restaurant, son d'encaissement.
+- **Largeur réelle de la fenêtre d'Edge sur la tablette** : la TabPro S (2160×1440) affiche environ 1080 px de large à l'échelle Windows de 200 %, ce qui correspond à la mise en page « tablette compacte » (Client et Carte en onglets, barre latérale réduite au monogramme), pas aux 1280×800 utilisés jusqu'ici pour les vérifications. À relever avant l'intervention 7.
+
 ## 5. Bugs connus, limites et éléments absents
 
-- **Non vérifié** : utilisation réelle sur la tablette Samsung (seulement en émulation 1280×800, 1024×700 et 800×1100) ; **impression physique** des tickets (aucune impression papier testée) ; parcours complet en conditions de service. Les interventions 4B, 5 et 6 ont été validées par le gérant sur Safari iPhone (prévisualisation).
+- **Non vérifié** : voir 4.3. La tablette Samsung a été testée manuellement sur les fonctions principales (4.2), sans validation exhaustive. Les interventions 4B, 5 et 6 ont été validées par le gérant sur Safari iPhone (prévisualisation).
 - Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne (prévue initialement comme « 4B », numéro repris par le correctif de navigation du 30/10).
-- Écran Commandes : vérifié à l'écran (Chromium, 1280×800, 1024×700, 800×1100, 375×812, 1440×900) avec un service fictif ; **pas encore sur la tablette Samsung**. Les consignes permanentes du client (ex. allergie) ne s'affichent que pour les livraisons, comme sur le ticket.
+- Écran Commandes : vérifié à l'écran (Chromium, 1280×800, 1024×700, 800×1100, 375×812, 1440×900) avec un service fictif, puis utilisé par le gérant sur la tablette Samsung (statuts, encaissement, suivi : test manuel, section 4.2). Les consignes permanentes du client (ex. allergie) ne s'affichent que pour les livraisons, comme sur le ticket.
 - Pas d'alerte sur les heures de retrait dépassées, pas de statuts propres à la livraison, pas de gestion des livreurs.
 - Aucune imprimante thermique n'est pilotée : impression par la boîte de dialogue du navigateur ; la découpe entre les deux tickets dépend de l'imprimante et de son pilote.
 - Trajet en scooter : estimation sans trafic, vitesses urbaines du modèle prudentes (proche de la voiture en centre-ville), profil cyclomoteur 45 km/h sans distinction 50/125 cm³ (décision du gérant) ; serveur public FOSSGIS sans garantie de disponibilité (en cas de panne, ticket sans trajet) et réservé à un usage non essentiel / non commercial : à réexaminer avant une exploitation commerciale (fournisseur payant possible, par exemple Valhalla hébergé chez Stadia Maps avec authentification par domaine). Changer seulement le digicode, l'étage ou les consignes ne recalcule pas le trajet (même itinéraire).
@@ -207,7 +236,7 @@ Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à 
 - Une commande encaissée puis modifiée reste « Encaissée » : un écart de montant se règle hors de l'appli.
 - Carte figée dans le code (`src/data/catalog.ts`, prix de démonstration) ; l'entrée « Carte » de la maquette n'existe pas.
 - Statistiques : une commande encaissée puis modifiée compte pour son nouveau montant (l'écart réel se règle hors de l'appli) ; le classement par montant ignore les suppléments ; la nuit du changement d'heure, les deux « 2 h » sont regroupées ; un bilan clôturé peut encore évoluer si une commande est encaissée après coup (affiché « après la clôture »).
-- Pas d'authentification, pas de rôles, pas de suppression de fiche client (RGPD), sauvegarde manuelle uniquement (pas d'import ni de sauvegarde automatique).
+- Pas d'authentification, pas de rôles, pas de suppression de fiche client (RGPD), sauvegarde manuelle uniquement (pas d'import ni de sauvegarde automatique). L'export a été testé sur la tablette (clé USB comprise) ; une restauration est aujourd'hui **impossible depuis l'application** : à développer et tester avant l'utilisation quotidienne.
 - Le README contient encore le parcours de validation et les « points à valider » de la V1 et ne décrit pas les interventions 4 à 6 : à relire lors d'une future intervention (`CLAUDE.md` et ce document font foi).
 - Décisions encore ouvertes (détail dans `docs/ROADMAP.md`) : liste définitive des pizzas éligibles ; reprise d'un service fermé par erreur (B3) ; intérêt définitif du module Statistiques ; champ « consignes cuisine » (allergies) ; encaissement partiel ; statistiques par moyen de paiement ; fournisseur de calcul de trajet pour une exploitation commerciale.
 - Instantané réel testé le 30/10 (règle CLAUDE.md) : sauvegarde Safari iPhone de la production (14h15, 5 clients, 4 commandes au format d'avant l'intervention 3 : sans suivi de paiement, `awardOn`, frais de livraison 2 €, sans état du service). Test temporaire non commité sur la branche 4 + 4A + 4B : chargement sans alerte ni réécriture, données, montants et frais historiques conservés, soldes de fidélité identiques, 4 commandes « Paiement non suivi » dans les Statistiques, encaissement sans double crédit, modification, fermeture du service et rechargement corrects. À noter : modifier une ancienne commande avec frais de livraison la recalcule à 0 € (règle validée de la livraison offerte).
