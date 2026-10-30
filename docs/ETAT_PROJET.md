@@ -1,17 +1,17 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, intégration de `main` (sauvegarde des données, en production) dans la branche `feat/commandes-cartes` (interventions 4, 4A et 4B) ; **interventions 4, 4A et 4B en prévisualisation, non fusionnées**.
-Ce document décrit ce qui existe **réellement** dans le code de cette branche. La production (`main`) est à l'état des interventions 3 et 3.1 plus la sauvegarde des données tant que la fusion n'est pas validée. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
+Dernière mise à jour : 30/10/2026, mise en production des interventions 4, 4A et 4B (fusion `cb49242`), après la sauvegarde des données (`7f9f392`).
+Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
 
 ## 1. En production
 
 | Élément | Valeur |
 | --- | --- |
 | URL | https://lupo1313.github.io/ferrari-manager/ |
-| Commit sur `main` | `24bc9b2` (fusion `--no-ff` de `feat/encaissement-fidelite`) |
-| Build servi (vérifié le 30/10) | `assets/index-BSbE7ay4.js` |
+| Commit sur `main` | `cb49242` (fusion `--no-ff` de `feat/commandes-cartes`) |
+| Build servi (vérifié le 30/10) | `assets/index-6AbUTio3.js` |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
-| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée, n'est plus à jour par rapport à `main` après `f5e19aa` (son par défaut). |
+| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; sert encore l'intervention 4B d'avant la sauvegarde (`a0eff15`). |
 
 Historique des interventions sur `main` :
 
@@ -22,31 +22,33 @@ Historique des interventions sur `main` :
 | `096915b` | Intervention 2 : persistance par opération, panier dans une clé séparée |
 | `9ac4bd1` → `c8ad4ca` | Intervention 3 : encaissement, fidélité à l'encaissement, cadeau avec achat, une récompense par commande, build d'aperçu |
 | `0e440ce` → `f5e19aa` | Intervention 3.1 : service ouvert/fermé, sons d'encaissement, son « caisse » par défaut |
-| `24bc9b2` | Fusion dans `main` |
+| `24bc9b2` | Fusion dans `main` des interventions 3 et 3.1 |
+| `fbaf93b` → `7f9f392` | Sauvegarde des données (Paramètres → « Sauvegarder mes données ») |
+| `98df805` → `cb49242` | Interventions 4 (services, livraison offerte, Statistiques), 4A (écran Commandes), 4B (navigation pendant une modification, petits écrans), libellé « Reste à encaisser » |
 
-Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `main`), `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
+Branches distantes conservées (déjà intégrées) : `feat/commandes-cartes`, `feat/statistiques`, `feat/export-donnees`, `feat/encaissement-fidelite`, `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
 
-### Intervention 4 en cours de validation (branche `feat/statistiques`)
+### Intervention 4 (en production depuis le 30/10)
 
 | Lot | Contenu | État |
 | --- | --- | --- |
-| B1 | Historique des services, rattachement des commandes (`serviceId`), livraison toujours offerte | Développé, testé, en prévisualisation |
-| B2 | Module facultatif Statistiques (service, jour, semaine, mois) | Développé, testé, en prévisualisation |
+| B1 | Historique des services, rattachement des commandes (`serviceId`), livraison toujours offerte | En production |
+| B2 | Module facultatif Statistiques (service, jour, semaine, mois) | En production |
 | B3 | Reprendre un service fermé par erreur | **Non développé** (principe retenu, à faire après validation) |
 | B4 | Fermeture avec commandes restantes (« Examiner les commandes ») | **Non développé** (intervention séparée) |
 
-### Intervention 4A en cours de validation (branche `feat/commandes-cartes`)
+### Intervention 4A (en production depuis le 30/10)
 
-Refonte de l'écran Commandes pour la tablette en paysage (cartes compactes), **sans changement de règle métier**. Branche créée à partir de `feat/statistiques` (dernière version en prévisualisation) : la fusionner suppose d'avoir validé l'intervention 4, ou de la rebaser sur `main` si l'intervention 4 était refusée.
+Refonte de l'écran Commandes pour la tablette en paysage (cartes compactes), **sans changement de règle métier**.
 
 Prévisualisation : build de la branche, libellé « Prévisualisation · statistiques », mêmes clés isolées `ferrari-manager-apercu-i3:*` (les données de test de l'intervention 3 y sont reprises, ce qui sert aussi de test de compatibilité).
 
-### Intervention 4B en cours de validation (même branche `feat/commandes-cartes`)
+### Intervention 4B (en production depuis le 30/10)
 
 Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles de récompense, d'archivage, de paiement ni le stockage :
 - **Changement de client pendant une modification** : « Commander » depuis la page Clients (ou un client de la recherche globale) remplaçait en silence le client de la commande en cours de modification, panier et mode « Modification n° X » conservés. Désormais une commande en modification reste rattachée à son client d'origine (règle `canChangeCartCustomer` dans `domain/orders.ts`, appliquée par le store : sélection, retrait du client, nouvelle fiche). « Commander » pendant une modification ouvre une fenêtre (`EditInProgressDialog`) : continuer la modification, abandonner et commander pour ce client (désactivé si le service est fermé, avec le message), ou annuler. Abandonner ne touche jamais la commande enregistrée (seul le panier est remplacé). Pendant la modification, la colonne Client n'affiche plus la recherche ni « Nouveau client » ; le bandeau de modification a un bouton « Quitter » et le bouton « Annuler » du panier devient « Abandonner ».
 - **« Enregistrer » inaccessible sur iPhone en paysage** : le panneau Commande avait une hauteur fixe (`overflow: hidden`), seule la liste des produits défilait, avec une hauteur minimale de 120 px ; sur un écran d'environ 340 px de haut, le récapitulatif et les boutons sortaient du panneau sans pouvoir être atteints. Désormais le panneau défile s'il déborde, et sur un écran peu haut (`max-height: 560px`) tout le panneau défile d'un bloc avec les actions collées en bas (une seule ligne en pleine largeur). L'application évite aussi l'encoche et la barre d'accueil de l'iPhone (`viewport-fit=cover` était déjà actif sans marges de sécurité). Sans effet sur la tablette en 1280×800 (vérifié : aucun défilement du panneau, actions inchangées).
-- Vérifié dans Chromium en émulation 844×340 (iPhone paysage), 375×660, 1024×700 et 1280×800 ; **pas encore vérifié sur un vrai iPhone avec Safari**. En 1024×700, une commande en modification dépasse légèrement : le panneau défile pour atteindre « Enregistrer sans imprimer ».
+- Vérifié dans Chromium en émulation 844×340 (iPhone paysage), 375×660, 1024×700 et 1280×800, puis validé par le gérant sur un vrai iPhone avec Safari (prévisualisation). En 1024×700, une commande en modification dépasse légèrement : le panneau défile pour atteindre « Enregistrer sans imprimer ».
 
 ## 2. Fonctionnalités opérationnelles
 
@@ -134,7 +136,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ## 4. Tests
 
-197 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
+197 tests Vitest, tous réussis au 30/10 :
 
 | Fichier | Sujet |
 | --- | --- |
