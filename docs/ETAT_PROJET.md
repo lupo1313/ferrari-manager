@@ -1,17 +1,17 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, intervention 5 (tickets cuisine/livreur, paiements) sur la branche `feat/intervention-5-tickets-paiements`, **en prévisualisation, non fusionnée**.
-Ce document décrit ce qui existe **réellement** dans le code de cette branche. La production (`main`, `752d3f3`) est à l'état des interventions 4, 4A et 4B tant que la fusion n'est pas validée. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
+Dernière mise à jour : 30/10/2026, mise en production de l'intervention 5 (tickets cuisine/livreur, paiements ; fusion `02c62e7`).
+Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 
 ## 1. En production
 
 | Élément | Valeur |
 | --- | --- |
 | URL | https://lupo1313.github.io/ferrari-manager/ |
-| Commit sur `main` | `cb49242` (fusion `--no-ff` de `feat/commandes-cartes`) |
-| Build servi (vérifié le 30/10) | `assets/index-6AbUTio3.js` |
+| Commit sur `main` | `02c62e7` (fusion `--no-ff` de `feat/intervention-5-tickets-paiements`) |
+| Build servi (vérifié le 30/10) | `assets/index-BoFKIObS.js` |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
-| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; sert encore l'intervention 4B d'avant la sauvegarde (`a0eff15`). |
+| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; sert l'intervention 5 (`cafea11`, même code que la production). |
 
 Historique des interventions sur `main` :
 
@@ -25,8 +25,9 @@ Historique des interventions sur `main` :
 | `24bc9b2` | Fusion dans `main` des interventions 3 et 3.1 |
 | `fbaf93b` → `7f9f392` | Sauvegarde des données (Paramètres → « Sauvegarder mes données ») |
 | `98df805` → `cb49242` | Interventions 4 (services, livraison offerte, Statistiques), 4A (écran Commandes), 4B (navigation pendant une modification, petits écrans), libellé « Reste à encaisser » |
+| `9ff6c85` → `02c62e7` | Intervention 5 : tickets cuisine et livreur, paiement prévu, encaissement détaillé (titres-restaurant, mixte), repères de livraison |
 
-Branches distantes conservées (déjà intégrées) : `feat/commandes-cartes`, `feat/statistiques`, `feat/export-donnees`, `feat/encaissement-fidelite`, `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
+Branches distantes conservées (déjà intégrées) : `feat/intervention-5-tickets-paiements`, `feat/commandes-cartes`, `feat/statistiques`, `feat/export-donnees`, `feat/encaissement-fidelite`, `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
 
 ### Intervention 4 (en production depuis le 30/10)
 
@@ -50,7 +51,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - **« Enregistrer » inaccessible sur iPhone en paysage** : le panneau Commande avait une hauteur fixe (`overflow: hidden`), seule la liste des produits défilait, avec une hauteur minimale de 120 px ; sur un écran d'environ 340 px de haut, le récapitulatif et les boutons sortaient du panneau sans pouvoir être atteints. Désormais le panneau défile s'il déborde, et sur un écran peu haut (`max-height: 560px`) tout le panneau défile d'un bloc avec les actions collées en bas (une seule ligne en pleine largeur). L'application évite aussi l'encoche et la barre d'accueil de l'iPhone (`viewport-fit=cover` était déjà actif sans marges de sécurité). Sans effet sur la tablette en 1280×800 (vérifié : aucun défilement du panneau, actions inchangées).
 - Vérifié dans Chromium en émulation 844×340 (iPhone paysage), 375×660, 1024×700 et 1280×800, puis validé par le gérant sur un vrai iPhone avec Safari (prévisualisation). En 1024×700, une commande en modification dépasse légèrement : le panneau défile pour atteindre « Enregistrer sans imprimer ».
 
-### Intervention 5 en cours de validation (branche `feat/intervention-5-tickets-paiements`)
+### Intervention 5 (en production depuis le 30/10)
 
 - **Deux tickets** (`domain/ticket.ts`, `components/ticket/`) : *cuisine* (numéro et mode en gros, heure demandée, produits groupés pizzas / desserts / boissons, personnalisations en puces, notes, nombre de pizzas ; ni téléphone, ni adresse, ni prix, ni paiement ; nom du client seul) et *livreur* (livraisons uniquement : nom, téléphone, adresse, repères renseignés seulement, consignes, contenu du sac, total, bloc paiement encadré). À emporter : 1 ticket ; livraison : 2.
 - **Impression** : après « Valider et imprimer », la commande est déjà enregistrée ; une fenêtre propose « Imprimer les deux » (une seule boîte de dialogue, un ticket par page), « Cuisine », « Livreur » ou « Terminer sans imprimer ». Même fenêtre depuis la carte (menu « ••• » → « Tickets cuisine et livreur » ou « Ticket cuisine »). Imprimer ne modifie que la trace `printRequests`. Aucune impression silencieuse : le navigateur demande toujours une confirmation.
@@ -59,7 +60,8 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - **Encaissement confirmé** : Espèces, Carte bancaire, Titres-restaurant en un appui (montant = total), « Paiement mixte… » (montants par moyen, bouton « Reste », confirmation seulement si la somme égale le total), « Non précisé ». Détail enregistré dans `payment.tenders` ; **tout ou rien** (pas d'encaissement partiel, pas de rendu de monnaie). Fidélité, annulations et statistiques inchangées.
 - **Compatibilité** : `payment.method` garde ses trois valeurs (espèces, carte, non précisé), seules relues par la version précédente (une valeur inconnue y ferait passer la commande en « Paiement non suivi », puis serait réécrite) ; titres-restaurant et mixte y sont résumés par « non_precise », le détail est dans `tenders`.
 - **Fiche client** : bâtiment, étage, interphone, digicode (facultatifs), à côté du complément ; complétés à vide en mémoire pour les anciennes fiches, sans réécriture. Le texte existant du complément n'est pas découpé.
-- Vérifié dans Chromium (1280×800, 844×340, 390×750, 1440×900) avec des données fictives et sur la sauvegarde réelle de l'iPhone (test temporaire) ; **impression physique, iPhone et tablette réels non vérifiés**.
+- Vérifié dans Chromium (1280×800, 844×340, 390×750, 1440×900), sur la sauvegarde réelle de l'iPhone et sur des données au format de la production `752d3f3` (tests temporaires : aucune réécriture, statistiques et fidélité identiques), puis validé par le gérant sur Safari iPhone (prévisualisation). **Impression physique et tablette réelle non vérifiées.**
+- Décisions par défaut (réversibles) : pas d'encaissement partiel ; montant supérieur au total refusé (pas de rendu de monnaie) ; commande encaissée puis modifiée = reste encaissée, écart affiché ; consignes client sur le ticket livreur seulement ; pas de statistiques par moyen de paiement.
 
 ## 2. Fonctionnalités opérationnelles
 
@@ -147,7 +149,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ## 4. Tests
 
-230 tests Vitest, tous réussis au 30/10 (branche `feat/intervention-5-tickets-paiements`) :
+230 tests Vitest, tous réussis au 30/10 :
 
 | Fichier | Sujet |
 | --- | --- |
