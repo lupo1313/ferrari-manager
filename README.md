@@ -57,7 +57,7 @@ tests/                 Tests Vitest : prix, clients, fidélité, scénario compl
 - **Copies figées** : une commande garde une copie du client (nom, adresse…) et des prix au moment de la commande. Modifier une fiche ne change pas l'historique.
 - **Fidélité par journal** : le solde n'est jamais stocké. Il est recalculé depuis un journal d'événements (`points`, `rewards_used`). À chaque validation, modification, changement de statut ou annulation, la commande est *réconciliée* : on écrit uniquement l'écart entre ce qu'elle devrait avoir crédité et ce qui est déjà dans le journal. Résultat : un double clic, une annulation ou une modification ne peuvent pas créer de points en double.
 - **Validation idempotente** : chaque panier réserve l'identifiant de sa future commande. Une seconde validation du même panier est refusée, et le bouton est verrouillé pendant l'enregistrement.
-- **Persistance par opération** (`AppRepository`) : `saveOrderWithLoyalty`, `upsertCustomer`, `saveSettings`, `closeService`, `saveCart`. Le panier a sa propre clé et ne réécrit jamais l'historique. Détails et garanties : section *Persistance locale* ci-dessous.
+- **Persistance par opération** (`AppRepository`) : `saveOrderWithLoyalty`, `upsertCustomer`, `saveSettings`, `saveService` (ouverture/fermeture du service), `saveCart`. Le panier a sa propre clé et ne réécrit jamais l'historique. Détails et garanties : section *Persistance locale* ci-dessous.
 - **Navigation par hash** (`#/commandes`) : fonctionne sur n'importe quel hébergement statique, sans règle de réécriture.
 
 ---
@@ -68,7 +68,7 @@ Deux clés `localStorage` :
 
 | Clé | Contenu | Écrite quand |
 | --- | --- | --- |
-| `ferrari-manager:v1` | Historique : commandes, journal de fidélité, clients, paramètres, compteur, début de service | Validation, modification, statut, annulation, impression demandée, fiche client, paramètres, fin de service |
+| `ferrari-manager:v1` | Historique : commandes, journal de fidélité, clients, paramètres, compteur, état du service | Validation, modification, statut, encaissement, annulation, impression demandée, fiche client, paramètres, ouverture/fermeture du service |
 | `ferrari-manager:v1:panier` | Commande en cours de saisie | Immédiatement à chaque ajout, quantité, client, mode ou heure ; regroupée (au plus 300 ms) pendant la saisie d'une note ou d'un nom comptoir, et forcée quand l'onglet passe en arrière-plan ou se ferme (`pagehide`, `visibilitychange`) |
 
 Ce qui est garanti :
