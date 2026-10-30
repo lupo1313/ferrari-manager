@@ -13,7 +13,6 @@ import {
   primaryAction,
   secondaryActions,
   STATUS_LABELS,
-  statusCorrections,
   type OrderMenuAction,
 } from '../../domain/orders';
 import { isLegacyUnpaid, isPaid, PAYMENT_METHOD_LABELS } from '../../domain/payment';
@@ -25,6 +24,8 @@ interface OrderCardProps {
   /** Heure courante (ancienneté des commandes en cours). */
   now: string;
   onStatus: (status: OrderStatus) => void;
+  /** Ouvre la fenêtre de correction du statut. */
+  onCorrectStatus: () => void;
   onTicket: () => void;
   onEdit: () => void;
   onCancel: () => void;
@@ -67,7 +68,7 @@ function PaymentRow({ order, onMarkPaid }: Pick<OrderCardProps, 'order' | 'onMar
   );
 }
 
-export function OrderCard({ order, now, onStatus, onTicket, onEdit, onCancel, onMarkPaid, onMarkUnpaid }: OrderCardProps) {
+export function OrderCard({ order, now, onStatus, onCorrectStatus, onTicket, onEdit, onCancel, onMarkPaid, onMarkUnpaid }: OrderCardProps) {
   const primary = primaryAction(order);
   const primaryStyle = PRIMARY_STYLE[order.status];
   const editable = canEditOrder(order);
@@ -83,12 +84,7 @@ export function OrderCard({ order, now, onStatus, onTicket, onEdit, onCancel, on
         case 'ticket':
           return { id: a, label: 'Ticket', icon: 'printer', onSelect: onTicket };
         case 'corriger_statut':
-          return {
-            id: a,
-            label: 'Corriger le statut',
-            icon: 'refresh',
-            children: statusCorrections(order).map((s) => ({ id: s, label: `Remettre à « ${STATUS_LABELS[s]} »`, onSelect: () => onStatus(s) })),
-          };
+          return { id: a, label: 'Corriger le statut…', icon: 'refresh', onSelect: onCorrectStatus };
         case 'annuler_encaissement':
           return { id: a, label: 'Annuler l’encaissement', icon: 'history', onSelect: onMarkUnpaid };
         case 'annuler':

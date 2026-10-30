@@ -351,6 +351,39 @@
   width: 100%;
 }
 
+/* Fenêtre de correction du statut */
+.status-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.status-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 15px;
+  text-align: left;
+}
+.status-choice:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.status-choice:disabled {
+  opacity: 0.45;
+}
+.status-choice__hint {
+  flex: 1;
+  color: var(--text-2);
+}
+.status-choice--current {
+  border-style: dashed;
+  background: var(--surface-2);
+}
+
 /* ---------- Tableaux ---------- */
 
 .table-card {

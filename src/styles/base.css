@@ -306,14 +306,6 @@ p {
 .action-menu__item--danger {
   color: var(--red-ink);
 }
-.action-menu__item--back {
-  color: var(--text-2);
-  border-bottom: 1px solid var(--line);
-  border-radius: var(--radius-s) var(--radius-s) 0 0;
-}
-.action-menu__more {
-  color: var(--text-3);
-}
 
 /* ---------- Divers ---------- */
 

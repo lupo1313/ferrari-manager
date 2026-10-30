@@ -6,10 +6,8 @@ export interface MenuItem {
   label: string;
   icon?: IconName;
   tone?: 'danger';
-  /** Action immédiate (les actions sensibles ouvrent leur propre confirmation). */
-  onSelect?: () => void;
-  /** Sous-liste affichée dans le même menu (ex. correction de statut), avec un retour. */
-  children?: MenuItem[];
+  /** Action lancée après fermeture du menu (les actions sensibles ouvrent leur propre confirmation). */
+  onSelect: () => void;
 }
 
 interface ActionMenuProps {
@@ -20,13 +18,15 @@ interface ActionMenuProps {
 }
 
 /**
- * Menu « ••• » utilisable au doigt et au clavier, sans survol :
- * ouverture au toucher, éléments de 48 px, fermeture par Échap, toucher à l'extérieur ou choix d'un élément,
- * flèches haut/bas pour se déplacer. S'ouvre vers le haut s'il manque de place en dessous.
+ * Menu « ••• » utilisable au doigt et au clavier, sans survol : une liste simple, sans sous-menu.
+ * Fermeture : choix d'un élément, nouvel appui sur le bouton, toucher à l'extérieur, Échap ou Tab.
+ *
+ * Le menu ne se ferme JAMAIS sur une simple perte de focus : Safari (macOS, iPad) ne donne pas le focus
+ * à un bouton touché et signale une perte de focus « vers rien » ; fermer à ce moment-là faisait
+ * disparaître le menu avant que l'appui n'atteigne l'élément choisi.
  */
 export function ActionMenu({ label, items, className = '' }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
-  const [sub, setSub] = useState<MenuItem | null>(null);
   const [up, setUp] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -35,7 +35,6 @@ export function ActionMenu({ label, items, className = '' }: ActionMenuProps) {
 
   const close = (focusTrigger = true) => {
     setOpen(false);
-    setSub(null);
     if (focusTrigger) trigger.current?.focus();
   };
 
@@ -48,10 +47,10 @@ export function ActionMenu({ label, items, className = '' }: ActionMenuProps) {
     return () => document.removeEventListener('pointerdown', onPointer);
   }, [open]);
 
-  // À chaque ouverture (ou changement de sous-liste) : focus sur le premier élément.
+  // À l'ouverture : focus sur le premier élément (navigation au clavier).
   useEffect(() => {
     if (open) menu.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-  }, [open, sub]);
+  }, [open]);
 
   const toggle = () => {
     if (open) {
@@ -59,15 +58,19 @@ export function ActionMenu({ label, items, className = '' }: ActionMenuProps) {
       return;
     }
     const rect = wrap.current?.getBoundingClientRect();
-    setUp(Boolean(rect && window.innerHeight - rect.bottom < 280 && rect.top > window.innerHeight - rect.bottom));
+    setUp(Boolean(rect && window.innerHeight - rect.bottom < 240 && rect.top > window.innerHeight - rect.bottom));
     setOpen(true);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (sub) setSub(null);
-      else close();
+      close();
+      return;
+    }
+    // Tab : le focus quitte le menu normalement, le menu se referme.
+    if (e.key === 'Tab') {
+      close(false);
       return;
     }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
@@ -78,16 +81,8 @@ export function ActionMenu({ label, items, className = '' }: ActionMenuProps) {
     list[next]?.focus();
   };
 
-  const visible = sub ? sub.children ?? [] : items;
-
   return (
-    <div
-      ref={wrap}
-      className={`action-menu ${className}`}
-      onBlur={(e) => {
-        if (open && !e.currentTarget.contains(e.relatedTarget as Node | null)) close(false);
-      }}
-    >
+    <div ref={wrap} className={`action-menu ${className}`}>
       <button
         ref={trigger}
         type="button"
@@ -103,31 +98,20 @@ export function ActionMenu({ label, items, className = '' }: ActionMenuProps) {
         </span>
       </button>
       {open && (
-        <div ref={menu} id={menuId} role="menu" aria-label={sub ? sub.label : label} className={`action-menu__list ${up ? 'action-menu__list--up' : ''}`} onKeyDown={onKeyDown}>
-          {sub && (
-            <button type="button" role="menuitem" className="action-menu__item action-menu__item--back" onClick={() => setSub(null)}>
-              <Icon name="chevronLeft" size={18} /> {sub.label}
-            </button>
-          )}
-          {visible.map((item) => (
+        <div ref={menu} id={menuId} role="menu" aria-label={label} className={`action-menu__list ${up ? 'action-menu__list--up' : ''}`} onKeyDown={onKeyDown}>
+          {items.map((item) => (
             <button
               key={item.id}
               type="button"
               role="menuitem"
               className={`action-menu__item ${item.tone === 'danger' ? 'action-menu__item--danger' : ''}`}
-              aria-haspopup={item.children ? 'menu' : undefined}
               onClick={() => {
-                if (item.children) {
-                  setSub(item);
-                  return;
-                }
                 close();
-                item.onSelect?.();
+                item.onSelect();
               }}
             >
               {item.icon && <Icon name={item.icon} size={18} />}
               <span>{item.label}</span>
-              {item.children && <Icon name="chevronRight" size={18} className="action-menu__more" />}
             </button>
           ))}
         </div>

@@ -4,6 +4,7 @@ import {
   canCancelOrder,
   canEditOrder,
   canMarkPaidFromCard,
+  isActiveOrder,
   primaryAction,
   secondaryActions,
   statusCorrections,
@@ -74,6 +75,73 @@ describe('carte de commande : correction d’un statut (menu secondaire)', () =>
     expect(t.store.setOrderStatus(id, 'prete').ok).toBe(true);
     expect(t.store.setOrderStatus(id, 'a_preparer').ok).toBe(true);
     expect(t.get(id).statusHistory.map((h) => h.status)).toEqual(['a_preparer', 'terminee', 'prete', 'a_preparer']);
+  });
+});
+
+describe('correction de statut : non-régression (bug Safari, commande terminée)', () => {
+  /** Commande de Jean avec un cadeau, encaissée par carte, puis terminée. */
+  function terminatedPaidWithReward() {
+    const t = setup();
+    const jean = t.customer('Dupont');
+    t.store.selectCustomer(jean.id);
+    t.store.addProduct('reine');
+    t.store.addProduct('reine');
+    expect(t.store.addReward('pizza', 'margarita').ok).toBe(true);
+    const id = (t.store.validateCart() as { ok: true; value: Order }).value.id;
+    t.store.markOrderPaid(id, 'carte');
+    t.store.setOrderStatus(id, 'terminee');
+    return { ...t, id, jean };
+  }
+
+  it('une commande terminée est proposée à la correction vers « En préparation »', () => {
+    const t = terminatedPaidWithReward();
+    expect(secondaryActions(t.get(t.id))).toContain('corriger_statut');
+    expect(statusCorrections(t.get(t.id))).toEqual(['a_preparer', 'en_preparation', 'prete']);
+  });
+
+  it('terminée → en préparation : paiement, fidélité, produits, montant et service strictement inchangés', () => {
+    const t = terminatedPaidWithReward();
+    const before = structuredClone(t.get(t.id));
+    const eventsBefore = structuredClone(t.store.getData().loyaltyEvents);
+    const r = t.store.setOrderStatus(t.id, 'en_preparation');
+    expect(r.ok).toBe(true);
+    const after = t.get(t.id);
+    expect(after.status).toBe('en_preparation');
+    // Seuls le statut, sa date de mise à jour et l'historique des statuts changent.
+    const { status: _s1, updatedAt: _u1, statusHistory: h1, ...restBefore } = before;
+    const { status: _s2, updatedAt: _u2, statusHistory: h2, ...restAfter } = after;
+    expect(restAfter).toEqual(restBefore);
+    expect(h2).toEqual([...h1, { status: 'en_preparation', at: after.updatedAt }]);
+    expect(after.payment).toEqual(before.payment);
+    // Aucun événement de fidélité ajouté : points crédités et récompense consommée restent tels quels.
+    expect(t.store.getData().loyaltyEvents).toEqual(eventsBefore);
+  });
+
+  it('après correction, la commande quitte « Terminées » et réapparaît dans « En cours »', () => {
+    const t = terminatedPaidWithReward();
+    expect(isActiveOrder(t.get(t.id))).toBe(false);
+    t.store.setOrderStatus(t.id, 'en_preparation');
+    const o = t.get(t.id);
+    expect(isActiveOrder(o)).toBe(true);
+    expect(o.archivedAt).toBeNull();
+    expect(primaryAction(o)).toEqual({ to: 'prete', label: 'Marquer prête' });
+    // Elle redevient modifiable, comme toute commande en préparation (règle inchangée).
+    expect(canEditOrder(o)).toBe(true);
+  });
+
+  it('la correction est enregistrée et relue à l’identique', () => {
+    const t = terminatedPaidWithReward();
+    t.store.setOrderStatus(t.id, 'en_preparation');
+    const reloaded = createTestStore(t.repo).store;
+    expect(reloaded.getData().orders).toEqual(t.store.getData().orders);
+    expect(reloaded.getData().loyaltyEvents).toEqual(t.store.getData().loyaltyEvents);
+  });
+
+  it('une fermeture de service n’archive plus la commande corrigée (elle n’est plus soldée)', () => {
+    const t = terminatedPaidWithReward();
+    t.store.setOrderStatus(t.id, 'en_preparation');
+    t.store.closeService();
+    expect(t.get(t.id).archivedAt).toBeNull();
   });
 });
 

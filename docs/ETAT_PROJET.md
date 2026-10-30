@@ -57,7 +57,9 @@ Prévisualisation : build de la branche, libellé « Prévisualisation · statis
 - Cartes compactes (intervention 4A) : deux colonnes sur la tablette en paysage, trois seulement si chaque carte garde 380 px (`components/orders/columns.ts`), une sur écran étroit ; hauteur libre, ordre de traitement lu de gauche à droite (plus anciennes en premier).
 - Carte : numéro, heure, statut, ancienneté (commandes en cours, rafraîchie toutes les 30 s) ; client, téléphone, mode, heure souhaitée, adresse complète avec complément et consignes de livraison ; produits avec quantité, personnalisations, suppléments, cadeau « Offert fidélité » et montant de ligne ; note ; total ; paiement.
 - Une seule action principale par statut (`primaryAction`) : « Lancer la préparation », « Marquer prête », « Terminer la commande », aucune une fois terminée. « Marquer encaissée » directement sur la carte si non encaissée. « Modifier » (ou « Ticket » quand la commande ne se modifie plus).
-- Menu « ••• » (`components/ui/ActionMenu.tsx`, tactile et clavier, sans survol) : Ticket, Corriger le statut (tous les autres statuts du flux, comme l'ancien sélecteur), Annuler l'encaissement, Annuler la commande. Confirmations et avertissements inchangés.
+- Menu « ••• » (`components/ui/ActionMenu.tsx`, tactile et clavier, sans survol, liste simple sans sous-menu) : Ticket, Corriger le statut…, Annuler l'encaissement, Annuler la commande. Confirmations et avertissements inchangés. Le menu ne se ferme jamais sur une simple perte de focus (correctif Safari, voir ci-dessous).
+- **Corriger le statut** ouvre une petite fenêtre (`StatusDialog`) qui affiche les quatre statuts, le statut actuel signalé ; un appui applique le statut choisi (mêmes transitions qu'avant, ex. Terminée → En préparation). Seuls le statut et son historique changent ; un message indique l'onglet où retrouver la commande.
+- Correctif Safari (30/10/2026) : sur Safari (macOS, iPad), « Corriger le statut » d'une commande terminée ne faisait rien. Cause : le menu se fermait sur toute perte de focus sans cible ; Safari en produit une quand on touche un bouton (il ne lui donne pas le focus) et quand l'élément qui a le focus disparaît (ici le premier élément du menu, remplacé par le sous-menu). Le sous-menu a été remplacé par la fenêtre ci-dessus et la fermeture sur perte de focus supprimée. Vérifié dans Chromium en rejouant la séquence d'événements de Safari ; **pas encore vérifié sur un vrai Safari ou iPad**.
 - « En préparation » passe en bleu (au lieu d'orange) pour ne plus se confondre avec « À encaisser ».
 - Filtres : En cours / Terminées et annulées / Archives ; recherche par numéro, nom ou téléphone.
 - Ticket : aperçu et impression via la boîte de dialogue du navigateur (58 ou 80 mm). La demande d'impression est tracée, jamais présentée comme une impression réussie.
@@ -124,7 +126,7 @@ Prévisualisation : build de la branche, libellé « Prévisualisation · statis
 
 ## 4. Tests
 
-165 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
+170 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -138,7 +140,7 @@ Prévisualisation : build de la branche, libellé « Prévisualisation · statis
 | `apercu-isolation.test.ts` (4) | Isolation des clés de la prévisualisation |
 | `services.test.ts` (17) | Historique des services, rattachement, anciennes données sans réécriture, livraison offerte, module masquable |
 | `statistiques.test.ts` (22) | Indicateurs, quantités, cadeaux, annulations (dont après encaissement), modifications, encaissements tardifs, minuit, changement d'heure, anciennes données, jour/semaine/mois, lecture seule |
-| `commandes-cartes.test.ts` (14) | Action principale par statut, correction de statut, actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
+| `commandes-cartes.test.ts` (19) | Action principale par statut, correction de statut (dont Terminée → En préparation : paiement, fidélité, produits préservés, retour dans « En cours »), actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.
 
