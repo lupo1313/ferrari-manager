@@ -6,7 +6,7 @@ import { buildDemoData } from '../src/data/seed';
 import { computeBalance } from '../src/domain/loyalty';
 import { buildDeliveryTicket, buildKitchenTicket } from '../src/domain/ticket';
 import { deliveryAddressKey, validTripFor } from '../src/domain/trip';
-import { effectiveDeliveryAddress } from '../src/domain/delivery';
+import { effectiveDeliveryAddress, emptyDeliveryAddress } from '../src/domain/delivery';
 import { computeScooterTrip, GEOCODING_URL, resetTripCache } from '../src/services/trajet';
 import { availablePeriods, computePeriodStats } from '../src/modules/statistiques/calculs';
 import { backupToText, createBackup, verifyBackupText, type ReadableStore } from '../src/storage/export';
@@ -90,6 +90,29 @@ describe('adresse habituelle et adresse exceptionnelle', () => {
     expect(o.customer).toMatchObject({ ...FRIEND, addressOverridden: true, name: 'Karim Benali', phone: t.karim.phone });
     expect(JSON.stringify(t.store.getData().customers)).toBe(before);
     expect(t.byName('Benali').address).toBe('7 rue Sainte');
+  });
+
+  it('nouvelle adresse saisie sur le formulaire vierge : aucun repère ni consigne du domicile repris', () => {
+    const t = setup();
+    t.store.updateCustomer(t.karim.id, {
+      firstName: 'Karim',
+      lastName: 'Benali',
+      phone: t.karim.phone,
+      address: '7 rue Sainte',
+      postalCode: '13001',
+      city: 'Marseille',
+      complement: '4e étage sans ascenseur',
+      doorCode: '0000',
+      instructions: 'Chien méchant au domicile',
+    });
+    t.startDelivery();
+    const blank = emptyDeliveryAddress(effectiveDeliveryAddress(t.store.getData().cart, t.byName('Benali'))!.city);
+    expect(blank).toEqual({ address: '', postalCode: '', city: 'Marseille', building: '', floor: '', intercom: '', doorCode: '', complement: '', instructions: '' });
+    t.store.setCartDeliveryAddress({ ...blank, address: '22 boulevard Chave', postalCode: '13005' });
+    const o = t.validate();
+    expect(o.customer).toMatchObject({ address: '22 boulevard Chave', complement: '', doorCode: '', instructions: '' });
+    const text = JSON.stringify(buildDeliveryTicket(o, t.store.getData().settings));
+    for (const old of ['4e étage', '0000', 'Chien méchant']) expect(text).not.toContain(old);
   });
 
   it('adresse incomplète ou trop longue : refusée, rien ne change', () => {

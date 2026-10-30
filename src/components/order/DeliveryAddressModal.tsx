@@ -51,7 +51,7 @@ export function DeliveryAddressModal({ customer, initial, onSave, onClose }: Del
   return (
     <Modal
       title="Adresse de livraison de cette commande"
-      subtitle={`La fiche de ${customerFullName(customer)} n’est pas modifiée.`}
+      subtitle={`Pour cette commande seulement : la fiche de ${customerFullName(customer)} n’est pas modifiée.`}
       onClose={onClose}
       dismissOnBackdrop={false}
       footer={

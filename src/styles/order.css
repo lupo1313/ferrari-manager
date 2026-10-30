@@ -43,10 +43,13 @@
 .delivery-line__edit {
   flex: none;
   min-height: 44px;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 .delivery-address--ponctual {
-  padding: 4px 8px;
-  border: 1px solid var(--gold-line);
+  gap: 0;
+  padding-left: 8px;
+  border-left: 4px solid var(--gold);
   border-radius: var(--radius-s);
   background: var(--gold-soft);
 }
@@ -149,7 +152,7 @@
 
 .order-panel__lines {
   flex: 1;
-  min-height: 120px;
+  min-height: 100px;
   padding: 4px 14px 12px;
 }
 .cart-lines {

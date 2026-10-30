@@ -17,7 +17,7 @@ import { SERVICE_CLOSED_MESSAGE } from '../../domain/orders';
 import { formatPrice } from '../../domain/money';
 import { formatTimeOfDay } from '../../domain/time';
 import { hasDeliveryAddress } from '../../domain/customers';
-import { asDeliveryAddress, effectiveDeliveryAddress } from '../../domain/delivery';
+import { asDeliveryAddress, effectiveDeliveryAddress, emptyDeliveryAddress } from '../../domain/delivery';
 import type { OrderLine } from '../../domain/types';
 
 interface OrderPanelProps {
@@ -162,13 +162,15 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
               </span>
               {customer && (
                 <button type="button" className="btn btn--sm delivery-line__edit" onClick={() => setAddressOpen(true)}>
-                  <Icon name="pencil" size={16} /> Modifier l’adresse
+                  Modifier l’adresse
                 </button>
               )}
             </p>
             {ponctual && (
               <p className="delivery-line delivery-line--ponctual">
-                <span className="delivery-line__badge">Adresse ponctuelle (fiche client inchangée)</span>
+                <span className="delivery-line__badge" title="Pour cette commande seulement : la fiche client n’est pas modifiée.">
+                  Adresse ponctuelle
+                </span>
                 <button type="button" className="btn btn--sm btn--ghost delivery-line__edit" onClick={useHabitualAddress}>
                   Utiliser l’adresse habituelle
                 </button>
@@ -367,7 +369,9 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
       {addressOpen && customer && deliveryAddress && (
         <DeliveryAddressModal
           customer={customer}
-          initial={deliveryAddress}
+          // Nouvelle adresse ponctuelle : formulaire vierge, pour ne jamais reprendre par erreur les repères
+          // et consignes du domicile habituel. Adresse ponctuelle déjà saisie : reprise pour correction.
+          initial={ponctual ? deliveryAddress : emptyDeliveryAddress(deliveryAddress.city)}
           onClose={() => setAddressOpen(false)}
           onSave={(address) => {
             const r = store.setCartDeliveryAddress(address);

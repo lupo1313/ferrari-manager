@@ -24,6 +24,14 @@ export function addressOf(c: Customer | CustomerSnapshot): DeliveryAddressInput 
   return out;
 }
 
+/** Formulaire d'adresse ponctuelle vierge (seule la ville est proposée). */
+export function emptyDeliveryAddress(city = 'Marseille'): DeliveryAddressInput {
+  const out = {} as DeliveryAddressInput;
+  for (const k of DELIVERY_ADDRESS_FIELDS) out[k] = '';
+  out.city = city.trim() || 'Marseille';
+  return out;
+}
+
 export function cleanDeliveryAddress(input: DeliveryAddressInput): DeliveryAddressInput {
   const out = {} as DeliveryAddressInput;
   for (const k of DELIVERY_ADDRESS_FIELDS) out[k] = (input[k] ?? '').trim();
