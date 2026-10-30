@@ -48,19 +48,13 @@
   --tap-l: 60px;
 
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  /* Barre latérale ouverte ; réduite : 72 px (layout.css, selon data-sidebar). */
   --sidebar-w: 176px;
   --topbar-h: 72px;
 }
 
 @media (max-width: 1399px) {
   :root {
-    --sidebar-w: 88px;
     --topbar-h: 64px;
-  }
-}
-
-@media (max-width: 899px) {
-  :root {
-    --sidebar-w: 68px;
   }
 }

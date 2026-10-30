@@ -30,7 +30,8 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 | `src/state/store.ts` | Store applicatif : orchestre domaine + persistance, actions synchrones renvoyant `Result` |
 | `src/storage/` | `schema.ts` (lecture/normalisation des données stockées), `repository.ts` (écritures par opération, `localStorage`), `export.ts` (sauvegarde JSON, lecture seule) |
 | `src/data/` | Carte, paramètres par défaut et jeu de démonstration (fictifs) |
-| `src/components/`, `src/pages/` | Interface uniquement : ne calcule aucune règle métier |
+| `src/components/`, `src/pages/` | Interface uniquement : ne calcule aucune règle métier. `components/layout/disposition.ts` : barre latérale et disposition de la prise de commande selon la place disponible (intervention 7) |
+| `src/storage/interface.ts` | Préférences d'affichage de l'appareil (barre latérale), clé `<espace>-interface` hors du préfixe des données : jamais sauvegardée, restaurée ni réinitialisée avec elles |
 | `src/modules/statistiques/` | Module **facultatif** (masquable dans Paramètres, chargé à la demande) : calculs purs `calculs.ts` + interface. Lecture seule : n'écrit jamais, n'importe pas le store. Le cœur de l'application ne doit jamais dépendre de ce dossier (sauf le point d'entrée dans `App`) |
 | `src/audio/` + `scripts/generate-sounds.mjs` | Sons d'encaissement (WAV originaux générés par le script) |
 | `tests/` | Vitest, environnement Node (`tests/node-fs.d.ts` : déclaration minimale de `node:fs`, pas de `@types/node`) |

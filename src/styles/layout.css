@@ -19,6 +19,14 @@
 
 /* ---------- Barre latérale ---------- */
 
+/*
+ * Deux états (data-sidebar sur .app, voir components/layout/disposition.ts) :
+ * ouverte = logo et libellés (176 px) ; réduite = monogramme et icônes seules (72 px).
+ * Pas d'animation de largeur : changement en une fois, sans recalcul répété de la carte.
+ */
+.app[data-sidebar='reduite'] {
+  --sidebar-w: 72px;
+}
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -27,6 +35,7 @@
   padding: 16px 10px;
   gap: 18px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .sidebar__brand {
   display: grid;
@@ -39,9 +48,9 @@
   height: auto;
 }
 .sidebar__monogram {
-  display: none;
-  width: 52px;
-  height: 52px;
+  display: block;
+  width: 48px;
+  height: 48px;
 }
 .sidebar__list {
   list-style: none;
@@ -93,45 +102,66 @@
   color: var(--red);
   border-color: var(--red);
 }
-.sidebar__foot {
+/* Collé en bas de la barre : le bouton reste visible même quand la barre défile (écran peu haut). */
+.sidebar__bottom {
+  position: sticky;
+  bottom: 0;
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 6px;
+  background: var(--nav);
+}
+.sidebar__toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1px solid #3a4047;
+  border-radius: var(--radius);
+  background: transparent;
+  color: #c9cdd2;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: left;
+}
+.sidebar__toggle:hover {
+  background: var(--nav-2);
+  color: #fff;
+}
+.sidebar__toggle > svg {
+  flex: none;
+}
+.sidebar__foot {
   font-size: 11px;
   line-height: 1.5;
   color: #8d939a;
   text-align: center;
 }
-
-@media (max-width: 1399px) {
-  .sidebar {
-    padding: 12px 6px;
-  }
-  .sidebar__logo {
-    display: none;
-  }
-  .sidebar__monogram {
-    display: block;
-  }
-  .sidebar__item {
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    min-height: 64px;
-    padding: 8px 2px;
-    font-size: 11px;
-    text-align: center;
-  }
+/* Prévisualisation seulement : taille réelle de la fenêtre. */
+.sidebar__viewport {
+  font-size: 10px;
+  line-height: 1.4;
+  color: #8d939a;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-@media (max-width: 899px) {
-  .sidebar__label {
-    display: none;
-  }
-  .sidebar__monogram {
-    width: 44px;
-    height: 44px;
-  }
-  .sidebar__foot {
-    display: none;
-  }
+
+/* Barre réduite : monogramme, icônes seules (nom accessible porté par chaque bouton). */
+.app[data-sidebar='reduite'] .sidebar {
+  padding: 12px 8px;
+}
+.app[data-sidebar='reduite'] .sidebar__item,
+.app[data-sidebar='reduite'] .sidebar__toggle {
+  justify-content: center;
+  padding: 8px 0;
+}
+.app[data-sidebar='reduite'] .sidebar__label {
+  display: none;
 }
 
 /* ---------- Barre supérieure ---------- */
@@ -310,18 +340,28 @@
 
 /* ---------- Espace de prise de commande ---------- */
 
+/*
+ * Disposition choisie selon la place réellement disponible (data-disposition sur .app, calculée
+ * par components/layout/disposition.ts) : colonnes | onglets-carte | onglets.
+ * Les colonnes Client et Commande dépendent de la fenêtre (pas de l'état de la barre) :
+ * replier le menu ne change jamais la largeur du panier, seule la Carte s'élargit.
+ * Les trois colonnes restent toujours dans la page (masquées en onglets) : aucune saisie perdue.
+ */
 .workspace {
+  --col-client: 300px;
+  --col-commande: 380px;
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 380px;
+  grid-template-columns: var(--col-client) minmax(0, 1fr) var(--col-commande);
   grid-template-rows: minmax(0, 1fr);
   gap: 12px;
   padding: 0 16px 16px;
 }
 @media (max-width: 1399px) {
   .workspace {
-    grid-template-columns: 268px minmax(0, 1fr) 340px;
+    --col-client: 268px;
+    --col-commande: 340px;
   }
 }
 .workspace__col {
@@ -336,38 +376,36 @@
   display: none;
 }
 
-/* Tablette compacte : Client et Carte partagent la colonne gauche (onglets), la commande reste visible. */
-@media (max-width: 1179px) and (min-width: 960px) {
-  .workspace {
-    grid-template-columns: minmax(0, 1fr) 330px;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 10px;
-    padding: 0 10px 10px;
-  }
-  .pane-tabs {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    grid-column: 1;
-  }
-  .pane-tabs button:last-child {
-    display: none;
-  }
-  .workspace__col--client,
-  .workspace__col--carte {
-    grid-column: 1;
-    grid-row: 2;
-    display: none;
-  }
-  .workspace__col--commande {
-    grid-column: 2;
-    grid-row: 1 / 3;
-  }
-  .workspace[data-pane='client'] .workspace__col--client,
-  .workspace[data-pane='carte'] .workspace__col--carte,
-  .workspace[data-pane='commande'] .workspace__col--carte {
-    display: flex;
-  }
+/* Client et Carte partagent la colonne gauche (onglets), la commande reste visible, à la même largeur qu’en trois colonnes. */
+.app[data-disposition='onglets-carte'] .workspace {
+  grid-template-columns: minmax(0, 1fr) var(--col-commande);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 10px 10px;
+}
+.app[data-disposition='onglets-carte'] .pane-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  grid-column: 1;
+}
+.app[data-disposition='onglets-carte'] .pane-tabs button:last-child {
+  display: none;
+}
+.app[data-disposition='onglets-carte'] .workspace__col--client,
+.app[data-disposition='onglets-carte'] .workspace__col--carte {
+  grid-column: 1;
+  grid-row: 2;
+  display: none;
+}
+.app[data-disposition='onglets-carte'] .workspace__col--commande {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+.app[data-disposition='onglets-carte'] .workspace[data-pane='client'] .workspace__col--client,
+.app[data-disposition='onglets-carte'] .workspace[data-pane='carte'] .workspace__col--carte,
+.app[data-disposition='onglets-carte'] .workspace[data-pane='commande'] .workspace__col--carte {
+  display: flex;
 }
 .pane-tabs button {
   display: flex;
@@ -395,29 +433,25 @@
   box-shadow: inset 0 -3px 0 var(--red);
 }
 
-/* Écran étroit : une colonne à la fois, sans réduire les éléments. */
-@media (max-width: 959px) {
-  .workspace {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-  .workspace {
-    gap: 10px;
-    padding: 0 10px 10px;
-  }
-  .pane-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-  .workspace__col {
-    display: none;
-  }
-  .workspace[data-pane='client'] .workspace__col--client,
-  .workspace[data-pane='carte'] .workspace__col--carte,
-  .workspace[data-pane='commande'] .workspace__col--commande {
-    display: flex;
-  }
+/* Place étroite : une section à la fois, sans réduire les éléments. */
+.app[data-disposition='onglets'] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 10px 10px;
+}
+.app[data-disposition='onglets'] .pane-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.app[data-disposition='onglets'] .workspace__col {
+  display: none;
+}
+.app[data-disposition='onglets'] .workspace[data-pane='client'] .workspace__col--client,
+.app[data-disposition='onglets'] .workspace[data-pane='carte'] .workspace__col--carte,
+.app[data-disposition='onglets'] .workspace[data-pane='commande'] .workspace__col--commande {
+  display: flex;
 }
 
 /* ---------- Panneaux ---------- */
