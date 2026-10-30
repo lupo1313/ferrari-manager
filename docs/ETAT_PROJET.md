@@ -11,7 +11,7 @@ Ce document décrit ce qui existe **réellement** dans le code de `main`. Les r�
 | Commit sur `main` | Code : `c8cf885` (fusion `--no-ff` de `feat/intervention-6-trajets-scooter`), suivi uniquement de commits de documentation |
 | Build servi (vérifié le 30/10) | `assets/index-CvFZA6CO.js` (déploiement `github-pages` en succès, 6 modules contrôlés sans erreur JavaScript) |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
-| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; sert l'intervention 6 au commit `a913a77` (`index-CE0PYSFL.js`), c'est-à-dire **sans** le contact de l'exploitant ajouté ensuite : légèrement en retard sur la production. |
+| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; depuis le 31/10, sert l'**intervention 7** (branche `feat/intervention-7-barre-laterale`, `e0ab93b`), build `index-Dpv0k2_7.js` (commit `03a38f6` du dépôt d'aperçu, déploiement Pages en succès, version servie vérifiée). Isolation vérifiée en ligne : actions dans l'aperçu sans aucune modification des clés `ferrari-manager:*` ni création de `ferrari-manager-interface`. |
 
 Historique des interventions sur `main` :
 
