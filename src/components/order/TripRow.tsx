@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../ui/Icon';
 import { useAppSelector, useStore } from '../../state/StoreContext';
 import { formatDistance, formatDuration, validTripFor } from '../../domain/trip';
-import { computeScooterTrip, DEFAULT_ROUTING_URL } from '../../services/trajet';
+import { computeScooterTrip, DEFAULT_ROUTING_URL, OPERATOR_CONTACT_EMAIL } from '../../services/trajet';
 import type { DeliveryAddressInput } from '../../domain/types';
 
 const ROUTING_URL = import.meta.env.VITE_ROUTING_URL || DEFAULT_ROUTING_URL;
@@ -73,6 +73,10 @@ export function TripRow({ customerId, address }: { customerId: string; address: 
           ) ·{' '}
           <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer">
             signaler une erreur
+          </a>{' '}
+          ·{' '}
+          <a href={`mailto:${OPERATOR_CONTACT_EMAIL}`} title={`Contact technique de l’exploitant : ${OPERATOR_CONTACT_EMAIL}`}>
+            contact
           </a>
         </small>
       )}

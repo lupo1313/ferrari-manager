@@ -6,7 +6,7 @@ import { buildDemoData } from '../src/data/seed';
 import { computeBalance } from '../src/domain/loyalty';
 import { buildDeliveryTicket, buildKitchenTicket } from '../src/domain/ticket';
 import { deliveryAddressKey, formatDistance, formatDuration, validTripFor } from '../src/domain/trip';
-import { computeScooterTrip, GEOCODING_URL, resetTripCache, SCOOTER_TOP_SPEED_KMH } from '../src/services/trajet';
+import { computeScooterTrip, GEOCODING_URL, OPERATOR_CONTACT_EMAIL, resetTripCache, SCOOTER_TOP_SPEED_KMH } from '../src/services/trajet';
 import { availablePeriods, computePeriodStats } from '../src/modules/statistiques/calculs';
 import { backupToText, createBackup, verifyBackupText, type ReadableStore } from '../src/storage/export';
 import type { DeliveryTrip, Order } from '../src/domain/types';
@@ -108,6 +108,17 @@ describe('calcul du trajet en scooter', () => {
     }
     expect(waits).toEqual([800, 800]);
     expect(net.calls.filter((u) => u.startsWith(ROUTING))).toHaveLength(3);
+  });
+
+  it('contact de l’exploitant : jamais envoyé aux services de calcul ni imprimé sur les tickets', async () => {
+    const t = setup();
+    const net = fakeNet();
+    const o = await t.deliveryWithTrip(net);
+    expect(OPERATOR_CONTACT_EMAIL).toBe('ast.logistiques@gmail.com');
+    expect(net.calls.some((u) => u.includes('ast.logistiques') || u.includes(encodeURIComponent(OPERATOR_CONTACT_EMAIL)))).toBe(false);
+    const settings = t.store.getData().settings;
+    expect(JSON.stringify(buildDeliveryTicket(o, settings))).not.toContain('ast.logistiques');
+    expect(JSON.stringify(buildKitchenTicket(o, settings))).not.toContain('ast.logistiques');
   });
 
   it('formats : kilomètres à une décimale, minutes arrondies au-dessus', () => {

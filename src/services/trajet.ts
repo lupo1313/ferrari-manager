@@ -12,6 +12,11 @@ import { deliveryAddressKey, tripAddressProblem, type DeliveryAddress } from '..
  */
 
 export const GEOCODING_URL = 'https://data.geopf.fr/geocodage/search';
+/**
+ * Contact technique de l'exploitant, exigé par les conditions du serveur public FOSSGIS (adresse visible et
+ * joignable sur le site). Affiché seulement dans l'application, jamais sur les tickets ni envoyé aux services.
+ */
+export const OPERATOR_CONTACT_EMAIL = 'ast.logistiques@gmail.com';
 export const DEFAULT_ROUTING_URL = 'https://valhalla1.openstreetmap.de/route';
 /** Vitesse maximale du profil scooter (km/h) : 45 = cyclomoteur, valeur par défaut de Valhalla. */
 export const SCOOTER_TOP_SPEED_KMH = 45;
