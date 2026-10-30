@@ -3,7 +3,7 @@ import { computeTotals } from './pricing';
 import { hasDeliveryAddress, snapshotCustomer } from './customers';
 import { isValidTimeOfDay } from './time';
 import { hasRewardWithoutPaidPizza, hasTooManyRewards, MAX_QUANTITY, ONE_REWARD_PER_ORDER, REWARD_NEEDS_PAID_PIZZA } from './cart';
-import { isLegacyUnpaid, isPaid, unpaid } from './payment';
+import { asPaymentPlan, canPlanPayment, isLegacyUnpaid, isPaid, planProblem, unpaid } from './payment';
 
 export const STATUS_FLOW: OrderStatus[] = ['a_preparer', 'en_preparation', 'prete', 'terminee'];
 
@@ -73,7 +73,7 @@ export function canMarkPaidFromCard(order: Order): boolean {
   return !order.archivedAt && order.status !== 'annulee' && !isPaid(order);
 }
 
-export type OrderMenuAction = 'ticket' | 'corriger_statut' | 'annuler_encaissement' | 'annuler';
+export type OrderMenuAction = 'ticket' | 'paiement_prevu' | 'corriger_statut' | 'annuler_encaissement' | 'annuler';
 
 /**
  * Actions secondaires d'une carte (menu « ••• »), dans l'ordre d'affichage. Aucune n'est automatique :
@@ -81,6 +81,7 @@ export type OrderMenuAction = 'ticket' | 'corriger_statut' | 'annuler_encaisseme
  */
 export function secondaryActions(order: Order): OrderMenuAction[] {
   const actions: OrderMenuAction[] = ['ticket'];
+  if (canPlanPayment(order)) actions.push('paiement_prevu');
   if (statusCorrections(order).length > 0) actions.push('corriger_statut');
   if (isPaid(order) && !order.archivedAt && order.status !== 'annulee') actions.push('annuler_encaissement');
   if (canCancelOrder(order)) actions.push('annuler');
@@ -115,6 +116,9 @@ export function validateCart(cart: Cart, ctx: CartValidationContext): string[] {
     if (hasRewardWithoutPaidPizza(cart.lines)) errors.push(REWARD_NEEDS_PAID_PIZZA);
     if (hasTooManyRewards(cart.lines)) errors.push(ONE_REWARD_PER_ORDER);
   }
+  const plan = asPaymentPlan(cart.paymentPlan);
+  const planError = plan && planProblem(plan, computeTotals(cart.lines).total);
+  if (planError) errors.push(planError);
   return errors;
 }
 
@@ -141,6 +145,8 @@ export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
     lines: cart.lines.map((l) => ({ ...l, addedToppings: [...l.addedToppings], removedIngredients: [...l.removedIngredients] })),
     note: cart.note.trim(),
     totals,
+    // Paiement prévu : simple intention, sans effet sur le statut de paiement ni la fidélité.
+    paymentPlan: asPaymentPlan(cart.paymentPlan),
     updatedAt: p.nowIso,
   };
   if (p.previous) {
@@ -182,6 +188,7 @@ export function orderToCart(order: Order): Cart {
     requestedTime: order.requestedTime,
     lines: order.lines.map((l) => ({ ...l })),
     note: order.note,
+    paymentPlan: asPaymentPlan(order.paymentPlan),
   };
 }
 

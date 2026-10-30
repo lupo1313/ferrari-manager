@@ -5,6 +5,7 @@ import { useToast } from '../components/ui/Toast';
 import { OrderCard } from '../components/orders/OrderCard';
 import { columnCount, distributeColumns } from '../components/orders/columns';
 import { PaymentDialog } from '../components/orders/PaymentDialog';
+import { PaymentPlanDialog } from '../components/orders/PaymentPlanDialog';
 import { StatusDialog } from '../components/orders/StatusDialog';
 import { TicketModal } from '../components/ticket/TicketModal';
 import { useAppData, useStore } from '../state/StoreContext';
@@ -66,6 +67,7 @@ export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: 
   const [cancelling, setCancelling] = useState<Order | null>(null);
   const [editing, setEditing] = useState<Order | null>(null);
   const [paying, setPaying] = useState<Order | null>(null);
+  const [planning, setPlanning] = useState<Order | null>(null);
   const [unpaying, setUnpaying] = useState<Order | null>(null);
   const [correcting, setCorrecting] = useState<Order | null>(null);
   const now = useNow();
@@ -210,6 +212,7 @@ export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: 
               }}
               onCorrectStatus={() => setCorrecting(order)}
               onTicket={() => setTicketFor(order.id)}
+              onPlanPayment={() => setPlanning(order)}
               onEdit={() => askEdit(order)}
               onCancel={() => setCancelling(order)}
               onMarkPaid={() => setPaying(order)}
@@ -273,6 +276,20 @@ export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: 
         />
       )}
       {correcting && <StatusDialog order={correcting} onClose={() => setCorrecting(null)} onConfirm={(s) => correctStatus(correcting, s)} />}
+      {planning && (
+        <PaymentPlanDialog
+          title={`Commande n° ${planning.number}`}
+          total={planning.totals.total}
+          plan={planning.paymentPlan}
+          onClose={() => setPlanning(null)}
+          onSave={(plan) => {
+            const r = store.setOrderPaymentPlan(planning.id, plan);
+            if (!r.ok) return r.error;
+            toast(`N° ${planning.number} : paiement prévu enregistré`, 'success');
+            return null;
+          }}
+        />
+      )}
       {paying && <PaymentDialog order={paying} onClose={() => setPaying(null)} onConfirm={(m) => confirmPaid(paying, m)} />}
       {unpaying && (
         <ConfirmDialog

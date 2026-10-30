@@ -1,6 +1,6 @@
 import type { Cart, Customer, LoyaltyEvent, Order, Payment, ServiceRecord, Settings } from '../domain/types';
 import { emptyCart } from '../domain/cart';
-import { legacyPayment } from '../domain/payment';
+import { asPaymentPlan, legacyPayment } from '../domain/payment';
 import { serviceIdFromStart } from '../domain/service';
 
 export const SCHEMA_VERSION = 1;
@@ -63,6 +63,8 @@ export interface NormalizeDefaults {
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
+const ADDRESS_DETAILS = ['building', 'floor', 'intercom', 'doorCode'] as const;
+
 const PAYMENT_STATUSES: readonly unknown[] = ['a_encaisser', 'encaissee'];
 const PAYMENT_METHODS: readonly unknown[] = ['especes', 'carte', 'non_precise', null];
 
@@ -93,6 +95,12 @@ export function normalizeAppData(raw: unknown, defaults: NormalizeDefaults): Nor
   // Ni supposées encaissées, ni dépouillées de leurs points : marquées « legacy » (voir Payment.legacy).
   // Complété à la lecture seulement : rien n'est réécrit tant que la commande n'est pas modifiée.
   const orders = (raw.orders as Order[]).map((o) => (isObject(o) && !isValidPayment(o.payment) ? { ...o, payment: legacyPayment() } : o));
+  // Fiches créées avant l'intervention 5 : repères de livraison vides, complétés en mémoire seulement.
+  const customers = (raw.customers as Customer[]).map((c) =>
+    isObject(c) && ADDRESS_DETAILS.some((k) => typeof c[k] !== 'string')
+      ? { ...c, ...Object.fromEntries(ADDRESS_DETAILS.map((k) => [k, typeof c[k] === 'string' ? c[k] : ''])) }
+      : c,
+  );
 
   // Paramètres : les nouveaux réglages ajoutés au code prennent leur valeur par défaut.
   const s = isObject(raw.settings) ? raw.settings : {};
@@ -115,6 +123,7 @@ export function normalizeAppData(raw: unknown, defaults: NormalizeDefaults): Nor
   // Panier : brouillon en cours, complété champ par champ (les lignes saisies sont conservées).
   const cart: Cart = { ...emptyCart(defaults.newCartId()), ...(isObject(raw.cart) ? raw.cart : {}) } as Cart;
   if (!Array.isArray(cart.lines)) cart.lines = [];
+  cart.paymentPlan = asPaymentPlan(cart.paymentPlan);
 
   // Compteur absent : on repart après le plus grand numéro encore affiché, pour éviter les doublons.
   const counters = isObject(raw.counters) && typeof raw.counters.nextOrderNumber === 'number'
@@ -131,7 +140,7 @@ export function normalizeAppData(raw: unknown, defaults: NormalizeDefaults): Nor
     ok: true,
     data: {
       schemaVersion: SCHEMA_VERSION,
-      customers: raw.customers as Customer[],
+      customers,
       orders,
       loyaltyEvents: raw.loyaltyEvents as LoyaltyEvent[],
       settings,

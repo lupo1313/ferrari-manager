@@ -55,7 +55,7 @@ export function CustomerFormModal({ customer, initialPhone, selectOnCreate = tru
       <span className="field__label">{label}</span>
       <input
         className={`input ${errors[name] ? 'input--invalid' : ''}`}
-        value={input[name]}
+        value={input[name] ?? ''}
         onChange={(e) => set(name)(e.target.value)}
         aria-invalid={Boolean(errors[name])}
         {...props}
@@ -109,8 +109,12 @@ export function CustomerFormModal({ customer, initialPhone, selectOnCreate = tru
         <div className="form-grid__full">{field('address', 'Adresse de livraison', { autoComplete: 'off', placeholder: 'N° et rue' })}</div>
         {field('postalCode', 'Code postal', { inputMode: 'numeric', autoComplete: 'off', maxLength: 5 })}
         {field('city', 'Ville', { autoComplete: 'off' })}
+        {field('building', 'Bâtiment', { autoComplete: 'off', placeholder: 'Ex. B' })}
+        {field('floor', 'Étage', { autoComplete: 'off', placeholder: 'Ex. 3e' })}
+        {field('intercom', 'Interphone', { autoComplete: 'off', placeholder: 'Nom ou numéro' })}
+        {field('doorCode', 'Digicode', { autoComplete: 'off', placeholder: 'Ex. 4512' })}
         <div className="form-grid__full">
-          {field('complement', 'Complément d’adresse', { autoComplete: 'off', placeholder: 'Étage, code, interphone…' })}
+          {field('complement', 'Complément d’adresse', { autoComplete: 'off', placeholder: 'Résidence, porte…' })}
         </div>
         <label className="field form-grid__full">
           <span className="field__label">Instructions / notes client</span>

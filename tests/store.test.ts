@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeBalance } from '../src/domain/loyalty';
-import { buildTicket } from '../src/domain/ticket';
+import { buildDeliveryTicket, buildKitchenTicket } from '../src/domain/ticket';
 import { createTestStore } from './helpers';
 
 describe('scénario de validation V1 (store complet)', () => {
@@ -37,14 +37,16 @@ describe('scénario de validation V1 (store complet)', () => {
     expect(store.getData().orders.filter((o) => o.customerId === jean.id)).toHaveLength(1);
     expect(balance()).toMatchObject({ available: 0, progress: 2 });
 
-    // Ticket
-    const ticket = buildTicket(order, store.getData().settings);
+    // Tickets : cuisine (personnalisations) et livreur (adresse, cadeau, total, livraison offerte)
+    const kitchen = buildKitchenTicket(order, store.getData().settings);
+    const pizzas = kitchen.groups.find((g) => g.title === 'PIZZAS')!.lines;
+    expect(pizzas[0].details).toContain('Sans œuf');
+    expect(pizzas[1].details).toContain('+ Miel');
+    const ticket = buildDeliveryTicket(order, store.getData().settings)!;
     expect(ticket.customer?.addressLines).toContain('15 rue de Rome');
-    expect(ticket.lines[0].details).toContain('Sans œuf');
-    expect(ticket.lines[1].details).toContain('+ Miel');
-    expect(ticket.lines[3].amount).toBe('OFFERT');
+    expect(ticket.lines[3].offered).toBe(true);
     expect(ticket.total).toBe('32,50 €');
-    expect(ticket.deliveryFee).toBe('Offerte');
+    expect(ticket.historicFee).toBeNull();
 
     // Statut
     expect(store.setOrderStatus(order.id, 'en_preparation').ok).toBe(true);

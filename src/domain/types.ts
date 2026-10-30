@@ -50,8 +50,13 @@ export interface Customer {
   address: string;
   postalCode: string;
   city: string;
-  /** Étage, code, interphone… */
+  /** Complément libre (résidence, porte…). */
   complement: string;
+  /** Repères de livraison, chacun facultatif (vides sur les fiches créées avant l'intervention 5). */
+  building: string;
+  floor: string;
+  intercom: string;
+  doorCode: string;
   /** Notes permanentes : instructions de livraison, préférences. */
   instructions: string;
   createdAt: string;
@@ -67,6 +72,11 @@ export interface CustomerSnapshot {
   postalCode: string;
   city: string;
   complement: string;
+  /** Absents sur les commandes enregistrées avant l'intervention 5. */
+  building?: string;
+  floor?: string;
+  intercom?: string;
+  doorCode?: string;
   instructions: string;
 }
 
@@ -113,6 +123,8 @@ export interface Cart {
   requestedTime: string | null;
   lines: OrderLine[];
   note: string;
+  /** Paiement prévu (intention du client), copié sur la commande à la validation. */
+  paymentPlan?: PaymentPlan | null;
 }
 
 export interface OrderTotals {
@@ -129,12 +141,39 @@ export interface StatusChange {
 /** Suivi d'encaissement, indépendant du statut de préparation. Ce n'est pas une caisse. */
 export type PaymentStatus = 'a_encaisser' | 'encaissee';
 
+/**
+ * Résumé du moyen d'encaissement. Valeurs FIGÉES : ce sont les seules que la version précédente sait relire
+ * (une valeur inconnue y ferait passer la commande en « Paiement non suivi »). Titres-restaurant et paiement
+ * mixte sont donc résumés par « non_precise » ; leur détail est dans `tenders`.
+ */
 export type PaymentMethod = 'especes' | 'carte' | 'non_precise';
+
+/** Moyens de paiement réels. */
+export type TenderKind = 'especes' | 'carte' | 'titres_restaurant';
+
+/** Montant réglé (ou prévu) avec un moyen de paiement. */
+export interface PaymentPart {
+  kind: TenderKind;
+  amount: Cents;
+}
+
+/**
+ * Paiement PRÉVU : comment le client compte payer. Ce n'est jamais un encaissement :
+ * aucun effet sur le statut de paiement, la fidélité ni les statistiques.
+ * - « unique » : un seul moyen, pour la totalité (suit le total si la commande est modifiée) ;
+ * - « mixte » : montants par moyen, éventuellement incomplets (le reste est « non affecté »).
+ */
+export type PaymentPlan = { type: 'unique'; kind: TenderKind } | { type: 'mixte'; parts: PaymentPart[] };
 
 export interface Payment {
   status: PaymentStatus;
-  /** Facultatif : renseigné au moment de l'encaissement. */
+  /** Facultatif : renseigné au moment de l'encaissement (résumé compatible, voir PaymentMethod). */
   method: PaymentMethod | null;
+  /**
+   * Détail de l'encaissement CONFIRMÉ (un moyen ou paiement mixte), dont la somme était égale au total
+   * au moment de la confirmation. Absent sur les encaissements d'avant l'intervention 5 et « Non précisé ».
+   */
+  tenders?: PaymentPart[];
   paidAt: string | null;
   /**
    * Commande enregistrée avant le suivi des paiements : statut de paiement inconnu.
@@ -160,6 +199,8 @@ export interface Order {
   lines: OrderLine[];
   note: string;
   totals: OrderTotals;
+  /** Paiement prévu (absent sur les commandes d'avant l'intervention 5). */
+  paymentPlan?: PaymentPlan | null;
   status: OrderStatus;
   statusHistory: StatusChange[];
   payment: Payment;

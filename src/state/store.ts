@@ -6,6 +6,8 @@ import type {
   OrderMode,
   OrderStatus,
   PaymentMethod,
+  PaymentPart,
+  PaymentPlan,
   Product,
   RewardKind,
   Settings,
@@ -56,7 +58,8 @@ import {
   withStatus,
 } from '../domain/orders';
 import { isValidTimeOfDay } from '../domain/time';
-import { cannotMarkPaid, isPaid, markPaid, markUnpaid } from '../domain/payment';
+import { computeTotals } from '../domain/pricing';
+import { asPaymentPlan, canPlanPayment, cannotMarkPaid, isPaid, markPaid, markUnpaid, planProblem, tendersProblem } from '../domain/payment';
 import { closeServiceRecord, currentService, openServiceRecord } from '../domain/service';
 
 export type Result<T = void> =
@@ -383,6 +386,16 @@ export function createAppStore(deps: StoreDeps) {
       setCart({ ...data.cart, counterName: name.slice(0, 40) }, 'deferred');
     },
 
+    /** Paiement prévu de la commande en cours de saisie (null = non renseigné). Refusé s'il dépasse le total. */
+    setCartPaymentPlan(plan: PaymentPlan | null): Result {
+      const valid = asPaymentPlan(plan);
+      if (plan !== null && !valid) return fail('Paiement prévu invalide.');
+      const problem = valid && planProblem(valid, computeTotals(data.cart.lines).total);
+      if (problem) return fail(problem);
+      setCart({ ...data.cart, paymentPlan: valid });
+      return ok(undefined);
+    },
+
     /** Vide le panier (et abandonne une éventuelle modification en cours). */
     clearCart() {
       setCart(emptyCart(newId('ord')));
@@ -484,13 +497,24 @@ export function createAppStore(deps: StoreDeps) {
      * Encaissement (suivi opérationnel, pas une caisse) : crédite les pizzas payantes du client.
      * Idempotent : une commande déjà encaissée ne recrédite jamais rien (seul le moyen peut être corrigé).
      */
-    markOrderPaid(orderId: string, method: PaymentMethod = 'non_precise'): Result<{ order: Order; pointsCredited: number; alreadyPaid: boolean }> {
+    /**
+     * Encaissement confirmé : un moyen (« Non précisé » compris) ou une répartition par moyen, qui doit couvrir
+     * exactement le total (pas d'encaissement partiel). Le paiement prévu n'est jamais pris pour un encaissement.
+     */
+    markOrderPaid(
+      orderId: string,
+      how: PaymentMethod | PaymentPart[] = 'non_precise',
+    ): Result<{ order: Order; pointsCredited: number; alreadyPaid: boolean }> {
       const order = findOrder(orderId);
       if (!order) return fail('Commande introuvable.');
       const blocked = cannotMarkPaid(order);
       if (blocked) return fail(blocked);
+      if (Array.isArray(how)) {
+        const problem = tendersProblem(how, order.totals.total);
+        if (problem) return fail(problem);
+      }
       const alreadyPaid = isPaid(order);
-      const updated = markPaid(order, method, nowIso());
+      const updated = markPaid(order, how, nowIso());
       if (updated === order) return ok({ order, pointsCredited: 0, alreadyPaid });
       const events = commitOrder(updated);
       if (!events) return fail(SAVE_FAILED);
@@ -537,6 +561,24 @@ export function createAppStore(deps: StoreDeps) {
     },
 
     /** Ouverture de la fenêtre d'impression : tracée, mais jamais considérée comme une impression réussie. */
+    /** Paiement prévu d'une commande enregistrée (avant de partir en livraison, par exemple). */
+    setOrderPaymentPlan(orderId: string, plan: PaymentPlan | null): Result<Order> {
+      const order = findOrder(orderId);
+      if (!order) return fail('Commande introuvable.');
+      if (isPaid(order)) return fail('Commande déjà encaissée : le paiement prévu ne s’applique plus.');
+      if (!canPlanPayment(order)) return fail('Paiement prévu impossible pour cette commande.');
+      const valid = asPaymentPlan(plan);
+      if (plan !== null && !valid) return fail('Paiement prévu invalide.');
+      const problem = valid && planProblem(valid, order.totals.total);
+      if (problem) return fail(problem);
+      if (JSON.stringify(asPaymentPlan(order.paymentPlan)) === JSON.stringify(valid)) return ok(order);
+      const updated: Order = { ...order, paymentPlan: valid, updatedAt: nowIso() };
+      // Le panier qui modifie cette commande suit le même paiement prévu.
+      const cart = data.cart.editingOrderId === orderId ? { ...data.cart, paymentPlan: valid } : undefined;
+      if (!commitOrder(updated, { cart })) return fail(SAVE_FAILED);
+      return ok(updated);
+    },
+
     recordPrintRequest(orderId: string) {
       const order = findOrder(orderId);
       if (!order) return;

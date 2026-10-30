@@ -7,9 +7,10 @@ import { CartLine } from './CartLine';
 import { TimePickerModal } from './TimePickerModal';
 import { CustomizeModal } from '../catalog/CustomizeModal';
 import { TicketModal } from '../ticket/TicketModal';
+import { PaymentPlanDialog } from '../orders/PaymentPlanDialog';
 import { computeTotals, rewardSavings } from '../../domain/pricing';
 import { hasRewardWithoutPaidPizza, itemCount, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
-import { isPaid } from '../../domain/payment';
+import { asPaymentPlan, isPaid, planBreakdown, TENDER_LABELS } from '../../domain/payment';
 import { SERVICE_CLOSED_MESSAGE } from '../../domain/orders';
 import { formatPrice } from '../../domain/money';
 import { formatTimeOfDay } from '../../domain/time';
@@ -30,6 +31,7 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
   const editing = cart.editingOrderId ? data.orders.find((o) => o.id === cart.editingOrderId) : undefined;
 
   const [timeOpen, setTimeOpen] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(cart.note !== '');
   const [confirmClear, setConfirmClear] = useState(false);
   const [customizing, setCustomizing] = useState<OrderLine | null>(null);
@@ -61,6 +63,16 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
     const r = store.openService();
     toast(r.ok ? 'Service ouvert : prise de commandes activée' : r.error, r.ok ? 'success' : 'error');
   };
+  // Paiement prévu : simple information (cuisine, livreur), sans objet pour une commande déjà encaissée.
+  const showPlan = !(editing && isPaid(editing));
+  const plan = asPaymentPlan(cart.paymentPlan);
+  const planShort = !plan
+    ? 'À préciser'
+    : plan.type === 'unique'
+      ? TENDER_LABELS[plan.kind]
+      : planBreakdown(plan, totals.total).excess > 0
+        ? 'Mixte · à corriger'
+        : 'Mixte';
   const deliveryProblem =
     cart.mode === 'livraison' && (!customer ? 'Sélectionnez un client pour la livraison.' : !hasDeliveryAddress(customer) ? 'Adresse du client incomplète.' : null);
 
@@ -135,12 +147,28 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
             {deliveryProblem ?? `${customer!.address}, ${customer!.postalCode} ${customer!.city}`}
           </p>
         )}
-        <button type="button" className="time-row" onClick={() => setTimeOpen(true)}>
-          <Icon name="clock" />
-          <span>{cart.requestedTime ? `Pour ${formatTimeOfDay(cart.requestedTime)}` : 'Dès que possible'}</span>
-          <span className="time-row__action">Changer</span>
-          <Icon name="chevronRight" size={18} />
-        </button>
+        <div className={`order-panel__when-pay ${showPlan ? '' : 'order-panel__when-pay--single'}`}>
+          <button type="button" className="time-row" onClick={() => setTimeOpen(true)} aria-label="Heure souhaitée, changer">
+            <Icon name="clock" />
+            <span>{cart.requestedTime ? `Pour ${formatTimeOfDay(cart.requestedTime)}` : 'Dès que possible'}</span>
+            <Icon name="chevronRight" size={18} />
+          </button>
+          {showPlan && (
+            <button
+              type="button"
+              className={`time-row ${planShort === 'Mixte · à corriger' ? 'time-row--warn' : ''}`}
+              onClick={() => setPlanOpen(true)}
+              aria-label={`Paiement prévu : ${planShort}, changer`}
+            >
+              <Icon name="file" />
+              <span>
+                <small className="time-row__caption">Paiement prévu</small>
+                {planShort}
+              </span>
+              <Icon name="chevronRight" size={18} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="order-panel__lines scroll-y">
@@ -304,7 +332,19 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
           }}
         />
       )}
-      {ticketFor && <TicketModal orderId={ticketFor} onClose={() => setTicketFor(null)} />}
+      {planOpen && (
+        <PaymentPlanDialog
+          title={editing ? `Commande n° ${editing.number}` : 'Commande en cours'}
+          total={totals.total}
+          plan={cart.paymentPlan}
+          onClose={() => setPlanOpen(false)}
+          onSave={(p) => {
+            const r = store.setCartPaymentPlan(p);
+            return r.ok ? null : r.error;
+          }}
+        />
+      )}
+      {ticketFor && <TicketModal orderId={ticketFor} justSaved onClose={() => setTicketFor(null)} />}
     </section>
   );
 }

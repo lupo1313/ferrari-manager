@@ -50,6 +50,36 @@
   font-weight: 500;
   color: var(--text-3);
 }
+/* Heure souhaitée et paiement prévu côte à côte (une seule rangée de 48 px). */
+.order-panel__when-pay {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.order-panel__when-pay--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.order-panel__when-pay .time-row {
+  gap: 6px;
+  padding: 0 6px 0 10px;
+}
+.order-panel__when-pay .time-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.time-row__caption {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text-3);
+}
+.time-row--warn {
+  border-color: var(--red);
+  color: var(--red-ink);
+}
 
 .order-panel__lines {
   flex: 1;
