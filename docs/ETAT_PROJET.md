@@ -1,7 +1,7 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, mise en production de l'intervention 5 (tickets cuisine/livreur, paiements ; fusion `02c62e7`).
-Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
+Dernière mise à jour : 30/10/2026, intervention 6 (trajet en scooter pour le ticket livreur) sur la branche `feat/intervention-6-trajets-scooter`, **en prévisualisation, non fusionnée**. La production (`main`, `de88a7c`) est à l'état de l'intervention 5.
+Ce document décrit ce qui existe **réellement** dans le code de cette branche. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 
 ## 1. En production
 
@@ -62,6 +62,15 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - **Fiche client** : bâtiment, étage, interphone, digicode (facultatifs), à côté du complément ; complétés à vide en mémoire pour les anciennes fiches, sans réécriture. Le texte existant du complément n'est pas découpé.
 - Vérifié dans Chromium (1280×800, 844×340, 390×750, 1440×900), sur la sauvegarde réelle de l'iPhone et sur des données au format de la production `752d3f3` (tests temporaires : aucune réécriture, statistiques et fidélité identiques), puis validé par le gérant sur Safari iPhone (prévisualisation). **Impression physique et tablette réelle non vérifiées.**
 - Décisions par défaut (réversibles) : pas d'encaissement partiel ; montant supérieur au total refusé (pas de rendu de monnaie) ; commande encaissée puis modifiée = reste encaissée, écart affiché ; consignes client sur le ticket livreur seulement ; pas de statistiques par moyen de paiement.
+
+### Intervention 6 en cours de validation (branche `feat/intervention-6-trajets-scooter`)
+
+- **But** : distance routière et durée estimée **en scooter** de la pizzeria à l'adresse du client, imprimées **uniquement sur le ticket livreur** (« TRAJET EN SCOOTER · DISTANCE · DURÉE ESTIMÉE », mention « Estimation sans trafic · données © OpenStreetMap »). Ticket cuisine inchangé. Livraison toujours offerte (ligne « Livraison offerte » ajoutée au ticket livreur).
+- **Calcul** (`services/trajet.ts`) : géocodage par la Base Adresse Nationale (Géoplateforme IGN, `data.geopf.fr/geocodage`, service public gratuit, sans clé ; filtre sur le code postal ; correspondance refusée sous un score de 0,5 ; rue seule acceptée et signalée « numéro non trouvé ») puis itinéraire **Valhalla, profil `motor_scooter`** (deux-roues motorisé, vitesse plafonnée à 45 km/h, voies interdites aux cyclomoteurs évitées). Départ : adresse de la pizzeria des Paramètres (« 178 rue Ferrari, 13005 Marseille »), géocodée puis mémorisée pendant la session. Aucune clé API dans le code ; serveur Valhalla configurable au build (`VITE_ROUTING_URL`), par défaut le serveur public FOSSGIS `valhalla1.openstreetmap.de`.
+- **Interface** : sous l'adresse de livraison du panier, « Calculer le trajet » (états « Calcul… », résultat « Scooter : 2,2 km · 13 min », « Recalculer », message d'erreur court + « Trajet facultatif »). Jamais bloquant : adresse incomplète ou introuvable, service indisponible, quota, hors ligne → message, commande enregistrable, ticket sans trajet. Aucune valeur inventée.
+- **Données** : `cart.deliveryTrip` et `order.deliveryTrip` (distance en mètres, durée en secondes, clé de l'adresse utilisée, adresse reconnue, date, source). Le trajet n'est utilisé que si la commande est une livraison **et** que la clé correspond à l'adresse copiée sur la commande : adresse modifiée → trajet caduc (jamais réimprimé), recalcul possible ; passage à emporter → aucun trajet. Champ facultatif, absent des anciennes commandes, sans réécriture au chargement ; inclus dans la sauvegarde JSON.
+- Vérifié en réel dans Chromium (calcul effectif depuis l'aperçu local, adresse introuvable, impression), 1280×800, 844×340, 390×750, et sur la sauvegarde réelle de l'iPhone (test temporaire). **Pas encore sur un vrai iPhone ni sur la tablette.**
+- **Limites** : estimation sans trafic en temps réel ; vitesses urbaines du modèle prudentes (2,2 km ≈ 13 min en centre-ville, proche de la voiture) ; profil cyclomoteur 45 km/h (un 125 cm³ va plus vite) ; serveur public FOSSGIS sans garantie de disponibilité, 1 requête/s.
 
 ## 2. Fonctionnalités opérationnelles
 
@@ -149,7 +158,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ## 4. Tests
 
-230 tests Vitest, tous réussis au 30/10 :
+247 tests Vitest, tous réussis au 30/10 (branche `feat/intervention-6-trajets-scooter`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -166,6 +175,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 | `modification-navigation.test.ts` (10) | Intervention 4B : client verrouillé pendant une modification (tous les chemins), annulation, abandon sans toucher la commande enregistrée, service fermé, commande encaissée modifiée service fermé, fidélité sans double crédit, contrat CSS des actions sur petit écran |
 | `commandes-cartes.test.ts` (19) | Action principale par statut, correction de statut (dont Terminée → En préparation : paiement, fidélité, produits préservés, retour dans « En cours »), actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
 | `tickets-paiements.test.ts` (33) | Intervention 5 : tickets cuisine et livreur (repères, champs absents, notes, personnalisations, payé, à encaisser, mode à confirmer, non affecté, anciennes commandes, frais historiques), réimpression sans modification, pas de doublon, espèces / carte / titres / mixte, montants incohérents, centimes, correction, modification et annulation d'une commande encaissée, fidélité sans double crédit, paiement prévu, service fermé, compatibilité (`method`, anciennes données, sauvegarde, clés, statistiques) |
+| `trajets.test.ts` (17) | Intervention 6 : profil motor_scooter (jamais voiture), formats, adresse introuvable / incertaine / incomplète, service indisponible, coupure, quota, aucun itinéraire, hors ligne, commande enregistrable sans trajet, ticket livreur avec trajet et ticket cuisine sans, réimpression et rechargement, modification d'adresse (trajet caduc), calcul terminé après changement de client ou de mode, passage à emporter, anciennes commandes, aucun impact paiement / fidélité / statistiques, sauvegarde |
 | `sauvegarde.test.ts` (13) | Export à l'identique, aucune écriture (stockage espion), restauration possible, intégrité (fichier tronqué, modifié, résumé falsifié), données illisibles |
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.

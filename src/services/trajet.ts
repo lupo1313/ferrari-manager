@@ -30,14 +30,15 @@ export type TripErrorCode =
 
 export type TripResult = { ok: true; trip: DeliveryTrip } | { ok: false; code: TripErrorCode; message: string };
 
+/** Messages courts (une ou deux lignes dans le panneau) ; l'interface précise que le trajet est facultatif. */
 const MESSAGES: Record<TripErrorCode, string> = {
-  adresse_incomplete: 'Adresse incomplète : rue et code postal nécessaires pour calculer le trajet.',
-  adresse_introuvable: 'Adresse introuvable : vérifiez la rue et le code postal du client. La commande peut être enregistrée sans trajet.',
-  depart_introuvable: 'Adresse de la pizzeria introuvable : vérifiez-la dans Paramètres. La commande peut être enregistrée sans trajet.',
-  aucun_itineraire: 'Aucun itinéraire en scooter trouvé vers cette adresse. La commande peut être enregistrée sans trajet.',
-  quota: 'Service de calcul saturé pour le moment : réessayez dans quelques instants. La commande peut être enregistrée sans trajet.',
-  service_indisponible: 'Service de calcul indisponible. La commande peut être enregistrée sans trajet.',
-  hors_ligne: 'Pas de connexion Internet : trajet non calculé. La commande peut être enregistrée sans trajet.',
+  adresse_incomplete: 'Adresse incomplète : rue et code postal requis.',
+  adresse_introuvable: 'Adresse introuvable : vérifiez la rue et le code postal.',
+  depart_introuvable: 'Adresse de la pizzeria introuvable (voir Paramètres).',
+  aucun_itineraire: 'Aucun itinéraire en scooter vers cette adresse.',
+  quota: 'Service de calcul saturé : réessayez dans un instant.',
+  service_indisponible: 'Service de calcul indisponible.',
+  hors_ligne: 'Pas de connexion Internet.',
 };
 
 const fail = (code: TripErrorCode): TripResult => ({ ok: false, code, message: MESSAGES[code] });

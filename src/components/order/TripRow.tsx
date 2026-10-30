@@ -53,7 +53,7 @@ export function TripRow({ customer }: { customer: Customer }) {
         </span>
       ) : error ? (
         <span className="trip-row__error">
-          <Icon name="alert" size={16} /> {error}
+          <Icon name="alert" size={16} /> {error} <small>Trajet facultatif.</small>
         </span>
       ) : (
         <span className="trip-row__hint">Trajet en scooter pour le ticket livreur</span>

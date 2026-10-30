@@ -133,7 +133,7 @@ describe('calcul du trajet en scooter', () => {
       resetTripCache();
       const r = await computeScooterTrip(PIZZERIA, t.jean, t.deps(fakeNet(opts)));
       expect(!r.ok && r.code).toBe(code);
-      expect(!r.ok && r.message).toContain('peut être enregistrée sans trajet');
+      expect(!r.ok && r.message.length).toBeGreaterThan(10);
     }
     const offline = await computeScooterTrip(PIZZERIA, t.jean, { ...t.deps(fakeNet()), isOnline: () => false });
     expect(!offline.ok && offline.code).toBe('hors_ligne');
