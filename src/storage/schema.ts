@@ -14,6 +14,9 @@ export interface AppData {
   counters: { nextOrderNumber: number };
   cart: Cart;
   serviceStartedAt: string;
+  /** Service ouvert (prise de commandes autorisée) ou fermé par le gérant. */
+  serviceOpen: boolean;
+  serviceClosedAt: string | null;
 }
 
 export type NormalizeResult = { ok: true; data: AppData } | { ok: false; reason: string };
@@ -90,6 +93,9 @@ export function normalizeAppData(raw: unknown, defaults: NormalizeDefaults): Nor
       counters,
       cart,
       serviceStartedAt: typeof raw.serviceStartedAt === 'string' ? raw.serviceStartedAt : defaults.nowIso,
+      // Anciennes données sans état ouvert/fermé : « ouvert », c'est-à-dire le comportement d'avant (rien n'est réécrit).
+      serviceOpen: typeof raw.serviceOpen === 'boolean' ? raw.serviceOpen : true,
+      serviceClosedAt: typeof raw.serviceClosedAt === 'string' ? raw.serviceClosedAt : null,
     },
   };
 }

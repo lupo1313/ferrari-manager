@@ -4,6 +4,7 @@ import { useAppSelector, useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { customerFullName, formatPhone, searchCustomers } from '../../domain/customers';
 import { formatPrice } from '../../domain/money';
+import { serviceIndicator } from '../../domain/service';
 import type { Product } from '../../domain/types';
 
 function fold(text: string) {
@@ -21,10 +22,11 @@ function useClock() {
 
 interface TopBarProps {
   onGoToOrderTaking: () => void;
-  onEndService: () => void;
+  serviceOpen: boolean;
+  onServiceAction: () => void;
 }
 
-export function TopBar({ onGoToOrderTaking, onEndService }: TopBarProps) {
+export function TopBar({ onGoToOrderTaking, serviceOpen, onServiceAction }: TopBarProps) {
   const store = useStore();
   const customers = useAppSelector((d) => d.customers);
   const toast = useToast();
@@ -59,6 +61,7 @@ export function TopBar({ onGoToOrderTaking, onEndService }: TopBarProps) {
 
   const date = now.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' });
   const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const service = serviceIndicator(serviceOpen);
   const hasResults = results.customers.length + results.products.length > 0;
 
   return (
@@ -144,11 +147,16 @@ export function TopBar({ onGoToOrderTaking, onEndService }: TopBarProps) {
         <span className="topbar__time">{time}</span>
       </div>
 
-      <button type="button" className="service-btn" onClick={onEndService} title="Clôturer le service">
+      <button
+        type="button"
+        className={`service-btn ${service.tone === 'green' ? 'service-btn--open' : 'service-btn--closed'}`}
+        onClick={onServiceAction}
+        aria-label={`${service.label}. ${service.action}`}
+      >
         <span className="service-btn__dot" aria-hidden="true" />
         <span className="service-btn__label">
-          Service
-          <small>Fin de service</small>
+          {service.label}
+          <small>{service.action}</small>
         </span>
       </button>
     </header>

@@ -16,11 +16,13 @@ export interface OrderChange {
   nextOrderNumber?: number;
 }
 
-/** Fin de service : commandes archivées, compteur et nouveau début de service. */
-export interface ServiceClosure {
+/** Ouverture ou fermeture du service : commandes archivées (à la fermeture), compteur et état du service. */
+export interface ServiceChange {
   archivedOrders: Order[];
   nextOrderNumber: number;
   serviceStartedAt: string;
+  serviceOpen: boolean;
+  serviceClosedAt: string | null;
 }
 
 /** Résultat d'une lecture. `cart` est null si aucun panier n'est enregistré à part. */
@@ -46,7 +48,7 @@ export interface AppRepository {
   saveOrderWithLoyalty(change: OrderChange): void;
   upsertCustomer(customer: Customer): void;
   saveSettings(settings: Settings): void;
-  closeService(closure: ServiceClosure): void;
+  saveService(change: ServiceChange): void;
   saveCart(cart: Cart): void;
   /** Remplace tout (premier lancement, réinitialisation explicite). */
   replaceAll(data: PersistedData, cart: Cart): void;
@@ -154,13 +156,15 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
       writeDoc({ ...current(), settings });
     },
 
-    closeService({ archivedOrders, nextOrderNumber, serviceStartedAt }) {
+    saveService({ archivedOrders, nextOrderNumber, serviceStartedAt, serviceOpen, serviceClosedAt }) {
       const byId = new Map(archivedOrders.map((o) => [o.id, o]));
       writeDoc({
         ...current(),
         orders: list<Order>('orders').map((o) => byId.get(o.id) ?? o),
         counters: { nextOrderNumber },
         serviceStartedAt,
+        serviceOpen,
+        serviceClosedAt,
       });
     },
 

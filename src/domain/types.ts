@@ -226,5 +226,7 @@ export interface Settings {
   };
   deliveryFee: Cents;
   ticketWidthMm: TicketWidth;
+  /** Petit son de confirmation à chaque encaissement réussi. */
+  paymentSound: boolean;
   loyalty: LoyaltyRules;
 }

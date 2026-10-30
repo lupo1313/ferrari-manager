@@ -135,5 +135,7 @@ export function buildDemoData(catalog: Catalog, now: Date, newId: IdFactory): Ap
     counters: { nextOrderNumber: 3 },
     cart: emptyCart(newId('ord')),
     serviceStartedAt: iso(120),
+    serviceOpen: true,
+    serviceClosedAt: null,
   };
 }

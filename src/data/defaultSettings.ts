@@ -10,6 +10,7 @@ export const defaultSettings: Settings = {
   // Valeur de démonstration (maquette) : à ajuster dans Paramètres.
   deliveryFee: euros(2),
   ticketWidthMm: 80,
+  paymentSound: true,
   loyalty: {
     pizzasPerReward: 10,
     // Liste volontairement restreinte : toutes les pizzas ne sont pas éligibles.

@@ -10,6 +10,7 @@ import { TicketModal } from '../ticket/TicketModal';
 import { computeTotals, rewardSavings } from '../../domain/pricing';
 import { hasRewardWithoutPaidPizza, itemCount, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
 import { isPaid } from '../../domain/payment';
+import { SERVICE_CLOSED_MESSAGE } from '../../domain/orders';
 import { formatPrice } from '../../domain/money';
 import { formatTimeOfDay } from '../../domain/time';
 import { hasDeliveryAddress } from '../../domain/customers';
@@ -53,7 +54,13 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
     for (const l of cart.lines) if (l.reward) store.removeLine(l.id);
     toast('Cadeau retiré : la récompense reste disponible pour le client.', 'info');
   };
-  const cannotSave = busy || cart.lines.length === 0 || rewardIssue;
+  // Service fermé : une nouvelle commande ne peut pas être enregistrée (modifier une commande existante reste possible).
+  const serviceClosed = !data.serviceOpen && !editing;
+  const cannotSave = busy || cart.lines.length === 0 || rewardIssue || serviceClosed;
+  const openService = () => {
+    const r = store.openService();
+    toast(r.ok ? 'Service ouvert : prise de commandes activée' : r.error, r.ok ? 'success' : 'error');
+  };
   const deliveryProblem =
     cart.mode === 'livraison' && (!customer ? 'Sélectionnez un client pour la livraison.' : !hasDeliveryAddress(customer) ? 'Adresse du client incomplète.' : null);
 
@@ -200,6 +207,17 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
             <dd className="price">{formatPrice(totals.total)}</dd>
           </div>
         </dl>
+
+        {serviceClosed && (
+          <div className="notice notice--closed service-closed" role="status">
+            <p>
+              <Icon name="power" size={18} /> <strong>{SERVICE_CLOSED_MESSAGE}</strong>
+            </p>
+            <button type="button" className="btn btn--sm btn--success" onClick={openService}>
+              <Icon name="power" size={18} /> Ouvrir le service
+            </button>
+          </div>
+        )}
 
         {rewardIssue && (
           <div className="notice notice--error reward-issue" role="alert">

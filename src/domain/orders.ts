@@ -15,6 +15,8 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   annulee: 'Annulée',
 };
 
+export const SERVICE_CLOSED_MESSAGE = 'Le service est fermé. Ouvrez le service pour prendre une nouvelle commande.';
+
 export const MODE_LABELS: Record<OrderMode, string> = {
   livraison: 'Livraison',
   emporter: 'À emporter',

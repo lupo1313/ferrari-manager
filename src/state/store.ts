@@ -49,6 +49,7 @@ import {
   canEditOrder,
   closeService,
   orderToCart,
+  SERVICE_CLOSED_MESSAGE,
   validateCart,
   withStatus,
 } from '../domain/orders';
@@ -79,6 +80,8 @@ export interface StoreDeps {
   seed: (catalog: Catalog, now: Date, newId: IdFactory) => AppData;
   now?: () => Date;
   newId?: IdFactory;
+  /** Effets hors données (son). Un effet qui échoue n'annule jamais l'action. */
+  effects?: { playPaymentSound?: () => void };
 }
 
 const withoutCart = ({ cart: _cart, ...rest }: AppData): PersistedData => (void _cart, rest);
@@ -414,6 +417,8 @@ export function createAppStore(deps: StoreDeps) {
       if (!cart.editingOrderId && findOrder(cart.draftId)) {
         return fail('Cette commande est déjà enregistrée.');
       }
+      // Service fermé : aucune NOUVELLE commande. Corriger une commande existante reste possible.
+      if (!cart.editingOrderId && !data.serviceOpen) return fail(SERVICE_CLOSED_MESSAGE);
       const errors = validateCart(cart, {
         customer,
         rewardsRemaining: rewardsRemainingForCart(data.loyaltyEvents, cart, data.settings.loyalty),
@@ -471,6 +476,14 @@ export function createAppStore(deps: StoreDeps) {
       const events = commitOrder(updated);
       if (!events) return fail(SAVE_FAILED);
       const pointsCredited = events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
+      // Son : uniquement pour une vraie transition vers « Encaissée » enregistrée avec succès.
+      if (!alreadyPaid && data.settings.paymentSound) {
+        try {
+          deps.effects?.playPaymentSound?.();
+        } catch {
+          /* le son est un confort : son échec n'affecte pas l'encaissement */
+        }
+      }
       return ok({ order: updated, pointsCredited, alreadyPaid });
     },
 
@@ -519,18 +532,40 @@ export function createAppStore(deps: StoreDeps) {
       return netForOrder(data.loyaltyEvents, orderId, customerId).points;
     },
 
-    endService(): Result<{ archived: number; stillActive: number; waitingPayment: number }> {
+    /**
+     * Fermeture du service : archive les commandes soldées, garde les autres, passe à l'état fermé.
+     * N'ouvre PAS de nouveau service. Sûre si répétée : un service déjà fermé reste fermé (date d'origine).
+     */
+    closeService(): Result<{ archived: number; stillActive: number; waitingPayment: number; alreadyClosed: boolean }> {
+      const alreadyClosed = !data.serviceOpen;
       const { orders, archived, stillActive, waitingPayment } = closeService(data.orders, nowIso());
+      if (alreadyClosed && archived === 0) return ok({ archived, stillActive, waitingPayment, alreadyClosed });
       // Numérotation remise à 1 seulement si plus aucune commande n'est affichée (évite les doublons de numéro).
       const counters = stillActive + waitingPayment === 0 ? { nextOrderNumber: 1 } : data.counters;
-      const serviceStartedAt = nowIso();
+      const serviceClosedAt = alreadyClosed ? data.serviceClosedAt ?? nowIso() : nowIso();
       const archivedOrders = orders.filter((o, i) => o !== data.orders[i]);
-      if (!persist(() => repo.closeService({ archivedOrders, nextOrderNumber: counters.nextOrderNumber, serviceStartedAt }))) {
-        return fail(SAVE_FAILED);
-      }
-      data = { ...data, orders, counters, serviceStartedAt };
+      const change = {
+        archivedOrders,
+        nextOrderNumber: counters.nextOrderNumber,
+        serviceStartedAt: data.serviceStartedAt,
+        serviceOpen: false,
+        serviceClosedAt,
+      };
+      if (!persist(() => repo.saveService(change))) return fail(SAVE_FAILED);
+      data = { ...data, orders, counters, serviceOpen: false, serviceClosedAt };
       notify();
-      return ok({ archived, stillActive, waitingPayment });
+      return ok({ archived, stillActive, waitingPayment, alreadyClosed });
+    },
+
+    /** Ouverture : nouveau début de service. Commandes, clients et fidélité sont conservés tels quels. */
+    openService(): Result<{ alreadyOpen: boolean }> {
+      if (data.serviceOpen) return ok({ alreadyOpen: true });
+      const serviceStartedAt = nowIso();
+      const change = { archivedOrders: [], nextOrderNumber: data.counters.nextOrderNumber, serviceStartedAt, serviceOpen: true, serviceClosedAt: null };
+      if (!persist(() => repo.saveService(change))) return fail(SAVE_FAILED);
+      data = { ...data, serviceStartedAt, serviceOpen: true, serviceClosedAt: null };
+      notify();
+      return ok({ alreadyOpen: false });
     },
 
     /* ---------- Paramètres & données ---------- */
@@ -541,6 +576,7 @@ export function createAppStore(deps: StoreDeps) {
         return fail('Frais de livraison invalides (entre 0 et 50 €).');
       }
       if (next.ticketWidthMm !== 58 && next.ticketWidthMm !== 80) return fail('Largeur de ticket invalide.');
+      next.paymentSound = next.paymentSound !== false;
       // Les garde-fous d'éligibilité filtrent toute entrée non autorisée (alcool, dessert…).
       next.loyalty = {
         ...next.loyalty,

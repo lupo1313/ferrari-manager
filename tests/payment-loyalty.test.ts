@@ -132,7 +132,7 @@ describe('A. Encaissement et crédit des pizzas', () => {
     expect(t.store.getData().orders.find((x) => x.id === o.id)!.payment.status).toBe('a_encaisser');
     expect(t.balance().totalPoints).toBe(12);
     // Fin de service : terminée non encaissée reste affichée.
-    const end = t.store.endService();
+    const end = t.store.closeService();
     expect(end.ok && end.value.waitingPayment).toBe(1);
     expect(t.store.getData().orders.find((x) => x.id === o.id)!.archivedAt).toBeNull();
   });
@@ -438,7 +438,7 @@ describe('E. Données et persistance', () => {
     s.cancelOrder(o.id);
     expect(bal().totalPoints).toBe(14);
     // Ancienne commande terminée : archivée en fin de service comme avant.
-    const end = s.endService();
+    const end = s.closeService();
     expect(end.ok && end.value.waitingPayment).toBe(0);
     expect(s.getData().orders.find((x) => x.id === 'ancienne-terminee')!.archivedAt).not.toBeNull();
   });

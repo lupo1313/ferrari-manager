@@ -185,7 +185,7 @@ describe('intégrité : une écriture qui échoue n’affiche jamais une validat
     expect(store.updateCustomerInstructions(jean.id, 'x').ok).toBe(false);
     expect(store.createCustomer({ firstName: 'A', lastName: 'B', phone: '0699999999', address: '', postalCode: '', city: '', complement: '', instructions: '' }).ok).toBe(false);
     expect(store.updateSettings({ deliveryFee: 0 }).ok).toBe(false);
-    expect(store.endService().ok).toBe(false);
+    expect(store.closeService().ok).toBe(false);
     store.recordPrintRequest(v.value.id);
     expect(JSON.stringify(store.getData())).toBe(snapshot);
     expect(repo.raw()).toBe(raw);
@@ -212,7 +212,7 @@ describe('cohérence stockage ↔ écran', () => {
     store.updateSettings({ deliveryFee: 300 });
     store.createCustomer({ firstName: 'Léa', lastName: 'Martin', phone: '0611223344', address: '1 rue A', postalCode: '13001', city: 'Marseille', complement: '', instructions: '' });
     clock.time = new Date('2026-10-29T23:30:00');
-    store.endService();
+    store.closeService();
     store.addProduct('reine');
     store.flushPendingWrites();
 

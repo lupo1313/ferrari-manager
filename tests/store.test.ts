@@ -140,8 +140,8 @@ describe('scénario de validation V1 (store complet)', () => {
     store.setOrderStatus(first.id, 'terminee');
     store.markOrderPaid(first.id, 'especes');
     const eventsBefore = store.getData().loyaltyEvents.length;
-    const r = store.endService();
-    expect(r.ok && r.value).toEqual({ archived: 1, stillActive: 1, waitingPayment: 0 });
+    const r = store.closeService();
+    expect(r.ok && r.value).toEqual({ archived: 1, stillActive: 1, waitingPayment: 0, alreadyClosed: false });
     expect(store.getData().orders.find((o) => o.id === second.id)?.archivedAt).toBeNull();
     expect(store.getData().loyaltyEvents.length).toBe(eventsBefore);
   });

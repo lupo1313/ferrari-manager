@@ -17,15 +17,14 @@ export function EndServiceDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <ConfirmDialog
-      title="Clôturer le service ?"
+      title="Fermer le service ?"
       tone="primary"
-      confirmLabel="Clôturer le service"
+      confirmLabel="Fermer le service"
       onCancel={onClose}
       onConfirm={() => {
-        const r = store.endService();
-        if (r.ok) {
-          toast(`Service clôturé : ${r.value.archived} commande${s(r.value.archived)} archivée${s(r.value.archived)}`, 'success');
-        }
+        const r = store.closeService();
+        if (r.ok) toast(`Service fermé : ${r.value.archived} commande${s(r.value.archived)} archivée${s(r.value.archived)}`, 'success');
+        else toast(r.error, 'error');
         onClose();
       }}
       message={
@@ -45,6 +44,12 @@ export function EndServiceDialog({ onClose }: { onClose: () => void }) {
                 reste{waitingPayment > 1 ? 'nt' : ''} affichée{s(waitingPayment)} : à vérifier.
               </li>
             )}
+            {(stillActive > 0 || waitingPayment > 0) && (
+              <li>Ces commandes restent accessibles : encaissement, annulation et correction toujours possibles.</li>
+            )}
+            <li>
+              <strong>Aucune nouvelle commande</strong> ne pourra être enregistrée avant la réouverture du service.
+            </li>
             <li>Les clients, les points et le journal de fidélité ne sont pas modifiés.</li>
             <li>
               {stillActive + waitingPayment === 0

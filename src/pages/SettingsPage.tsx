@@ -5,6 +5,7 @@ import { useToast } from '../components/ui/Toast';
 import { useAppData, useStore } from '../state/StoreContext';
 import { formatPrice, parseEuros } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
+import { paymentSound } from '../audio/paymentSound';
 
 export function SettingsPage() {
   const store = useStore();
@@ -93,6 +94,40 @@ export function SettingsPage() {
               />
             </label>
           ))}
+        </section>
+
+        <section className="card">
+          <h2 className="card__title">
+            <Icon name="volume" /> Son des encaissements
+          </h2>
+          <div className="segmented" role="group" aria-label="Son des encaissements">
+            {[true, false].map((on) => (
+              <button
+                key={String(on)}
+                type="button"
+                className="segmented__item"
+                aria-pressed={data.settings.paymentSound === on}
+                onClick={() => {
+                  // Enregistré immédiatement (sans le bouton « Enregistrer ») : un simple interrupteur.
+                  const r = store.updateSettings({ paymentSound: on });
+                  if (!r.ok) toast(r.error, 'error');
+                  else setDraft((d) => ({ ...d, paymentSound: on }));
+                }}
+              >
+                {on ? 'Activé' : 'Désactivé'}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              if (!paymentSound.play()) toast('Son indisponible sur cet appareil (vérifiez le volume ou le mode silencieux).', 'info');
+            }}
+          >
+            <Icon name="volume" /> Écouter
+          </button>
+          <span className="field__hint">Court signal joué uniquement quand une commande passe à « Encaissée ». Pensez au volume de la tablette.</span>
         </section>
 
         <section className="card settings-grid__wide">

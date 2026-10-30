@@ -302,3 +302,17 @@
   white-space: normal;
   line-height: 1.15;
 }
+
+.service-closed {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.service-closed p {
+  display: flex;
+  gap: 6px;
+}
+.service-closed p > svg {
+  flex: none;
+  margin-top: 1px;
+}

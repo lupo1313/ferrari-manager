@@ -15,10 +15,11 @@ type Filter = 'actives' | 'terminees' | 'archives';
 
 interface OrdersPageProps {
   onGoToOrderTaking: () => void;
-  onEndService: () => void;
+  serviceOpen: boolean;
+  onServiceAction: () => void;
 }
 
-export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps) {
+export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: OrdersPageProps) {
   const store = useStore();
   const data = useAppData();
   const toast = useToast();
@@ -103,8 +104,8 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
           <h1 className="page__title">Commandes</h1>
           <p className="muted">Suivi opérationnel du service. Les plus anciennes en premier.</p>
         </div>
-        <button type="button" className="btn btn--dark" onClick={onEndService}>
-          <Icon name="power" /> Fin de service
+        <button type="button" className={`btn ${serviceOpen ? 'btn--dark' : 'btn--success'}`} onClick={onServiceAction}>
+          <Icon name="power" /> {serviceOpen ? 'Fermer le service' : 'Ouvrir le service'}
         </button>
       </header>
 
