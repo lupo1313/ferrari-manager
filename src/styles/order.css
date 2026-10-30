@@ -1,6 +1,12 @@
 .order-panel__clear {
   color: var(--red-ink);
 }
+/* Filet de sécurité : si le contenu dépasse (écran peu haut), le panneau défile au lieu de couper les actions. */
+.panel.order-panel {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
 
 .order-panel__settings {
   display: flex;
@@ -160,8 +166,16 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 14px 14px;
+  padding: 12px 14px 0;
   border-top: 1px solid var(--line);
+  flex: none;
+}
+.order-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 14px 14px;
+  background: var(--surface);
   flex: none;
 }
 .totals {
@@ -277,6 +291,98 @@
 .edit-banner > svg {
   flex: none;
   margin-top: 2px;
+}
+.edit-banner > p {
+  flex: 1;
+  min-width: 0;
+}
+.edit-banner__quit {
+  flex: none;
+  align-self: center;
+  min-height: 44px;
+  background: var(--surface);
+}
+
+/*
+ * Écran peu haut (téléphone en paysage, Safari iOS) : le panneau défile d'un seul bloc
+ * (produits, totaux, paiement restent visibles en faisant défiler) et les actions restent
+ * collées en bas du panneau. Sans effet sur la tablette (800 px de haut).
+ */
+@media (max-height: 560px) {
+  .order-panel .order-panel__lines {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+  }
+  .order-panel__actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    gap: 8px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 16px rgb(0 0 0 / 0.08);
+  }
+  .validate-btn {
+    min-height: 52px;
+  }
+  .order-panel__secondary .btn {
+    min-height: 48px;
+  }
+}
+/* Panneau pleine largeur : les trois actions tiennent sur une seule ligne. */
+@media (max-height: 560px) and (max-width: 959px) {
+  .order-panel__actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  }
+  .order-panel__secondary {
+    display: contents;
+  }
+}
+
+/* Choix proposés quand une modification n'est pas enregistrée */
+.edit-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.edit-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+}
+.edit-choice:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.edit-choice:disabled {
+  opacity: 0.45;
+}
+.edit-choice > svg {
+  flex: none;
+}
+.edit-choice > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.edit-choice small {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.edit-choice--primary {
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+}
+.edit-choices .notice {
+  font-size: 13px;
 }
 
 /* Cadeau fidélité sans pizza payante */

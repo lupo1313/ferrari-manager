@@ -105,16 +105,19 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
         </button>
       </header>
       {editing && (
-        <p className="edit-banner">
+        <div className="edit-banner">
           <Icon name="pencil" size={18} />
-          <span>
+          <p>
             <strong>Modification de la commande n° {editing.number}</strong>
             <br />
             {isPaid(editing)
               ? 'Commande déjà encaissée : la fidélité sera recalculée sur la version enregistrée, sans double crédit.'
               : 'L’enregistrement remplacera la version actuelle.'}
-          </span>
-        </p>
+          </p>
+          <button type="button" className="btn btn--sm edit-banner__quit" onClick={() => setConfirmClear(true)}>
+            Quitter
+          </button>
+        </div>
       )}
 
       <div className="order-panel__settings">
@@ -247,7 +250,10 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
             <Icon name="alert" size={18} /> {errors}
           </p>
         )}
+      </footer>
 
+      {/* Actions séparées du récapitulatif : sur un écran peu haut, elles restent collées en bas du panneau. */}
+      <div className="order-panel__actions">
         <button
           type="button"
           className="btn btn--success btn--lg btn--block validate-btn"
@@ -268,10 +274,10 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
             onClick={() => setConfirmClear(true)}
             disabled={cart.lines.length === 0 && !editing}
           >
-            <Icon name="trash" size={18} /> Annuler
+            <Icon name="trash" size={18} /> {editing ? 'Abandonner' : 'Annuler'}
           </button>
         </div>
-      </footer>
+      </div>
 
       {timeOpen && (
         <TimePickerModal value={cart.requestedTime} onSelect={(t) => store.setRequestedTime(t)} onClose={() => setTimeOpen(false)} />

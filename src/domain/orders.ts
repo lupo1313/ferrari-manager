@@ -185,6 +185,18 @@ export function orderToCart(order: Order): Cart {
   };
 }
 
+export const EDIT_CUSTOMER_LOCKED_MESSAGE =
+  'Une commande en modification reste rattachée à son client d’origine. Enregistrez ou abandonnez la modification pour servir un autre client.';
+
+/**
+ * Pendant la modification d'une commande, son client ne change pas (recherche, page Clients, nouvelle fiche) :
+ * l'enregistrement ne doit jamais rattacher silencieusement la commande à quelqu'un d'autre.
+ */
+export function canChangeCartCustomer(cart: Cart, customerId: string | null, editedOrder: Order | undefined): boolean {
+  if (!cart.editingOrderId) return true;
+  return customerId === (editedOrder ? editedOrder.customerId : cart.customerId);
+}
+
 /**
  * Commande soldée côté service : annulée, ou terminée et encaissée.
  * Une commande d'avant le suivi des paiements (legacy) se solde comme auparavant, une fois terminée.

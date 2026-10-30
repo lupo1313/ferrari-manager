@@ -28,6 +28,9 @@ export const CustomerPanel = memo(function CustomerPanel() {
   const store = useStore();
   const customers = useAppSelector((d) => d.customers);
   const customerId = useAppSelector((d) => d.cart.customerId);
+  // Modification d'une commande : le client reste celui de la commande (pas de recherche ni de changement).
+  const editingNumber = useAppSelector((d) => (d.cart.editingOrderId ? d.orders.find((o) => o.id === d.cart.editingOrderId)?.number ?? null : null));
+  const locked = editingNumber !== null;
   const toast = useToast();
   const [query, setQuery] = useState('');
   const [keyboard, setKeyboard] = useState<'tel' | 'text'>('tel');
@@ -56,80 +59,95 @@ export const CustomerPanel = memo(function CustomerPanel() {
         <h2 className="panel__title">
           <Icon name="user" size={22} /> Client
         </h2>
-        <button type="button" className="btn btn--sm" onClick={() => setForm({ mode: 'create' })}>
-          <Icon name="plus" size={18} /> Nouveau client
-        </button>
+        {!locked && (
+          <button type="button" className="btn btn--sm" onClick={() => setForm({ mode: 'create' })}>
+            <Icon name="plus" size={18} /> Nouveau client
+          </button>
+        )}
       </header>
 
       <div className="panel__body scroll-y">
-        <form
-          className="customer-search"
-          role="search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            submitSearch();
-          }}
-        >
-          <div className="customer-search__field">
-            <Icon name={keyboard === 'tel' ? 'phone' : 'user'} size={18} />
-            <input
-              className="customer-search__input"
-              type="search"
-              inputMode={keyboard}
-              placeholder={keyboard === 'tel' ? 'Téléphone' : 'Nom du client'}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Rechercher un client par téléphone ou par nom"
-              autoComplete="off"
-              enterKeyHint="search"
-            />
-            {query && (
-              <button type="button" className="customer-search__clear" onClick={() => setQuery('')} aria-label="Effacer">
-                <Icon name="close" size={18} />
-              </button>
-            )}
-          </div>
-          <button type="submit" className="customer-search__go" aria-label="Rechercher">
-            <Icon name="search" />
-          </button>
-        </form>
-        <div className="customer-search__modes" role="group" aria-label="Type de recherche">
-          <button type="button" aria-pressed={keyboard === 'tel'} onClick={() => setKeyboard('tel')}>
-            Par téléphone
-          </button>
-          <button type="button" aria-pressed={keyboard === 'text'} onClick={() => setKeyboard('text')}>
-            Par nom
-          </button>
-        </div>
-
-        {query.trim() && (
-          <div className="customer-results">
-            {results.map((c) => (
-              <button key={c.id} type="button" className="customer-result" onClick={() => select(c)}>
-                <span className="customer-result__name">{customerFullName(c)}</span>
-                <span className="customer-result__meta">
-                  {formatPhone(c.phone)}
-                  {c.address && ` · ${c.address}`}
-                </span>
-              </button>
-            ))}
-            {results.length === 0 && (
-              <div className="customer-results__empty">
-                <p>Aucun client trouvé.</p>
-                {canCreateFromQuery && (
-                  <button type="button" className="btn btn--sm btn--dark" onClick={() => setForm({ mode: 'create', phone: query })}>
-                    <Icon name="plus" size={18} /> Créer une fiche avec ce numéro
+        {locked ? (
+          <p className="notice customer-locked" role="status">
+            <Icon name="pencil" size={18} />
+            <span>
+              Client de la commande n° {editingNumber}, conservé pendant la modification. Pour servir un autre client, enregistrez ou
+              abandonnez d’abord la modification.
+            </span>
+          </p>
+        ) : (
+          <>
+            <form
+              className="customer-search"
+              role="search"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitSearch();
+              }}
+            >
+              <div className="customer-search__field">
+                <Icon name={keyboard === 'tel' ? 'phone' : 'user'} size={18} />
+                <input
+                  className="customer-search__input"
+                  type="search"
+                  inputMode={keyboard}
+                  placeholder={keyboard === 'tel' ? 'Téléphone' : 'Nom du client'}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  aria-label="Rechercher un client par téléphone ou par nom"
+                  autoComplete="off"
+                  enterKeyHint="search"
+                />
+                {query && (
+                  <button type="button" className="customer-search__clear" onClick={() => setQuery('')} aria-label="Effacer">
+                    <Icon name="close" size={18} />
                   </button>
                 )}
               </div>
+              <button type="submit" className="customer-search__go" aria-label="Rechercher">
+                <Icon name="search" />
+              </button>
+            </form>
+            <div className="customer-search__modes" role="group" aria-label="Type de recherche">
+              <button type="button" aria-pressed={keyboard === 'tel'} onClick={() => setKeyboard('tel')}>
+                Par téléphone
+              </button>
+              <button type="button" aria-pressed={keyboard === 'text'} onClick={() => setKeyboard('text')}>
+                Par nom
+              </button>
+            </div>
+
+            {query.trim() && (
+              <div className="customer-results">
+                {results.map((c) => (
+                  <button key={c.id} type="button" className="customer-result" onClick={() => select(c)}>
+                    <span className="customer-result__name">{customerFullName(c)}</span>
+                    <span className="customer-result__meta">
+                      {formatPhone(c.phone)}
+                      {c.address && ` · ${c.address}`}
+                    </span>
+                  </button>
+                ))}
+                {results.length === 0 && (
+                  <div className="customer-results__empty">
+                    <p>Aucun client trouvé.</p>
+                    {canCreateFromQuery && (
+                      <button type="button" className="btn btn--sm btn--dark" onClick={() => setForm({ mode: 'create', phone: query })}>
+                        <Icon name="plus" size={18} /> Créer une fiche avec ce numéro
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
 
         {customer ? (
           <SelectedCustomer
             key={customer.id}
             customer={customer}
+            locked={locked}
             onEdit={() => setForm({ mode: 'edit', customer })}
             onUseReward={() => setRewardOpen(true)}
           />
@@ -179,11 +197,13 @@ function CounterState() {
 
 interface SelectedCustomerProps {
   customer: Customer;
+  /** Modification en cours : le client ne peut pas être retiré de la commande. */
+  locked: boolean;
   onEdit: () => void;
   onUseReward: () => void;
 }
 
-function SelectedCustomer({ customer, onEdit, onUseReward }: SelectedCustomerProps) {
+function SelectedCustomer({ customer, locked, onEdit, onUseReward }: SelectedCustomerProps) {
   const store = useStore();
   const settings = useAppSelector((d) => d.settings);
   const loyaltyEvents = useAppSelector((d) => d.loyaltyEvents);
@@ -231,9 +251,11 @@ function SelectedCustomer({ customer, onEdit, onUseReward }: SelectedCustomerPro
             <button type="button" className="icon-btn" onClick={onEdit} aria-label="Modifier la fiche">
               <Icon name="pencil" />
             </button>
-            <button type="button" className="icon-btn" onClick={() => store.selectCustomer(null)} aria-label="Retirer le client de la commande">
-              <Icon name="close" />
-            </button>
+            {!locked && (
+              <button type="button" className="icon-btn" onClick={() => store.selectCustomer(null)} aria-label="Retirer le client de la commande">
+                <Icon name="close" />
+              </button>
+            )}
           </div>
         </div>
 

@@ -21,7 +21,7 @@ Branche `feat/statistiques`, en prévisualisation. B1 (historique des services, 
 ## Priorité 2 · Ergonomie du service
 
 1. ~~**Simplification du suivi des commandes**~~ : fait dans l'intervention 4A (branche `feat/commandes-cartes`, en validation).
-2. **Personnalisation individuelle des pizzas identiques** (intervention 4B) : pouvoir modifier une seule pizza d'une ligne de plusieurs (aujourd'hui la personnalisation s'applique à toute la ligne). Attention aux règles de fusion des lignes et aux tests de prix.
+2. **Personnalisation individuelle des pizzas identiques** (prévue initialement comme « 4B » ; ce numéro a été repris le 30/10 par le correctif navigation et petits écrans) : pouvoir modifier une seule pizza d'une ligne de plusieurs (aujourd'hui la personnalisation s'applique à toute la ligne). Attention aux règles de fusion des lignes et aux tests de prix.
 3. **Gestion des horaires et retards** : alerte quand l'heure de retrait ou de livraison demandée est dépassée.
 
 ## Priorité 3 · Livraison, impression, fidélité

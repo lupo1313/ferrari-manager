@@ -8,6 +8,15 @@
   flex: none;
 }
 
+/* Modification en cours : le client de la commande est conservé */
+.customer-locked {
+  align-items: flex-start;
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  color: var(--gold-ink);
+  font-size: 13px;
+}
+
 /* Recherche */
 .customer-search {
   display: flex;

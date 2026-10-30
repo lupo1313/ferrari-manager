@@ -1,6 +1,6 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, intervention 4A (refonte de l'écran Commandes) sur la branche `feat/commandes-cartes`, partie de `feat/statistiques` (intervention 4) ; **les deux en prévisualisation, non fusionnées**.
+Dernière mise à jour : 30/10/2026, intervention 4B (navigation pendant une modification, petits écrans) sur la branche `feat/commandes-cartes` (intervention 4A), partie de `feat/statistiques` (intervention 4) ; **toutes en prévisualisation, non fusionnées**.
 Ce document décrit ce qui existe **réellement** dans le code de cette branche. La production (`main`) reste à l'état des interventions 3 et 3.1 tant que la fusion n'est pas validée. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
 
 ## 1. En production
@@ -40,6 +40,13 @@ Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `mai
 Refonte de l'écran Commandes pour la tablette en paysage (cartes compactes), **sans changement de règle métier**. Branche créée à partir de `feat/statistiques` (dernière version en prévisualisation) : la fusionner suppose d'avoir validé l'intervention 4, ou de la rebaser sur `main` si l'intervention 4 était refusée.
 
 Prévisualisation : build de la branche, libellé « Prévisualisation · statistiques », mêmes clés isolées `ferrari-manager-apercu-i3:*` (les données de test de l'intervention 3 y sont reprises, ce qui sert aussi de test de compatibilité).
+
+### Intervention 4B en cours de validation (même branche `feat/commandes-cartes`)
+
+Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles de récompense, d'archivage, de paiement ni le stockage :
+- **Changement de client pendant une modification** : « Commander » depuis la page Clients (ou un client de la recherche globale) remplaçait en silence le client de la commande en cours de modification, panier et mode « Modification n° X » conservés. Désormais une commande en modification reste rattachée à son client d'origine (règle `canChangeCartCustomer` dans `domain/orders.ts`, appliquée par le store : sélection, retrait du client, nouvelle fiche). « Commander » pendant une modification ouvre une fenêtre (`EditInProgressDialog`) : continuer la modification, abandonner et commander pour ce client (désactivé si le service est fermé, avec le message), ou annuler. Abandonner ne touche jamais la commande enregistrée (seul le panier est remplacé). Pendant la modification, la colonne Client n'affiche plus la recherche ni « Nouveau client » ; le bandeau de modification a un bouton « Quitter » et le bouton « Annuler » du panier devient « Abandonner ».
+- **« Enregistrer » inaccessible sur iPhone en paysage** : le panneau Commande avait une hauteur fixe (`overflow: hidden`), seule la liste des produits défilait, avec une hauteur minimale de 120 px ; sur un écran d'environ 340 px de haut, le récapitulatif et les boutons sortaient du panneau sans pouvoir être atteints. Désormais le panneau défile s'il déborde, et sur un écran peu haut (`max-height: 560px`) tout le panneau défile d'un bloc avec les actions collées en bas (une seule ligne en pleine largeur). L'application évite aussi l'encoche et la barre d'accueil de l'iPhone (`viewport-fit=cover` était déjà actif sans marges de sécurité). Sans effet sur la tablette en 1280×800 (vérifié : aucun défilement du panneau, actions inchangées).
+- Vérifié dans Chromium en émulation 844×340 (iPhone paysage), 375×660, 1024×700 et 1280×800 ; **pas encore vérifié sur un vrai iPhone avec Safari**. En 1024×700, une commande en modification dépasse légèrement : le panneau défile pour atteindre « Enregistrer sans imprimer ».
 
 ## 2. Fonctionnalités opérationnelles
 
@@ -126,7 +133,7 @@ Prévisualisation : build de la branche, libellé « Prévisualisation · statis
 
 ## 4. Tests
 
-170 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
+180 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -140,6 +147,7 @@ Prévisualisation : build de la branche, libellé « Prévisualisation · statis
 | `apercu-isolation.test.ts` (4) | Isolation des clés de la prévisualisation |
 | `services.test.ts` (17) | Historique des services, rattachement, anciennes données sans réécriture, livraison offerte, module masquable |
 | `statistiques.test.ts` (22) | Indicateurs, quantités, cadeaux, annulations (dont après encaissement), modifications, encaissements tardifs, minuit, changement d'heure, anciennes données, jour/semaine/mois, lecture seule |
+| `modification-navigation.test.ts` (10) | Intervention 4B : client verrouillé pendant une modification (tous les chemins), annulation, abandon sans toucher la commande enregistrée, service fermé, commande encaissée modifiée service fermé, fidélité sans double crédit, contrat CSS des actions sur petit écran |
 | `commandes-cartes.test.ts` (19) | Action principale par statut, correction de statut (dont Terminée → En préparation : paiement, fidélité, produits préservés, retour dans « En cours »), actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.
@@ -147,7 +155,7 @@ Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à 
 ## 5. Bugs connus, limites et éléments absents
 
 - **Non vérifié par Claude** : utilisation réelle sur la tablette Samsung (seulement en émulation 1280×800, 1024×700 et 800×1100) et parcours complet en production après la mise en ligne du 30/10.
-- Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne (intervention 4B).
+- Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne (prévue initialement comme « 4B », numéro repris par le correctif de navigation du 30/10).
 - Écran Commandes : vérifié à l'écran (Chromium, 1280×800, 1024×700, 800×1100, 375×812, 1440×900) avec un service fictif ; **pas encore sur la tablette Samsung**. Les consignes permanentes du client (ex. allergie) ne s'affichent que pour les livraisons, comme sur le ticket.
 - Pas d'alerte sur les heures de retrait dépassées, pas de statuts propres à la livraison, pas de gestion des livreurs.
 - Le ticket n'affiche pas le statut de paiement ; aucune imprimante thermique n'est pilotée.

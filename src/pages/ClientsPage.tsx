@@ -1,19 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../components/ui/Icon';
-import { useToast } from '../components/ui/Toast';
 import { CustomerFormModal } from '../components/customer/CustomerFormModal';
-import { useAppData, useStore } from '../state/StoreContext';
+import { useOrderForCustomer } from '../components/order/EditInProgressDialog';
+import { useAppData } from '../state/StoreContext';
 import { customerFullName, formatPhone, searchCustomers } from '../domain/customers';
 import { computeBalance } from '../domain/loyalty';
 import type { Customer } from '../domain/types';
 
 export function ClientsPage({ onGoToOrderTaking }: { onGoToOrderTaking: () => void }) {
-  const store = useStore();
   const data = useAppData();
-  const toast = useToast();
   const [query, setQuery] = useState('');
   const [form, setForm] = useState<{ customer?: Customer } | null>(null);
   const rules = data.settings.loyalty;
+  const orderFor = useOrderForCustomer(onGoToOrderTaking);
 
   const list = useMemo(() => {
     const base = query.trim() ? searchCustomers(data.customers, query, 200) : data.customers;
@@ -77,11 +76,7 @@ export function ClientsPage({ onGoToOrderTaking }: { onGoToOrderTaking: () => vo
                     <button
                       type="button"
                       className="btn btn--sm btn--dark"
-                      onClick={() => {
-                        store.selectCustomer(c.id);
-                        toast(`${customerFullName(c)} sélectionné`, 'success');
-                        onGoToOrderTaking();
-                      }}
+                      onClick={() => orderFor.request(c)}
                     >
                       Commander <Icon name="arrowRight" size={18} />
                     </button>
@@ -100,6 +95,7 @@ export function ClientsPage({ onGoToOrderTaking }: { onGoToOrderTaking: () => vo
         </table>
       </div>
 
+      {orderFor.dialog}
       {form && <CustomerFormModal customer={form.customer} selectOnCreate={false} onClose={() => setForm(null)} />}
     </div>
   );

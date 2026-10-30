@@ -45,9 +45,11 @@ import { isRewardEligible, netForOrder, reconcileOrderLoyalty, rewardsRemainingF
 import {
   buildOrder,
   canCancelOrder,
+  canChangeCartCustomer,
   canChangeStatus,
   canEditOrder,
   closeService,
+  EDIT_CUSTOMER_LOCKED_MESSAGE,
   orderToCart,
   SERVICE_CLOSED_MESSAGE,
   validateCart,
@@ -215,6 +217,7 @@ export function createAppStore(deps: StoreDeps) {
   const nowIso = () => now().toISOString();
   const findCustomer = (id: string | null) => (id ? data.customers.find((c) => c.id === id) ?? null : null);
   const findOrder = (id: string) => data.orders.find((o) => o.id === id);
+  const editedOrder = () => (data.cart.editingOrderId ? findOrder(data.cart.editingOrderId) : undefined);
   const product = (id: string): Product | undefined => productById.get(id);
 
   /**
@@ -270,6 +273,7 @@ export function createAppStore(deps: StoreDeps) {
     selectCustomer(customerId: string | null): Result<{ removedRewards: number }> {
       if (customerId && !findCustomer(customerId)) return fail('Client introuvable.');
       if (data.cart.customerId === customerId) return ok({ removedRewards: 0 });
+      if (!canChangeCartCustomer(data.cart, customerId, editedOrder())) return fail(EDIT_CUSTOMER_LOCKED_MESSAGE);
       // Les récompenses appartiennent au client : on les retire si on change de client.
       const removedRewards = rewardLineCount(data.cart.lines);
       const cart = { ...withoutRewardLines(data.cart), customerId, counterName: customerId ? '' : data.cart.counterName };
@@ -288,7 +292,9 @@ export function createAppStore(deps: StoreDeps) {
         });
       }
       const customer = buildCustomer(input, newId('cus'), nowIso());
-      const cart = options.select ? { ...withoutRewardLines(data.cart), customerId: customer.id, counterName: '' } : undefined;
+      // Pendant une modification, la fiche est créée mais la commande garde son client d'origine.
+      const select = options.select && canChangeCartCustomer(data.cart, customer.id, editedOrder());
+      const cart = select ? { ...withoutRewardLines(data.cart), customerId: customer.id, counterName: '' } : undefined;
       if (!commitCustomer(customer, cart)) return fail(SAVE_FAILED);
       return ok(customer);
     },
@@ -380,6 +386,18 @@ export function createAppStore(deps: StoreDeps) {
     /** Vide le panier (et abandonne une éventuelle modification en cours). */
     clearCart() {
       setCart(emptyCart(newId('ord')));
+    },
+
+    /**
+     * Abandonne la modification en cours (la commande enregistrée reste telle quelle : seul le panier est remplacé)
+     * et commence une nouvelle commande pour ce client. Refusé si le service est fermé : rien n'est abandonné.
+     */
+    abandonEditAndStartOrder(customerId: string): Result<Customer> {
+      const customer = findCustomer(customerId);
+      if (!customer) return fail('Client introuvable.');
+      if (!data.serviceOpen) return fail(SERVICE_CLOSED_MESSAGE);
+      setCart({ ...emptyCart(newId('ord')), customerId: customer.id });
+      return ok(customer);
     },
 
     /* ---------- Fidélité ---------- */
