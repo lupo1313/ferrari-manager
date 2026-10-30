@@ -15,7 +15,7 @@ import {
   STATUS_LABELS,
   type OrderMenuAction,
 } from '../../domain/orders';
-import { isLegacyUnpaid, isPaid, PAYMENT_METHOD_LABELS } from '../../domain/payment';
+import { asPaymentPlan, isLegacyUnpaid, isPaid, paidGap, paidLabel, planLabel } from '../../domain/payment';
 import { elapsedLabel, formatDate, formatTime, formatTimeOfDay } from '../../domain/time';
 import type { Order, OrderStatus } from '../../domain/types';
 
@@ -27,6 +27,8 @@ interface OrderCardProps {
   /** Ouvre la fenêtre de correction du statut. */
   onCorrectStatus: () => void;
   onTicket: () => void;
+  /** Ouvre la saisie du paiement prévu. */
+  onPlanPayment: () => void;
   onEdit: () => void;
   onCancel: () => void;
   onMarkPaid: () => void;
@@ -43,19 +45,29 @@ const PRIMARY_STYLE: Partial<Record<OrderStatus, { className: string; icon: Icon
 /** Statut de paiement, indépendant du statut de préparation ; encaissement accessible en un appui. */
 function PaymentRow({ order, onMarkPaid }: Pick<OrderCardProps, 'order' | 'onMarkPaid'>) {
   if (isPaid(order)) {
-    const method = order.payment.method && order.payment.method !== 'non_precise' ? ` · ${PAYMENT_METHOD_LABELS[order.payment.method]}` : '';
+    const how = paidLabel(order);
     const at = order.payment.paidAt ? ` · ${formatTime(order.payment.paidAt)}` : '';
+    const gap = paidGap(order);
     return (
       <div className="payment-row">
         <span className="payment-pill payment-pill--paid">
-          <Icon name="check" size={16} /> Encaissée{method}
+          <Icon name="check" size={16} /> Encaissée{how ? ` · ${how}` : ''}
           {at}
         </span>
+        {gap !== 0 && (
+          <span className="payment-row__gap">
+            <Icon name="alert" size={14} /> Modifiée après encaissement : {gap > 0 ? `écart de ${formatPrice(gap)}` : `${formatPrice(-gap)} perçus en trop`}
+          </span>
+        )}
       </div>
     );
   }
+  const plan = asPaymentPlan(order.paymentPlan);
   return (
     <div className="payment-row">
+      {plan && !isLegacyUnpaid(order) && order.status !== 'annulee' && (
+        <span className="payment-row__plan">Prévu : {planLabel(plan, order.totals.total)}</span>
+      )}
       <span className={`payment-pill ${isLegacyUnpaid(order) ? 'payment-pill--unknown' : 'payment-pill--due'}`}>
         {isLegacyUnpaid(order) ? 'Paiement non suivi' : order.status === 'annulee' ? 'Non encaissée' : 'À encaisser'}
       </span>
@@ -68,7 +80,7 @@ function PaymentRow({ order, onMarkPaid }: Pick<OrderCardProps, 'order' | 'onMar
   );
 }
 
-export function OrderCard({ order, now, onStatus, onCorrectStatus, onTicket, onEdit, onCancel, onMarkPaid, onMarkUnpaid }: OrderCardProps) {
+export function OrderCard({ order, now, onStatus, onCorrectStatus, onTicket, onPlanPayment, onEdit, onCancel, onMarkPaid, onMarkUnpaid }: OrderCardProps) {
   const primary = primaryAction(order);
   const primaryStyle = PRIMARY_STYLE[order.status];
   const editable = canEditOrder(order);
@@ -82,7 +94,9 @@ export function OrderCard({ order, now, onStatus, onCorrectStatus, onTicket, onE
     .map((a: OrderMenuAction): MenuItem => {
       switch (a) {
         case 'ticket':
-          return { id: a, label: 'Ticket', icon: 'printer', onSelect: onTicket };
+          return { id: a, label: order.mode === 'livraison' ? 'Tickets cuisine et livreur' : 'Ticket cuisine', icon: 'printer', onSelect: onTicket };
+        case 'paiement_prevu':
+          return { id: a, label: 'Paiement prévu…', icon: 'file', onSelect: onPlanPayment };
         case 'corriger_statut':
           return { id: a, label: 'Corriger le statut…', icon: 'refresh', onSelect: onCorrectStatus };
         case 'annuler_encaissement':

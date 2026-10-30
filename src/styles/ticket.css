@@ -13,6 +13,20 @@
 .ticket-disclaimer {
   margin-top: 14px;
 }
+.ticket-tabs {
+  margin-bottom: 12px;
+}
+/* Boutons d'impression : passent à la ligne sur écran étroit plutôt que de sortir de la fenêtre. */
+.ticket-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+.ticket-actions .btn {
+  flex: 1 1 auto;
+}
 
 .ticket {
   padding: 4mm 3mm 6mm;
@@ -86,6 +100,46 @@
   font-size: 16px;
   font-weight: 700;
 }
+.ticket__kind {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.ticket__headline {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.ticket__requested {
+  font-size: 15px;
+  font-weight: 700;
+}
+/* Ticket cuisine : produits en gros, personnalisations bien visibles. */
+.ticket__group {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.ticket__kline {
+  margin-top: 1.5mm;
+}
+.ticket__kname {
+  font-size: 15px;
+  font-weight: 700;
+}
+.ticket__kdetail {
+  padding-left: 4mm;
+  font-size: 13px;
+  font-weight: 700;
+}
+/* Ticket livreur : bloc paiement encadré, lu en premier. */
+.ticket__pay {
+  margin: 2mm 0;
+  padding: 2mm;
+  border: 2px solid #000;
+}
+.ticket__pay-headline {
+  font-size: 16px;
+  font-weight: 700;
+}
 
 .print-area {
   display: none;
@@ -103,5 +157,9 @@
   }
   .print-area .ticket {
     box-shadow: none;
+  }
+  /* « Imprimer les deux » : un ticket par page (la découpe dépend de l'imprimante). */
+  .print-page + .print-page {
+    break-before: page;
   }
 }

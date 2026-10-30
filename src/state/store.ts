@@ -59,7 +59,7 @@ import {
 } from '../domain/orders';
 import { isValidTimeOfDay } from '../domain/time';
 import { computeTotals } from '../domain/pricing';
-import { asPaymentPlan, cannotMarkPaid, isPaid, markPaid, markUnpaid, planProblem, tendersProblem } from '../domain/payment';
+import { asPaymentPlan, canPlanPayment, cannotMarkPaid, isPaid, markPaid, markUnpaid, planProblem, tendersProblem } from '../domain/payment';
 import { closeServiceRecord, currentService, openServiceRecord } from '../domain/service';
 
 export type Result<T = void> =
@@ -565,8 +565,8 @@ export function createAppStore(deps: StoreDeps) {
     setOrderPaymentPlan(orderId: string, plan: PaymentPlan | null): Result<Order> {
       const order = findOrder(orderId);
       if (!order) return fail('Commande introuvable.');
-      if (order.status === 'annulee' || order.archivedAt) return fail('Cette commande ne peut plus être modifiée.');
       if (isPaid(order)) return fail('Commande déjà encaissée : le paiement prévu ne s’applique plus.');
+      if (!canPlanPayment(order)) return fail('Paiement prévu impossible pour cette commande.');
       const valid = asPaymentPlan(plan);
       if (plan !== null && !valid) return fail('Paiement prévu invalide.');
       const problem = valid && planProblem(valid, order.totals.total);

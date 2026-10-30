@@ -145,6 +145,11 @@ export function paidGap(order: Order): Cents {
   return order.totals.total - sumParts(parts);
 }
 
+/** Un paiement prévu a du sens tant que la commande attend un encaissement suivi. */
+export function canPlanPayment(order: Order): boolean {
+  return !isPaid(order) && !isLegacyUnpaid(order) && order.status !== 'annulee' && !order.archivedAt;
+}
+
 export function unpaid(): Payment {
   return { status: 'a_encaisser', method: null, paidAt: null };
 }

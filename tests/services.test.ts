@@ -6,7 +6,7 @@ import { demoCatalog } from '../src/data/catalog';
 import { buildDemoData } from '../src/data/seed';
 import { defaultSettings } from '../src/data/defaultSettings';
 import { currentService, newServiceId, serviceIdFromStart, serviceOfOrder } from '../src/domain/service';
-import { buildTicket } from '../src/domain/ticket';
+import { buildDeliveryTicket } from '../src/domain/ticket';
 import type { Order, Settings } from '../src/domain/types';
 
 /** Store de test à horloge réglable. */
@@ -181,7 +181,7 @@ describe('livraison toujours offerte (0 €)', () => {
     const o = t.order(['reine'], 'livraison');
     expect(o.totals.deliveryFee).toBe(0);
     expect(o.totals.total).toBe(o.totals.subtotal);
-    expect(buildTicket(o, t.store.getData().settings).deliveryFee).toBe('Offerte');
+    expect(buildDeliveryTicket(o, t.store.getData().settings)!.historicFee).toBeNull();
   });
 
   it('impossible d’ajouter des frais depuis les paramètres', () => {
@@ -200,7 +200,7 @@ describe('livraison toujours offerte (0 €)', () => {
     const t = setup(createMemoryRepository(raw));
     const old = t.store.getData().orders[0];
     expect(old.totals.deliveryFee).toBe(200);
-    expect(buildTicket(old, t.store.getData().settings).deliveryFee).toBe('2,00 €');
+    expect(buildDeliveryTicket(old, t.store.getData().settings)!.historicFee).toBe('2,00 €');
     t.store.startEditOrder(old.id);
     const edited = t.store.validateCart();
     expect(edited.ok && edited.value.totals).toEqual({ subtotal: old.totals.subtotal, deliveryFee: 0, total: old.totals.subtotal });

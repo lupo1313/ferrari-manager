@@ -152,7 +152,7 @@ describe('carte de commande : aucune fonctionnalité perdue', () => {
     expect(primaryAction(o)).not.toBeNull();
     expect(canMarkPaidFromCard(o)).toBe(true);
     expect(canEditOrder(o)).toBe(true);
-    expect(secondaryActions(o)).toEqual(['ticket', 'corriger_statut', 'annuler']);
+    expect(secondaryActions(o)).toEqual(['ticket', 'paiement_prevu', 'corriger_statut', 'annuler']);
   });
 
   it('commande encaissée : l’annulation de l’encaissement reste accessible, plus de bouton d’encaissement', () => {
@@ -185,7 +185,7 @@ describe('carte de commande : aucune fonctionnalité perdue', () => {
     const o = t.get(id);
     expect(primaryAction(o)).toBeNull();
     expect(canEditOrder(o)).toBe(false);
-    expect(secondaryActions(o)).toEqual(['ticket', 'corriger_statut', 'annuler']);
+    expect(secondaryActions(o)).toEqual(['ticket', 'paiement_prevu', 'corriger_statut', 'annuler']);
     expect(canMarkPaidFromCard(o)).toBe(true);
   });
 
