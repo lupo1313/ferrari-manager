@@ -125,6 +125,28 @@ export interface Cart {
   note: string;
   /** Paiement prévu (intention du client), copié sur la commande à la validation. */
   paymentPlan?: PaymentPlan | null;
+  /** Trajet en scooter calculé pendant la saisie (valable seulement pour l'adresse utilisée). */
+  deliveryTrip?: DeliveryTrip | null;
+}
+
+/**
+ * Trajet de livraison en scooter, pour le ticket livreur. Valable uniquement pour l'adresse dont la clé
+ * est `addressKey` (voir domain/trip.ts) : une adresse modifiée rend le trajet caduc.
+ */
+export interface DeliveryTrip {
+  vehicle: 'scooter';
+  /** Distance routière en mètres. */
+  distanceM: number;
+  /** Durée de trajet estimée en secondes (hors préparation, sans trafic en temps réel). */
+  durationS: number;
+  addressKey: string;
+  /** Adresse reconnue par le géocodage, pour vérification. */
+  matchedLabel: string;
+  /** Numéro de rue non trouvé : position calculée sur la rue. */
+  approximate: boolean;
+  computedAt: string;
+  /** Service ayant produit l'estimation, ex. « valhalla-motor_scooter ». */
+  source: string;
 }
 
 export interface OrderTotals {
@@ -201,6 +223,8 @@ export interface Order {
   totals: OrderTotals;
   /** Paiement prévu (absent sur les commandes d'avant l'intervention 5). */
   paymentPlan?: PaymentPlan | null;
+  /** Trajet en scooter (absent si non calculé ou sur les commandes d'avant l'intervention 6). */
+  deliveryTrip?: DeliveryTrip | null;
   status: OrderStatus;
   statusHistory: StatusChange[];
   payment: Payment;

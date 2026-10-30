@@ -4,6 +4,7 @@ import { hasDeliveryAddress, snapshotCustomer } from './customers';
 import { isValidTimeOfDay } from './time';
 import { hasRewardWithoutPaidPizza, hasTooManyRewards, MAX_QUANTITY, ONE_REWARD_PER_ORDER, REWARD_NEEDS_PAID_PIZZA } from './cart';
 import { asPaymentPlan, canPlanPayment, isLegacyUnpaid, isPaid, planProblem, unpaid } from './payment';
+import { asDeliveryTrip, validTripFor } from './trip';
 
 export const STATUS_FLOW: OrderStatus[] = ['a_preparer', 'en_preparation', 'prete', 'terminee'];
 
@@ -147,6 +148,8 @@ export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
     totals,
     // Paiement prévu : simple intention, sans effet sur le statut de paiement ni la fidélité.
     paymentPlan: asPaymentPlan(cart.paymentPlan),
+    // Trajet : conservé seulement s'il correspond à l'adresse copiée sur la commande (sinon caduc).
+    deliveryTrip: validTripFor(cart.deliveryTrip, cart.mode, p.customer),
     updatedAt: p.nowIso,
   };
   if (p.previous) {
@@ -189,6 +192,7 @@ export function orderToCart(order: Order): Cart {
     lines: order.lines.map((l) => ({ ...l })),
     note: order.note,
     paymentPlan: asPaymentPlan(order.paymentPlan),
+    deliveryTrip: asDeliveryTrip(order.deliveryTrip),
   };
 }
 

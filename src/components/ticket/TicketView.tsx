@@ -84,6 +84,21 @@ export function DeliveryTicketView({ ticket }: { ticket: DeliveryTicket }) {
           {c.instructions && <p className="ticket__note">» {c.instructions}</p>}
         </>
       )}
+      {ticket.trip && (
+        <>
+          <hr />
+          <p className="ticket__strong">TRAJET EN SCOOTER</p>
+          <p className="ticket__row ticket__strong">
+            <span>DISTANCE</span>
+            <span>{ticket.trip.distance}</span>
+          </p>
+          <p className="ticket__row ticket__strong">
+            <span>DURÉE ESTIMÉE</span>
+            <span>{ticket.trip.duration}</span>
+          </p>
+          <p className="ticket__small">Estimation sans trafic · données © OpenStreetMap</p>
+        </>
+      )}
       <hr />
       <table className="ticket__lines">
         <tbody>
@@ -106,7 +121,14 @@ export function DeliveryTicketView({ ticket }: { ticket: DeliveryTicket }) {
         <span>TOTAL</span>
         <span>{ticket.total}</span>
       </p>
-      {ticket.historicFee && <p className="ticket__small">dont frais de livraison (ancienne commande) : {ticket.historicFee}</p>}
+      {ticket.historicFee ? (
+        <p className="ticket__small">dont frais de livraison (ancienne commande) : {ticket.historicFee}</p>
+      ) : (
+        <p className="ticket__row">
+          <span>Livraison</span>
+          <span>offerte</span>
+        </p>
+      )}
       <div className="ticket__pay">
         <p className="ticket__pay-headline">{p.headline}</p>
         {p.dueLine && <p className="ticket__strong">{p.dueLine}</p>}

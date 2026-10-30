@@ -8,6 +8,7 @@ import { TimePickerModal } from './TimePickerModal';
 import { CustomizeModal } from '../catalog/CustomizeModal';
 import { TicketModal } from '../ticket/TicketModal';
 import { PaymentPlanDialog } from '../orders/PaymentPlanDialog';
+import { TripRow } from './TripRow';
 import { computeTotals, rewardSavings } from '../../domain/pricing';
 import { hasRewardWithoutPaidPizza, itemCount, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
 import { asPaymentPlan, isPaid, planBreakdown, TENDER_LABELS } from '../../domain/payment';
@@ -147,6 +148,7 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
             {deliveryProblem ?? `${customer!.address}, ${customer!.postalCode} ${customer!.city}`}
           </p>
         )}
+        {cart.mode === 'livraison' && !deliveryProblem && customer && <TripRow customer={customer} />}
         <div className={`order-panel__when-pay ${showPlan ? '' : 'order-panel__when-pay--single'}`}>
           <button type="button" className="time-row" onClick={() => setTimeOpen(true)} aria-label="Heure souhaitée, changer">
             <Icon name="clock" />

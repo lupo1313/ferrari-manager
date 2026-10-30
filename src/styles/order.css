@@ -30,6 +30,43 @@
   color: var(--red-ink);
   font-weight: 600;
 }
+/* Trajet en scooter (ticket livreur) : une ligne discrète sous l'adresse. */
+.trip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.trip-row > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.trip-row > span > svg {
+  flex: none;
+}
+.trip-row__result {
+  color: var(--green-ink);
+}
+.trip-row__result strong {
+  color: var(--text);
+}
+.trip-row__error {
+  color: var(--red-ink);
+  font-weight: 600;
+}
+.trip-row__credit {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.trip-row__btn {
+  flex: none;
+  min-height: 44px;
+}
 .time-row {
   display: flex;
   align-items: center;

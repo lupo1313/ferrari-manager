@@ -2,6 +2,7 @@ import type {
   Cart,
   Catalog,
   Customer,
+  DeliveryTrip,
   Order,
   OrderMode,
   OrderStatus,
@@ -59,6 +60,7 @@ import {
 } from '../domain/orders';
 import { isValidTimeOfDay } from '../domain/time';
 import { computeTotals } from '../domain/pricing';
+import { asDeliveryTrip, deliveryAddressKey } from '../domain/trip';
 import { asPaymentPlan, canPlanPayment, cannotMarkPaid, isPaid, markPaid, markUnpaid, planProblem, tendersProblem } from '../domain/payment';
 import { closeServiceRecord, currentService, openServiceRecord } from '../domain/service';
 
@@ -384,6 +386,24 @@ export function createAppStore(deps: StoreDeps) {
 
     setCounterName(name: string) {
       setCart({ ...data.cart, counterName: name.slice(0, 40) }, 'deferred');
+    },
+
+    /**
+     * Trajet calculé pour la commande en cours de saisie. Refusé s'il ne correspond plus à la situation actuelle
+     * (client, adresse ou mode changés pendant le calcul) : un trajet n'est jamais rattaché à une autre adresse.
+     */
+    setCartDeliveryTrip(trip: DeliveryTrip | null): Result {
+      if (trip === null) {
+        setCart({ ...data.cart, deliveryTrip: null });
+        return ok(undefined);
+      }
+      const valid = asDeliveryTrip(trip);
+      const customer = findCustomer(data.cart.customerId);
+      if (!valid || data.cart.mode !== 'livraison' || !customer || valid.addressKey !== deliveryAddressKey(customer)) {
+        return fail('Le client ou l’adresse a changé pendant le calcul : relancez le calcul du trajet.');
+      }
+      setCart({ ...data.cart, deliveryTrip: valid });
+      return ok(undefined);
     },
 
     /** Paiement prévu de la commande en cours de saisie (null = non renseigné). Refusé s'il dépasse le total. */
