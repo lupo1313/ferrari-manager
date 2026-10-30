@@ -13,8 +13,9 @@ import {
   normalizePhone,
   searchCustomers,
 } from '../../domain/customers';
-import { computeBalance, countEarningPizzas } from '../../domain/loyalty';
-import { rewardLineCount } from '../../domain/cart';
+import { computeBalance, countEarningPizzas, customerLoyaltyStatus } from '../../domain/loyalty';
+import { paidPizzaCount, rewardLineCount } from '../../domain/cart';
+import { isPaid } from '../../domain/payment';
 import { formatPrice } from '../../domain/money';
 import { formatDate } from '../../domain/time';
 import { STATUS_LABELS } from '../../domain/orders';
@@ -198,8 +199,15 @@ function SelectedCustomer({ customer, onEdit, onUseReward }: SelectedCustomerPro
   const balance = computeBalance(loyaltyEvents, customer.id, rules);
   const rewardsInCart = rewardLineCount(lines);
   const remaining = store.rewardsRemaining();
-  const alreadyCredited = editingOrderId ? store.pointsAlreadyCredited(editingOrderId, customer.id) : 0;
-  const pendingPoints = countEarningPizzas(lines) - alreadyCredited;
+  const editedOrder = editingOrderId ? orders.find((o) => o.id === editingOrderId) : undefined;
+  // Commande encaissée en cours de modification : l'écart est crédité à l'enregistrement, pas « à l'encaissement ».
+  const pendingPoints = editedOrder && isPaid(editedOrder) ? 0 : countEarningPizzas(lines);
+  // Autres commandes du client : la commande en cours de modification est représentée par le panier.
+  const status = customerLoyaltyStatus(
+    loyaltyEvents,
+    orders.filter((o) => o.id !== editingOrderId),
+    customer.id,
+  );
   const history = orders
     .filter((o) => o.customerId === customer.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -283,7 +291,11 @@ function SelectedCustomer({ customer, onEdit, onUseReward }: SelectedCustomerPro
         pizzasPerReward={rules.pizzasPerReward}
         rewardsInCart={rewardsInCart}
         remaining={remaining}
-        pendingPoints={Math.max(0, pendingPoints)}
+        pendingPoints={pendingPoints}
+        reserved={status.reserved}
+        reservingOrders={status.reservingOrders}
+        pendingPizzas={status.pendingPizzas}
+        needsPaidPizza={paidPizzaCount(lines) === 0}
         onUseReward={onUseReward}
       />
 

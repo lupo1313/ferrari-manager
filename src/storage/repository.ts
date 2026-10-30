@@ -16,11 +16,13 @@ export interface OrderChange {
   nextOrderNumber?: number;
 }
 
-/** Fin de service : commandes archivées, compteur et nouveau début de service. */
-export interface ServiceClosure {
+/** Ouverture ou fermeture du service : commandes archivées (à la fermeture), compteur et état du service. */
+export interface ServiceChange {
   archivedOrders: Order[];
   nextOrderNumber: number;
   serviceStartedAt: string;
+  serviceOpen: boolean;
+  serviceClosedAt: string | null;
 }
 
 /** Résultat d'une lecture. `cart` est null si aucun panier n'est enregistré à part. */
@@ -46,15 +48,28 @@ export interface AppRepository {
   saveOrderWithLoyalty(change: OrderChange): void;
   upsertCustomer(customer: Customer): void;
   saveSettings(settings: Settings): void;
-  closeService(closure: ServiceClosure): void;
+  saveService(change: ServiceChange): void;
   saveCart(cart: Cart): void;
   /** Remplace tout (premier lancement, réinitialisation explicite). */
   replaceAll(data: PersistedData, cart: Cart): void;
   clear(): void;
 }
 
-export const STORAGE_KEY = 'ferrari-manager:v1';
-export const CART_KEY = 'ferrari-manager:v1:panier';
+/**
+ * Espace de noms des clés locales, fixé au build (VITE_STORAGE_NAMESPACE).
+ * Build normal : « ferrari-manager », clés inchangées. Prévisualisation : un autre espace, pour ne jamais
+ * lire ni écrire les données de la version actuelle, même sur la même origine (lupo1313.github.io).
+ * Valeur invalide : on retombe sur l'espace par défaut plutôt que de fabriquer une clé imprévisible.
+ */
+export const DEFAULT_STORAGE_NAMESPACE = 'ferrari-manager';
+
+export function storageNamespace(raw: unknown): string {
+  return typeof raw === 'string' && /^[a-z0-9][a-z0-9-]{1,48}$/.test(raw) ? raw : DEFAULT_STORAGE_NAMESPACE;
+}
+
+export const STORAGE_NAMESPACE = storageNamespace(import.meta.env.VITE_STORAGE_NAMESPACE);
+export const STORAGE_KEY = `${STORAGE_NAMESPACE}:v1`;
+export const CART_KEY = `${STORAGE_NAMESPACE}:v1:panier`;
 
 /** Interprète le texte stocké. Un JSON corrompu est une erreur, jamais « rien d'enregistré ». */
 export function parseStored(raw: string | null): { kind: 'empty' } | { kind: 'data'; value: unknown } | { kind: 'error'; error: string } {
@@ -141,13 +156,15 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
       writeDoc({ ...current(), settings });
     },
 
-    closeService({ archivedOrders, nextOrderNumber, serviceStartedAt }) {
+    saveService({ archivedOrders, nextOrderNumber, serviceStartedAt, serviceOpen, serviceClosedAt }) {
       const byId = new Map(archivedOrders.map((o) => [o.id, o]));
       writeDoc({
         ...current(),
         orders: list<Order>('orders').map((o) => byId.get(o.id) ?? o),
         counters: { nextOrderNumber },
         serviceStartedAt,
+        serviceOpen,
+        serviceClosedAt,
       });
     },
 

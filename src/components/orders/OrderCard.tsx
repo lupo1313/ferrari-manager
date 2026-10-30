@@ -1,8 +1,9 @@
 import { Icon } from '../ui/Icon';
-import { describeLine } from '../../domain/cart';
+import { describeLine, hasRewardWithoutPaidPizza, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
 import { formatPhone } from '../../domain/customers';
 import { formatPrice } from '../../domain/money';
 import { canCancelOrder, canEditOrder, MODE_LABELS, nextStatus, orderDisplayName, STATUS_FLOW, STATUS_LABELS } from '../../domain/orders';
+import { isLegacyUnpaid, isPaid, PAYMENT_METHOD_LABELS } from '../../domain/payment';
 import { formatDate, formatTime, formatTimeOfDay } from '../../domain/time';
 import type { Order, OrderStatus } from '../../domain/types';
 
@@ -12,6 +13,42 @@ interface OrderCardProps {
   onTicket: () => void;
   onEdit: () => void;
   onCancel: () => void;
+  onMarkPaid: () => void;
+  onMarkUnpaid: () => void;
+}
+
+/** Statut de paiement, indépendant du statut de préparation. */
+function PaymentRow({ order, onMarkPaid, onMarkUnpaid }: Pick<OrderCardProps, 'order' | 'onMarkPaid' | 'onMarkUnpaid'>) {
+  const locked = Boolean(order.archivedAt) || order.status === 'annulee';
+  if (isPaid(order)) {
+    const method = order.payment.method && order.payment.method !== 'non_precise' ? ` · ${PAYMENT_METHOD_LABELS[order.payment.method]}` : '';
+    const at = order.payment.paidAt ? ` · ${formatTime(order.payment.paidAt)}` : '';
+    return (
+      <div className="payment-row">
+        <span className="payment-pill payment-pill--paid">
+          <Icon name="check" size={16} /> Encaissée{method}
+          {at}
+        </span>
+        {!locked && (
+          <button type="button" className="payment-row__undo" onClick={onMarkUnpaid}>
+            Annuler l’encaissement
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="payment-row">
+      <span className={`payment-pill ${isLegacyUnpaid(order) ? 'payment-pill--unknown' : 'payment-pill--due'}`}>
+        {isLegacyUnpaid(order) ? 'Paiement non suivi' : order.status === 'annulee' ? 'Non encaissée' : 'À encaisser'}
+      </span>
+      {!locked && (
+        <button type="button" className="btn btn--sm payment-row__pay" onClick={onMarkPaid}>
+          <Icon name="check" size={18} /> Marquer encaissée
+        </button>
+      )}
+    </div>
+  );
 }
 
 const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
@@ -20,7 +57,7 @@ const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   prete: 'Terminer',
 };
 
-export function OrderCard({ order, onStatus, onTicket, onEdit, onCancel }: OrderCardProps) {
+export function OrderCard({ order, onStatus, onTicket, onEdit, onCancel, onMarkPaid, onMarkUnpaid }: OrderCardProps) {
   const next = nextStatus(order.status);
   const readOnly = Boolean(order.archivedAt) || order.status === 'annulee';
   const isToday = formatDate(order.createdAt) === formatDate(new Date().toISOString());
@@ -79,6 +116,13 @@ export function OrderCard({ order, onStatus, onTicket, onEdit, onCancel }: Order
         <span>Total</span>
         <span className="price">{formatPrice(order.totals.total)}</span>
       </div>
+
+      <PaymentRow order={order} onMarkPaid={onMarkPaid} onMarkUnpaid={onMarkUnpaid} />
+      {order.status !== 'annulee' && order.customerId && hasRewardWithoutPaidPizza(order.lines) && (
+        <p className="notice notice--error order-card__issue">
+          <Icon name="alert" size={18} /> {REWARD_NEEDS_PAID_PIZZA} Modifiez ou annulez cette commande.
+        </p>
+      )}
 
       {!readOnly && (
         <div className="status-switch" role="group" aria-label="Statut de la commande">

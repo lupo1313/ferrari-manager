@@ -1,5 +1,5 @@
 import { useAppData, useStore } from '../state/StoreContext';
-import { computeBalance, eligibleRewardProducts, LOYALTY_REASON_LABELS } from '../domain/loyalty';
+import { computeBalance, customerLoyaltyStatus, eligibleRewardProducts, LOYALTY_REASON_LABELS } from '../domain/loyalty';
 import { customerFullName } from '../domain/customers';
 import { formatDateTime } from '../domain/time';
 import { Icon } from '../components/ui/Icon';
@@ -34,9 +34,10 @@ export function LoyaltyPage() {
             <strong>{rules.pizzasPerReward} pizzas payantes</strong> = 1 récompense
           </p>
           <ul className="rules-list">
-            <li>Points crédités à la validation de la commande, retirés si elle est annulée.</li>
+            <li>Pizzas payantes créditées à l’encaissement de la commande, retirées si elle est annulée.</li>
             <li>Une pizza offerte ne rapporte aucun point.</li>
-            <li>La récompense se garde : elle n’est utilisée que sur choix explicite.</li>
+            <li>Le cadeau s’ajoute à une commande contenant au moins une pizza payante.</li>
+            <li>La récompense se garde : elle n’est utilisée que sur choix explicite, réservée à l’enregistrement, consommée à l’encaissement.</li>
             <li>Exclus : vin, boissons alcoolisées, desserts, suppléments.</li>
           </ul>
           <h3 className="card__subtitle">Pizzas éligibles</h3>
@@ -54,13 +55,16 @@ export function LoyaltyPage() {
                 <th>Client</th>
                 <th>Pizzas comptées</th>
                 <th>Prochaine récompense</th>
+                <th>En attente d’encaissement</th>
                 <th>Disponibles</th>
+                <th>Réservées</th>
                 <th>Utilisées</th>
               </tr>
             </thead>
             <tbody>
               {data.customers.map((c) => {
                 const b = computeBalance(data.loyaltyEvents, c.id, rules);
+                const st = customerLoyaltyStatus(data.loyaltyEvents, data.orders, c.id);
                 return (
                   <tr key={c.id}>
                     <td className="data-table__strong">{customerFullName(c)}</td>
@@ -68,9 +72,11 @@ export function LoyaltyPage() {
                     <td>
                       {b.progress}/{rules.pizzasPerReward} <span className="muted">(encore {b.pointsToNext})</span>
                     </td>
+                    <td>{st.pendingPizzas > 0 ? `${st.pendingPizzas} pizza${st.pendingPizzas > 1 ? 's' : ''}` : '—'}</td>
                     <td>{b.available > 0 ? <span className="pill pill--gold">{b.available}</span> : '0'}</td>
+                    <td>{st.reserved > 0 ? `${st.reserved} (n° ${st.reservingOrders.join(', ')})` : '0'}</td>
                     <td>
-                      {b.rewardsUsed}
+                      {b.rewardsUsed - st.reserved}
                       {b.debt > 0 && <span className="pill pill--muted"> dette {b.debt}</span>}
                     </td>
                   </tr>

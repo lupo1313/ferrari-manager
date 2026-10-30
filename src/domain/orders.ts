@@ -2,7 +2,8 @@ import type { Cart, Customer, Order, OrderMode, OrderStatus, Settings } from './
 import { computeTotals } from './pricing';
 import { hasDeliveryAddress, snapshotCustomer } from './customers';
 import { isValidTimeOfDay } from './time';
-import { MAX_QUANTITY } from './cart';
+import { hasRewardWithoutPaidPizza, hasTooManyRewards, MAX_QUANTITY, ONE_REWARD_PER_ORDER, REWARD_NEEDS_PAID_PIZZA } from './cart';
+import { isLegacyUnpaid, isPaid, unpaid } from './payment';
 
 export const STATUS_FLOW: OrderStatus[] = ['a_preparer', 'en_preparation', 'prete', 'terminee'];
 
@@ -13,6 +14,8 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   terminee: 'Terminée',
   annulee: 'Annulée',
 };
+
+export const SERVICE_CLOSED_MESSAGE = 'Le service est fermé. Ouvrez le service pour prendre une nouvelle commande.';
 
 export const MODE_LABELS: Record<OrderMode, string> = {
   livraison: 'Livraison',
@@ -66,6 +69,9 @@ export function validateCart(cart: Cart, ctx: CartValidationContext): string[] {
   if (cart.lines.some((l) => l.reward)) {
     if (!ctx.customer) errors.push('Une récompense fidélité nécessite une fiche client.');
     else if (ctx.rewardsRemaining < 0) errors.push('Le client n’a pas assez de récompenses disponibles.');
+    // Règle précise de fidélité (pas une interdiction des commandes à 0 €) : cadeau = au moins une pizza payante.
+    if (hasRewardWithoutPaidPizza(cart.lines)) errors.push(REWARD_NEEDS_PAID_PIZZA);
+    if (hasTooManyRewards(cart.lines)) errors.push(ONE_REWARD_PER_ORDER);
   }
   return errors;
 }
@@ -103,6 +109,8 @@ export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
     revision: 1,
     status: 'a_preparer',
     statusHistory: [{ status: 'a_preparer', at: p.nowIso }],
+    // Une modification garde le statut de paiement (via ...p.previous ci-dessus) ; une création part non encaissée.
+    payment: unpaid(),
     printRequests: [],
     archivedAt: null,
     ...base,
@@ -133,20 +141,35 @@ export function orderToCart(order: Order): Cart {
 }
 
 /**
- * Fin de service : archive les commandes terminées et annulées (elles restent stockées,
- * le journal de fidélité n'est pas touché). Les commandes encore actives restent affichées.
+ * Commande soldée côté service : annulée, ou terminée et encaissée.
+ * Une commande d'avant le suivi des paiements (legacy) se solde comme auparavant, une fois terminée.
+ */
+export function isSettledOrder(order: Order): boolean {
+  if (order.status === 'annulee') return true;
+  return order.status === 'terminee' && (isPaid(order) || isLegacyUnpaid(order));
+}
+
+/** Terminée mais pas encore encaissée : reste affichée après la fin de service. */
+export function isDoneButUnpaid(order: Order): boolean {
+  return !order.archivedAt && order.status === 'terminee' && !isSettledOrder(order);
+}
+
+/**
+ * Fin de service : archive les commandes soldées (elles restent stockées, le journal de fidélité
+ * n'est pas touché). Les commandes en cours et les commandes terminées non encaissées restent affichées.
  */
 export function closeService(orders: Order[], nowIso: string) {
   let archived = 0;
   const next = orders.map((o) => {
-    if (!o.archivedAt && (o.status === 'terminee' || o.status === 'annulee')) {
+    if (!o.archivedAt && isSettledOrder(o)) {
       archived++;
       return { ...o, archivedAt: nowIso };
     }
     return o;
   });
   const stillActive = next.filter(isActiveOrder).length;
-  return { orders: next, archived, stillActive };
+  const waitingPayment = next.filter(isDoneButUnpaid).length;
+  return { orders: next, archived, stillActive, waitingPayment };
 }
 
 export function orderDisplayName(order: Order): string {

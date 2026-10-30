@@ -5,6 +5,7 @@ import type {
   Order,
   OrderMode,
   OrderStatus,
+  PaymentMethod,
   Product,
   RewardKind,
   Settings,
@@ -21,6 +22,10 @@ import {
   addToppingToLine,
   createLine,
   emptyCart,
+  MAX_REWARDS_PER_ORDER,
+  ONE_REWARD_PER_ORDER,
+  paidPizzaCount,
+  REWARD_NEEDS_PAID_PIZZA,
   removeLine,
   rewardLineCount,
   setLineQuantity,
@@ -44,10 +49,12 @@ import {
   canEditOrder,
   closeService,
   orderToCart,
+  SERVICE_CLOSED_MESSAGE,
   validateCart,
   withStatus,
 } from '../domain/orders';
 import { isValidTimeOfDay } from '../domain/time';
+import { cannotMarkPaid, isPaid, markPaid, markUnpaid } from '../domain/payment';
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -73,6 +80,8 @@ export interface StoreDeps {
   seed: (catalog: Catalog, now: Date, newId: IdFactory) => AppData;
   now?: () => Date;
   newId?: IdFactory;
+  /** Effets hors données (son). Un effet qui échoue n'annule jamais l'action. */
+  effects?: { playPaymentSound?: (kind: Settings['paymentSoundKind']) => void };
 }
 
 const withoutCart = ({ cart: _cart, ...rest }: AppData): PersistedData => (void _cart, rest);
@@ -212,7 +221,7 @@ export function createAppStore(deps: StoreDeps) {
    * Renvoie les événements ajoutés, ou null si l'écriture a échoué (rien n'a changé).
    */
   function commitOrder(order: Order, opts: { nextOrderNumber?: number; cart?: Cart } = {}) {
-    const newEvents = reconcileOrderLoyalty(data.loyaltyEvents, order, data.settings.loyalty, { nowIso: nowIso(), newId });
+    const newEvents = reconcileOrderLoyalty(data.loyaltyEvents, order, { nowIso: nowIso(), newId });
     if (!persist(() => repo.saveOrderWithLoyalty({ order, newEvents, nextOrderNumber: opts.nextOrderNumber }))) return null;
     const exists = data.orders.some((o) => o.id === order.id);
     data = {
@@ -384,6 +393,10 @@ export function createAppStore(deps: StoreDeps) {
       if (!customer) return fail('Sélectionnez d’abord le client.');
       const p = product(productId);
       if (!p || !isRewardEligible(p, kind, data.settings.loyalty)) return fail('Ce produit n’est pas éligible à la récompense.');
+      // Le cadeau s'ajoute à un achat : au moins une pizza payante doit déjà être dans la commande.
+      // Une seule récompense par commande (y compris en modification d'une commande existante).
+      if (rewardLineCount(data.cart.lines) >= MAX_REWARDS_PER_ORDER) return fail(ONE_REWARD_PER_ORDER);
+      if (paidPizzaCount(data.cart.lines) === 0) return fail(`${REWARD_NEEDS_PAID_PIZZA} Ajoutez d’abord la pizza achetée.`);
       if (rewardsRemainingForCart(data.loyaltyEvents, data.cart, data.settings.loyalty) < 1) {
         return fail('Aucune récompense disponible pour ce client.');
       }
@@ -404,6 +417,8 @@ export function createAppStore(deps: StoreDeps) {
       if (!cart.editingOrderId && findOrder(cart.draftId)) {
         return fail('Cette commande est déjà enregistrée.');
       }
+      // Service fermé : aucune NOUVELLE commande. Corriger une commande existante reste possible.
+      if (!cart.editingOrderId && !data.serviceOpen) return fail(SERVICE_CLOSED_MESSAGE);
       const errors = validateCart(cart, {
         customer,
         rewardsRemaining: rewardsRemainingForCart(data.loyaltyEvents, cart, data.settings.loyalty),
@@ -446,8 +461,50 @@ export function createAppStore(deps: StoreDeps) {
       return ok(updated);
     },
 
-    /** Annulation : retire les points crédités et restitue les récompenses consommées. */
-    cancelOrder(orderId: string): Result<{ order: Order; pointsReverted: number; rewardsRestored: number }> {
+    /**
+     * Encaissement (suivi opérationnel, pas une caisse) : crédite les pizzas payantes du client.
+     * Idempotent : une commande déjà encaissée ne recrédite jamais rien (seul le moyen peut être corrigé).
+     */
+    markOrderPaid(orderId: string, method: PaymentMethod = 'non_precise'): Result<{ order: Order; pointsCredited: number; alreadyPaid: boolean }> {
+      const order = findOrder(orderId);
+      if (!order) return fail('Commande introuvable.');
+      const blocked = cannotMarkPaid(order);
+      if (blocked) return fail(blocked);
+      const alreadyPaid = isPaid(order);
+      const updated = markPaid(order, method, nowIso());
+      if (updated === order) return ok({ order, pointsCredited: 0, alreadyPaid });
+      const events = commitOrder(updated);
+      if (!events) return fail(SAVE_FAILED);
+      const pointsCredited = events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
+      // Son : uniquement pour une vraie transition vers « Encaissée » enregistrée avec succès.
+      if (!alreadyPaid && data.settings.paymentSound) {
+        try {
+          deps.effects?.playPaymentSound?.(data.settings.paymentSoundKind === 'vente' ? 'vente' : 'caisse');
+        } catch {
+          /* le son est un confort : son échec n'affecte pas l'encaissement */
+        }
+      }
+      return ok({ order: updated, pointsCredited, alreadyPaid });
+    },
+
+    /** Correction d'un encaissement saisi par erreur : la commande repasse « à encaisser », ses pizzas sont retirées. */
+    markOrderUnpaid(orderId: string): Result<{ order: Order; pointsReverted: number }> {
+      const order = findOrder(orderId);
+      if (!order) return fail('Commande introuvable.');
+      if (!isPaid(order)) return fail('Cette commande n’est pas encaissée.');
+      if (order.status === 'annulee') return fail('Commande annulée : encaissement non modifiable.');
+      const updated = markUnpaid(order, nowIso());
+      const events = commitOrder(updated);
+      if (!events) return fail(SAVE_FAILED);
+      const pointsReverted = 0 - events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
+      return ok({ order: updated, pointsReverted });
+    },
+
+    /**
+     * Annulation : retire les pizzas créditées et restitue les récompenses (réservées ou consommées).
+     * Commande encaissée : le remboursement éventuel se fait hors de Ferrari Manager.
+     */
+    cancelOrder(orderId: string): Result<{ order: Order; pointsReverted: number; rewardsRestored: number; wasPaid: boolean }> {
       const order = findOrder(orderId);
       if (!order) return fail('Commande introuvable.');
       if (!canCancelOrder(order)) return fail('Cette commande ne peut pas être annulée.');
@@ -455,9 +512,9 @@ export function createAppStore(deps: StoreDeps) {
       const cart = data.cart.editingOrderId === orderId ? emptyCart(newId('ord')) : undefined;
       const events = commitOrder(cancelled, { cart });
       if (!events) return fail(SAVE_FAILED);
-      const pointsReverted = -events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
-      const rewardsRestored = -events.filter((e) => e.type === 'rewards_used').reduce((s, e) => s + e.delta, 0);
-      return ok({ order: cancelled, pointsReverted, rewardsRestored });
+      const pointsReverted = 0 - events.filter((e) => e.type === 'points').reduce((s, e) => s + e.delta, 0);
+      const rewardsRestored = 0 - events.filter((e) => e.type === 'rewards_used').reduce((s, e) => s + e.delta, 0);
+      return ok({ order: cancelled, pointsReverted, rewardsRestored, wasPaid: isPaid(order) });
     },
 
     /** Ouverture de la fenêtre d'impression : tracée, mais jamais considérée comme une impression réussie. */
@@ -475,18 +532,40 @@ export function createAppStore(deps: StoreDeps) {
       return netForOrder(data.loyaltyEvents, orderId, customerId).points;
     },
 
-    endService(): Result<{ archived: number; stillActive: number }> {
-      const { orders, archived, stillActive } = closeService(data.orders, nowIso());
-      // Numérotation remise à 1 seulement si plus aucune commande n'est en cours (évite les doublons).
-      const counters = stillActive === 0 ? { nextOrderNumber: 1 } : data.counters;
-      const serviceStartedAt = nowIso();
+    /**
+     * Fermeture du service : archive les commandes soldées, garde les autres, passe à l'état fermé.
+     * N'ouvre PAS de nouveau service. Sûre si répétée : un service déjà fermé reste fermé (date d'origine).
+     */
+    closeService(): Result<{ archived: number; stillActive: number; waitingPayment: number; alreadyClosed: boolean }> {
+      const alreadyClosed = !data.serviceOpen;
+      const { orders, archived, stillActive, waitingPayment } = closeService(data.orders, nowIso());
+      if (alreadyClosed && archived === 0) return ok({ archived, stillActive, waitingPayment, alreadyClosed });
+      // Numérotation remise à 1 seulement si plus aucune commande n'est affichée (évite les doublons de numéro).
+      const counters = stillActive + waitingPayment === 0 ? { nextOrderNumber: 1 } : data.counters;
+      const serviceClosedAt = alreadyClosed ? data.serviceClosedAt ?? nowIso() : nowIso();
       const archivedOrders = orders.filter((o, i) => o !== data.orders[i]);
-      if (!persist(() => repo.closeService({ archivedOrders, nextOrderNumber: counters.nextOrderNumber, serviceStartedAt }))) {
-        return fail(SAVE_FAILED);
-      }
-      data = { ...data, orders, counters, serviceStartedAt };
+      const change = {
+        archivedOrders,
+        nextOrderNumber: counters.nextOrderNumber,
+        serviceStartedAt: data.serviceStartedAt,
+        serviceOpen: false,
+        serviceClosedAt,
+      };
+      if (!persist(() => repo.saveService(change))) return fail(SAVE_FAILED);
+      data = { ...data, orders, counters, serviceOpen: false, serviceClosedAt };
       notify();
-      return ok({ archived, stillActive });
+      return ok({ archived, stillActive, waitingPayment, alreadyClosed });
+    },
+
+    /** Ouverture : nouveau début de service. Commandes, clients et fidélité sont conservés tels quels. */
+    openService(): Result<{ alreadyOpen: boolean }> {
+      if (data.serviceOpen) return ok({ alreadyOpen: true });
+      const serviceStartedAt = nowIso();
+      const change = { archivedOrders: [], nextOrderNumber: data.counters.nextOrderNumber, serviceStartedAt, serviceOpen: true, serviceClosedAt: null };
+      if (!persist(() => repo.saveService(change))) return fail(SAVE_FAILED);
+      data = { ...data, serviceStartedAt, serviceOpen: true, serviceClosedAt: null };
+      notify();
+      return ok({ alreadyOpen: false });
     },
 
     /* ---------- Paramètres & données ---------- */
@@ -497,6 +576,8 @@ export function createAppStore(deps: StoreDeps) {
         return fail('Frais de livraison invalides (entre 0 et 50 €).');
       }
       if (next.ticketWidthMm !== 58 && next.ticketWidthMm !== 80) return fail('Largeur de ticket invalide.');
+      next.paymentSound = next.paymentSound !== false;
+      if (next.paymentSoundKind !== 'vente' && next.paymentSoundKind !== 'caisse') next.paymentSoundKind = 'caisse';
       // Les garde-fous d'éligibilité filtrent toute entrée non autorisée (alcool, dessert…).
       next.loyalty = {
         ...next.loyalty,

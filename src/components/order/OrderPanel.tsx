@@ -8,13 +8,20 @@ import { TimePickerModal } from './TimePickerModal';
 import { CustomizeModal } from '../catalog/CustomizeModal';
 import { TicketModal } from '../ticket/TicketModal';
 import { computeTotals, rewardSavings } from '../../domain/pricing';
-import { itemCount } from '../../domain/cart';
+import { hasRewardWithoutPaidPizza, itemCount, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
+import { isPaid } from '../../domain/payment';
+import { SERVICE_CLOSED_MESSAGE } from '../../domain/orders';
 import { formatPrice } from '../../domain/money';
 import { formatTimeOfDay } from '../../domain/time';
 import { hasDeliveryAddress } from '../../domain/customers';
 import type { OrderLine } from '../../domain/types';
 
-export function OrderPanel() {
+interface OrderPanelProps {
+  /** Affiche la carte (utile en mode onglets) pour ajouter une pizza payante. */
+  onShowCatalog?: () => void;
+}
+
+export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
   const store = useStore();
   const data = useAppData();
   const toast = useToast();
@@ -36,6 +43,24 @@ export function OrderPanel() {
   const totals = computeTotals(cart.lines, cart.mode, { deliveryFee: data.settings.deliveryFee });
   const savings = rewardSavings(cart.lines);
   const count = itemCount(cart.lines);
+  // Cadeau fidélité sans pizza payante : signalé (jamais retiré en silence) et enregistrement bloqué.
+  const rewardIssue = hasRewardWithoutPaidPizza(cart.lines);
+  const hadRewardIssue = useRef(rewardIssue);
+  useEffect(() => {
+    if (rewardIssue && !hadRewardIssue.current) toast(REWARD_NEEDS_PAID_PIZZA, 'error');
+    hadRewardIssue.current = rewardIssue;
+  }, [rewardIssue, toast]);
+  const removeRewards = () => {
+    for (const l of cart.lines) if (l.reward) store.removeLine(l.id);
+    toast('Cadeau retiré : la récompense reste disponible pour le client.', 'info');
+  };
+  // Service fermé : une nouvelle commande ne peut pas être enregistrée (modifier une commande existante reste possible).
+  const serviceClosed = !data.serviceOpen && !editing;
+  const cannotSave = busy || cart.lines.length === 0 || rewardIssue || serviceClosed;
+  const openService = () => {
+    const r = store.openService();
+    toast(r.ok ? 'Service ouvert : prise de commandes activée' : r.error, r.ok ? 'success' : 'error');
+  };
   const deliveryProblem =
     cart.mode === 'livraison' && (!customer ? 'Sélectionnez un client pour la livraison.' : !hasDeliveryAddress(customer) ? 'Adresse du client incomplète.' : null);
 
@@ -85,7 +110,9 @@ export function OrderPanel() {
           <span>
             <strong>Modification de la commande n° {editing.number}</strong>
             <br />
-            L’enregistrement remplacera la version actuelle (points ajustés).
+            {isPaid(editing)
+              ? 'Commande déjà encaissée : la fidélité sera recalculée sur la version enregistrée, sans double crédit.'
+              : 'L’enregistrement remplacera la version actuelle.'}
           </span>
         </p>
       )}
@@ -181,6 +208,40 @@ export function OrderPanel() {
           </div>
         </dl>
 
+        {serviceClosed && (
+          <div className="notice notice--closed service-closed" role="status">
+            <p>
+              <Icon name="power" size={18} /> <strong>{SERVICE_CLOSED_MESSAGE}</strong>
+            </p>
+            <button type="button" className="btn btn--sm btn--success" onClick={openService}>
+              <Icon name="power" size={18} /> Ouvrir le service
+            </button>
+          </div>
+        )}
+
+        {rewardIssue && (
+          <div className="notice notice--error reward-issue" role="alert">
+            <p>
+              <Icon name="alert" size={18} /> <strong>{REWARD_NEEDS_PAID_PIZZA}</strong>
+            </p>
+            <div className="reward-issue__actions">
+              <button
+                type="button"
+                className="btn btn--sm btn--dark"
+                onClick={() => {
+                  onShowCatalog?.();
+                  toast('Choisissez une pizza payante dans la carte.', 'info');
+                }}
+              >
+                <Icon name="pizza" size={18} /> Ajouter une pizza payante
+              </button>
+              <button type="button" className="btn btn--sm" onClick={removeRewards}>
+                <Icon name="trash" size={18} /> Retirer le cadeau
+              </button>
+            </div>
+          </div>
+        )}
+
         {errors && (
           <p className="notice notice--error" role="alert">
             <Icon name="alert" size={18} /> {errors}
@@ -191,14 +252,14 @@ export function OrderPanel() {
           type="button"
           className="btn btn--success btn--lg btn--block validate-btn"
           onClick={() => validate(true)}
-          disabled={busy || cart.lines.length === 0}
+          disabled={cannotSave}
         >
           <Icon name="printer" size={24} />
           {editing ? 'Enregistrer et imprimer' : 'Valider et imprimer'}
           <Icon name="arrowRight" size={22} />
         </button>
         <div className="order-panel__secondary">
-          <button type="button" className="btn" onClick={() => validate(false)} disabled={busy || cart.lines.length === 0}>
+          <button type="button" className="btn" onClick={() => validate(false)} disabled={cannotSave}>
             <Icon name="file" size={18} /> Enregistrer sans imprimer
           </button>
           <button

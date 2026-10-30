@@ -10,16 +10,23 @@ import type {
   RewardKind,
 } from './types';
 import type { IdFactory } from './ids';
-import { rewardLineCount } from './cart';
+import { paidPizzaCount, rewardLineCount } from './cart';
+import { isLegacyUnpaid, isPaid } from './payment';
 
 /**
  * Programme de fidélité : 10 pizzas payantes = 1 récompense.
- * Récompense = 1 pizza parmi une liste éligible OU 1 grande bouteille de soda éligible.
+ * Récompense = 1 pizza parmi une liste éligible OU 1 grande bouteille de soda éligible,
+ * ajoutée à une commande qui contient au moins une pizza payante.
  *
  * Principe : le solde n'est jamais stocké, il est recalculé depuis le journal d'événements.
  * Chaque commande est « réconciliée » : on calcule ce qu'elle devrait avoir crédité/consommé,
  * on compare à ce qui figure déjà dans le journal, et on n'écrit que la différence.
- * Conséquences : double validation sans effet, annulation et modification toujours cohérentes.
+ * Conséquences : double validation, double encaissement, annulation et modification toujours cohérents.
+ *
+ * - Pizzas payantes : créditées quand la commande est encaissée (pas avant).
+ * - Récompense : prise dès l'enregistrement de la commande (réservée), consommée quand elle est
+ *   encaissée, restituée si elle est annulée. Une récompense réservée n'est donc jamais réutilisable
+ *   par une autre commande.
  */
 
 export interface LoyaltyBalance {
@@ -65,7 +72,7 @@ export function computeBalance(events: LoyaltyEvent[], customerId: string, rules
 
 /** Pizzas qui génèrent des points : pizzas payantes uniquement (une pizza offerte ne rapporte rien). */
 export function countEarningPizzas(lines: OrderLine[]): number {
-  return lines.filter((l) => l.category === 'pizza' && !l.reward).reduce((sum, l) => sum + l.quantity, 0);
+  return paidPizzaCount(lines);
 }
 
 /**
@@ -95,10 +102,12 @@ export function netForOrder(events: LoyaltyEvent[], orderId: string, customerId:
   return { points, rewardsUsed };
 }
 
-/** Points que la commande doit avoir crédités selon son état et la règle d'attribution. */
-export function targetPoints(order: Order, rules: LoyaltyRules): number {
-  if (!order.customerId || order.status === 'annulee') return 0;
-  if (rules.awardOn === 'terminee' && order.status !== 'terminee') return 0;
+/**
+ * Points que la commande doit avoir crédités : ses pizzas payantes, une fois encaissée ; 0 sinon.
+ * Cas des commandes d'avant le suivi des paiements : voir reconcileOrderLoyalty (points gelés).
+ */
+export function targetPoints(order: Order): number {
+  if (!order.customerId || order.status === 'annulee' || !isPaid(order)) return 0;
   return countEarningPizzas(order.lines);
 }
 
@@ -116,7 +125,6 @@ export function targetRewardsUsed(order: Order): number {
 export function reconcileOrderLoyalty(
   events: LoyaltyEvent[],
   order: Order,
-  rules: LoyaltyRules,
   ctx: { nowIso: string; newId: IdFactory },
 ): LoyaltyEvent[] {
   const customerIds = new Set<string>();
@@ -128,15 +136,19 @@ export function reconcileOrderLoyalty(
   for (const customerId of customerIds) {
     const isCurrent = customerId === order.customerId;
     const net = netForOrder(events, order.id, customerId);
-    const wantPoints = isCurrent ? targetPoints(order, rules) : 0;
+    // Commande d'avant le suivi des paiements, non encaissée et non annulée : ses points (crédités à
+    // l'enregistrement par l'ancienne règle) sont gelés tels quels. Ni retirés sans action explicite,
+    // ni ajoutés sans encaissement. L'encaissement ou l'annulation les remet à la règle normale.
+    const frozen = isCurrent && isLegacyUnpaid(order) && order.status !== 'annulee';
+    const wantPoints = frozen ? net.points : isCurrent ? targetPoints(order) : 0;
     const wantRewards = isCurrent ? targetRewardsUsed(order) : 0;
 
     const pointsDelta = wantPoints - net.points;
     if (pointsDelta !== 0) {
       let reason: LoyaltyReason;
       if (order.status === 'annulee') reason = 'commande_annulee';
-      else if (net.points === 0 && pointsDelta > 0 && order.revision === 1) reason = 'commande_validee';
-      else if (rules.awardOn === 'terminee') reason = 'statut_modifie';
+      else if (!isPaid(order)) reason = 'encaissement_annule';
+      else if (net.points === 0 && pointsDelta > 0) reason = 'commande_encaissee';
       else reason = 'commande_modifiee';
       out.push({
         id: ctx.newId('loy'),
@@ -159,7 +171,7 @@ export function reconcileOrderLoyalty(
         orderId: order.id,
         type: 'rewards_used',
         delta: rewardsDelta,
-        reason: rewardsDelta > 0 ? 'recompense_utilisee' : 'recompense_restituee',
+        reason: rewardsDelta > 0 ? 'recompense_reservee' : 'recompense_restituee',
         label,
       });
     }
@@ -182,12 +194,36 @@ export function rewardsRemainingForCart(events: LoyaltyEvent[], cart: Cart, rule
   return balance.available - balance.debt + alreadyUsedByEditedOrder - rewardLineCount(cart.lines);
 }
 
+/**
+ * Vue d'un client pour l'affichage : récompenses réservées par des commandes non encaissées,
+ * récompenses consommées, et pizzas en attente d'encaissement (pas encore créditées).
+ */
+export function customerLoyaltyStatus(events: LoyaltyEvent[], orders: Order[], customerId: string) {
+  let reserved = 0;
+  let pendingPizzas = 0;
+  const reservingOrders: number[] = [];
+  for (const o of orders) {
+    if (o.status === 'annulee') continue;
+    const net = netForOrder(events, o.id, customerId);
+    // Ancienne commande (legacy) : sa récompense était déjà considérée comme utilisée, pas « réservée ».
+    if (!isPaid(o) && !isLegacyUnpaid(o) && net.rewardsUsed > 0) {
+      reserved += net.rewardsUsed;
+      reservingOrders.push(o.number);
+    }
+    if (o.customerId === customerId && !isPaid(o) && !isLegacyUnpaid(o)) pendingPizzas += countEarningPizzas(o.lines);
+  }
+  return { reserved, reservingOrders, pendingPizzas };
+}
+
 export const LOYALTY_REASON_LABELS: Record<LoyaltyReason, string> = {
-  commande_validee: 'Points crédités (commande validée)',
-  commande_modifiee: 'Points ajustés (commande modifiée)',
-  commande_annulee: 'Points retirés (commande annulée)',
-  statut_modifie: 'Points ajustés (changement de statut)',
-  recompense_utilisee: 'Récompense utilisée',
+  commande_encaissee: 'Pizzas créditées (commande encaissée)',
+  encaissement_annule: 'Pizzas retirées (encaissement annulé)',
+  commande_modifiee: 'Pizzas ajustées (commande modifiée)',
+  commande_annulee: 'Pizzas retirées (commande annulée)',
+  recompense_reservee: 'Récompense réservée (consommée à l’encaissement)',
   recompense_restituee: 'Récompense restituée',
   reprise_demo: 'Reprise d’historique (démo)',
+  commande_validee: 'Points crédités à l’enregistrement (ancienne règle)',
+  statut_modifie: 'Points ajustés (changement de statut)',
+  recompense_utilisee: 'Récompense utilisée (ancienne règle)',
 };

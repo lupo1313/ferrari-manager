@@ -3,20 +3,23 @@ import { Icon } from '../components/ui/Icon';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useToast } from '../components/ui/Toast';
 import { OrderCard } from '../components/orders/OrderCard';
+import { PaymentDialog } from '../components/orders/PaymentDialog';
 import { TicketModal } from '../components/ticket/TicketModal';
 import { useAppData, useStore } from '../state/StoreContext';
 import { isActiveOrder, orderDisplayName, STATUS_LABELS } from '../domain/orders';
 import { netForOrder } from '../domain/loyalty';
+import { isPaid } from '../domain/payment';
 import type { Order } from '../domain/types';
 
 type Filter = 'actives' | 'terminees' | 'archives';
 
 interface OrdersPageProps {
   onGoToOrderTaking: () => void;
-  onEndService: () => void;
+  serviceOpen: boolean;
+  onServiceAction: () => void;
 }
 
-export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps) {
+export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: OrdersPageProps) {
   const store = useStore();
   const data = useAppData();
   const toast = useToast();
@@ -25,6 +28,8 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
   const [ticketFor, setTicketFor] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<Order | null>(null);
   const [editing, setEditing] = useState<Order | null>(null);
+  const [paying, setPaying] = useState<Order | null>(null);
+  const [unpaying, setUnpaying] = useState<Order | null>(null);
 
   const groups = useMemo(() => {
     const actives = data.orders.filter(isActiveOrder).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -55,10 +60,26 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
     onGoToOrderTaking();
   };
 
+  /** Confirmation si un panier serait remplacé, ou si la commande est déjà encaissée. */
   const askEdit = (order: Order) => {
     const cart = data.cart;
-    if (cart.lines.length > 0 && cart.editingOrderId !== order.id) setEditing(order);
+    const replacesCart = cart.lines.length > 0 && cart.editingOrderId !== order.id;
+    if (replacesCart || isPaid(order)) setEditing(order);
     else startEdit(order);
+  };
+
+  const confirmPaid = (order: Order, method: Parameters<typeof store.markOrderPaid>[1]) => {
+    const r = store.markOrderPaid(order.id, method);
+    setPaying(null);
+    if (!r.ok) {
+      toast(r.error, 'error');
+      return;
+    }
+    const pts = r.value.pointsCredited;
+    toast(
+      `N° ${order.number} encaissée${pts > 0 ? ` · +${pts} pizza${pts > 1 ? 's' : ''} fidélité pour ${order.customer?.name}` : ''}`,
+      'success',
+    );
   };
 
   const cancelImpact = (order: Order) => {
@@ -83,8 +104,8 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
           <h1 className="page__title">Commandes</h1>
           <p className="muted">Suivi opérationnel du service. Les plus anciennes en premier.</p>
         </div>
-        <button type="button" className="btn btn--dark" onClick={onEndService}>
-          <Icon name="power" /> Fin de service
+        <button type="button" className={`btn ${serviceOpen ? 'btn--dark' : 'btn--success'}`} onClick={onServiceAction}>
+          <Icon name="power" /> {serviceOpen ? 'Fermer le service' : 'Ouvrir le service'}
         </button>
       </header>
 
@@ -137,6 +158,8 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
               onTicket={() => setTicketFor(order.id)}
               onEdit={() => askEdit(order)}
               onCancel={() => setCancelling(order)}
+              onMarkPaid={() => setPaying(order)}
+              onMarkUnpaid={() => setUnpaying(order)}
             />
           ))}
         </div>
@@ -146,7 +169,7 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
       {cancelling && (
         <ConfirmDialog
           title={`Annuler la commande n° ${cancelling.number} ?`}
-          confirmLabel="Annuler la commande"
+          confirmLabel={isPaid(cancelling) ? 'Annuler (remboursement traité)' : 'Annuler la commande'}
           cancelLabel="Ne pas annuler"
           onCancel={() => setCancelling(null)}
           onConfirm={() => {
@@ -160,6 +183,11 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
               <p>
                 {orderDisplayName(cancelling)} · {cancelling.lines.length} ligne{cancelling.lines.length > 1 ? 's' : ''}. L’annulation est définitive.
               </p>
+              {isPaid(cancelling) && (
+                <p className="notice notice--warning">
+                  Cette commande est déjà encaissée. L’annuler suppose que le remboursement a été traité en dehors de Ferrari Manager.
+                </p>
+              )}
               <p className="confirm-impact">{cancelImpact(cancelling)}</p>
             </>
           }
@@ -167,7 +195,7 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
       )}
       {editing && (
         <ConfirmDialog
-          title="Remplacer la commande en cours de saisie ?"
+          title={isPaid(editing) ? `Modifier une commande déjà encaissée ?` : 'Remplacer la commande en cours de saisie ?'}
           tone="primary"
           confirmLabel={`Modifier la n° ${editing.number}`}
           onCancel={() => setEditing(null)}
@@ -175,7 +203,37 @@ export function OrdersPage({ onGoToOrderTaking, onEndService }: OrdersPageProps)
             startEdit(editing);
             setEditing(null);
           }}
-          message="Une commande non enregistrée est en cours de saisie. Elle sera remplacée par la commande à modifier."
+          message={
+            <>
+              {isPaid(editing) && (
+                <p>
+                  La commande n° {editing.number} est encaissée. La fidélité sera recalculée sur la version modifiée, sans double crédit.
+                  Un éventuel écart de montant se règle en dehors de Ferrari Manager.
+                </p>
+              )}
+              {data.cart.lines.length > 0 && data.cart.editingOrderId !== editing.id && (
+                <p>Une commande non enregistrée est en cours de saisie. Elle sera remplacée par la commande à modifier.</p>
+              )}
+            </>
+          }
+        />
+      )}
+      {paying && <PaymentDialog order={paying} onClose={() => setPaying(null)} onConfirm={(m) => confirmPaid(paying, m)} />}
+      {unpaying && (
+        <ConfirmDialog
+          title={`Annuler l’encaissement de la n° ${unpaying.number} ?`}
+          confirmLabel="Repasser à encaisser"
+          cancelLabel="Garder encaissée"
+          onCancel={() => setUnpaying(null)}
+          onConfirm={() => {
+            const r = store.markOrderUnpaid(unpaying.id);
+            if (r.ok) {
+              const n = r.value.pointsReverted;
+              toast(`N° ${unpaying.number} à encaisser${n > 0 ? ` · ${n} pizza${n > 1 ? 's' : ''} retirée${n > 1 ? 's' : ''} de la fidélité` : ''}`, 'info');
+            } else toast(r.error, 'error');
+            setUnpaying(null);
+          }}
+          message="À utiliser en cas d’erreur de saisie. Les pizzas créditées à l’encaissement sont retirées de la fidélité du client, puis recréditées au prochain encaissement."
         />
       )}
     </div>

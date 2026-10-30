@@ -102,11 +102,33 @@ Limites assumées en V1 :
 - 10 pizzas **payantes** = 1 récompense. Une pizza offerte ne rapporte aucun point.
 - Récompense au choix : une **pizza** parmi une liste éligible, ou une **grande bouteille de soda** éligible. Les deux listes se règlent dans *Paramètres*.
 - Jamais échangeable contre du vin, de l'alcool, un dessert ou un supplément. Ces garde-fous s'appliquent même si la configuration est erronée.
-- La récompense n'est **jamais consommée automatiquement** : l'utilisateur choisit « Utiliser une récompense ». Elle n'est décomptée qu'à la validation.
-- Affichage séparé : *récompenses disponibles* et *progression 0 à 9 / 10*. Le compteur n'affiche jamais 10/10.
-- Points crédités à la validation (V1). L'architecture prévoit déjà l'option « à la commande terminée » (`awardOn: 'terminee'`, testée).
-- Annulation : les points sont retirés et la récompense restituée. Si une récompense a été utilisée grâce à des points ensuite annulés, aucun solde négatif n'est affiché : une « dette » est signalée et la prochaine récompense gagnée la compense.
+- La récompense n'est **jamais consommée automatiquement** : l'utilisateur choisit « Utiliser une récompense ».
+- **Cadeau = achat obligatoire** : une récompense n'est utilisable qu'avec au moins une pizza payante dans la commande. Le cadeau s'ajoute à la commande, il ne rend jamais gratuite une pizza déjà choisie. Vérifié à l'ajout, après chaque suppression ou changement de quantité (alerte « Une pizza payante est nécessaire… » avec deux corrections : ajouter une pizza ou retirer le cadeau), à l'enregistrement, à la modification et à l'encaissement. Une commande à 0 € n'est pas bloquée en général : seule cette condition l'est.
+- **Pizzas créditées à l'encaissement**, jamais à l'enregistrement. Une commande terminée n'est pas considérée comme payée.
+- **Récompense réservée → consommée** : prise dès l'enregistrement (elle ne peut donc pas servir à une deuxième commande), consommée quand la commande est encaissée, restituée une seule fois si la commande est annulée (avant ou après encaissement).
+- Affichage séparé : *récompenses disponibles*, *réservées*, *pizzas en attente d'encaissement* et *progression 0 à 9 / 10*. Le compteur n'affiche jamais 10/10.
+- Annulation : les pizzas créditées sont retirées et la récompense restituée. Si une récompense a été utilisée grâce à des points ensuite annulés, aucun solde négatif n'est affiché : une « dette » est signalée et la prochaine récompense gagnée la compense.
 - Journal consultable dans la page *Fidélité*.
+
+## Suivi d'encaissement
+
+Ferrari Manager reste une application de prise de commandes, **pas une caisse** : aucun total encaissé, aucune ventilation par moyen de paiement, aucun rendu de monnaie, aucune facture.
+
+- Chaque commande a un statut de paiement **À encaisser / Encaissée**, indépendant de son statut de préparation (une commande peut être prête et à encaisser, ou en préparation et encaissée).
+- Sur la carte de la commande : **Marquer encaissée**, puis un appui sur *Espèces*, *Carte bancaire* ou *Non précisé*.
+- **Annuler l'encaissement** (petit lien, avec confirmation) corrige une erreur de saisie : les pizzas sont retirées de la fidélité, puis recréditées au prochain encaissement, une seule fois.
+- Annuler une commande encaissée demande une confirmation explicite : le remboursement éventuel est traité hors de Ferrari Manager.
+- Modifier une commande encaissée est possible, après confirmation : la fidélité est recalculée sur la version finale, sans double crédit. La commande reste encaissée ; un écart de montant se règle hors de l'application.
+- Fin de service : une commande terminée mais **non encaissée** reste affichée (signalée dans la fenêtre de clôture) ; seules les commandes terminées et encaissées, ou annulées, sont archivées.
+
+### Commandes enregistrées avant le suivi des paiements
+
+Ces commandes n'ont pas de statut de paiement. Elles ne sont **ni supposées encaissées, ni effacées** : à la lecture, elles sont marquées « Paiement non suivi » (rien n'est réécrit dans le stockage tant qu'elles ne sont pas modifiées).
+
+- Leurs points, crédités à l'enregistrement par l'ancienne règle, sont **gelés tels quels** : ni retirés sans action explicite, ni complétés sans encaissement.
+- *Marquer encaissée* les fait passer à la règle normale, sans double crédit. *Annuler* retire leurs points une seule fois.
+- Une ancienne commande terminée est archivée en fin de service comme avant.
+- Un bloc paiement illisible (données corrompues) est traité de la même façon prudente.
 
 ---
 
@@ -119,12 +141,13 @@ Limites assumées en V1 :
 5. **Utiliser une récompense** → Grande bouteille → Fanta 1,5L (offert, le total ne change pas).
 6. **Valider et imprimer** → aperçu du ticket → *Imprimer* ouvre la boîte de dialogue du navigateur.
 7. **Commandes** : retrouver la commande, changer son statut (boutons de statut ou « Lancer la préparation »).
-8. Page **Fidélité** : Jean a 4/10 et 0 récompense disponible.
-9. **Annuler** la commande : Jean revient à 2/10 avec 1 récompense disponible.
-10. Fermer et rouvrir le navigateur : tout est conservé.
-11. **Paramètres → Réinitialiser les données de démonstration**.
+8. Page **Fidélité** : Jean a toujours 2/10 (pizzas en attente d'encaissement) et 1 récompense réservée.
+9. Sur la commande : **Marquer encaissée** → *Carte bancaire*. Jean passe à 4/10, la récompense est consommée.
+10. **Annuler** la commande (confirmation « remboursement traité ») : Jean revient à 2/10 avec 1 récompense disponible.
+11. Fermer et rouvrir le navigateur : tout est conservé.
+12. **Paramètres → Réinitialiser les données de démonstration**.
 
-Ce parcours est aussi automatisé dans `tests/store.test.ts`.
+Ce parcours est aussi automatisé dans `tests/store.test.ts`. Les règles d'encaissement et de fidélité (20 scénarios) sont couvertes par `tests/payment-loyalty.test.ts`.
 
 ---
 
@@ -185,4 +208,5 @@ Après un changement de carte, réinitialiser les données de démonstration (Pa
 - Les suppléments ajoutés sur une pizza offerte restent payants (choix actuel).
 - Frais de livraison : 2,00 € dans la maquette, alors que le site annonce la livraison offerte dans certains arrondissements. Valeur modifiable dans Paramètres.
 - Liste des pizzas éligibles (actuellement Margarita, Reine, Fromage, Napolitaine, Anchois) et des grandes bouteilles (Coca, Fanta, Sprite 1,5 L).
-- Numérotation des commandes remise à 1 à la fin de service, seulement s'il ne reste aucune commande en cours.
+- Numérotation des commandes remise à 1 à la fin de service, seulement s'il ne reste aucune commande affichée (en cours ou terminée non encaissée).
+- Plusieurs récompenses dans une même commande : une seule pizza payante suffit actuellement (règle « au moins une pizza payante »). À confirmer si le gérant veut une pizza payante par cadeau.

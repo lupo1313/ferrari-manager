@@ -646,3 +646,24 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* État du service : vert = ouvert, gris = fermé (état normal, pas une erreur). */
+.service-btn--closed {
+  background: var(--surface-2);
+}
+.service-btn--closed .service-btn__dot {
+  background: #9aa0a6;
+  box-shadow: 0 0 0 4px #e9ebee;
+}
+.service-btn--closed .service-btn__label {
+  color: var(--text-2);
+}
+.service-btn--closed .service-btn__label small {
+  color: var(--green-ink);
+  font-weight: 600;
+}
+.notice--closed {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+}

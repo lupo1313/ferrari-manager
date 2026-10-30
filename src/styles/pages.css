@@ -417,3 +417,128 @@
   color: var(--text-3);
   background: var(--surface-2);
 }
+
+/* ---------- Encaissement (suivi, pas une caisse) ---------- */
+
+.payment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.payment-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.payment-pill--due {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  border: 1px solid #f0e2b8;
+}
+.payment-pill--paid {
+  background: var(--green-soft);
+  color: var(--green-ink);
+}
+.payment-pill--unknown {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px dashed var(--line-strong);
+}
+.payment-row__pay {
+  border-color: var(--green);
+  color: var(--green-ink);
+}
+.payment-row__pay:hover:not(:disabled) {
+  background: var(--green-soft);
+}
+.payment-row__undo {
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-2);
+  text-decoration: underline;
+}
+.order-card__issue {
+  font-size: 13px;
+}
+.payment-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.payment-method {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: left;
+}
+.payment-method > svg {
+  color: var(--green);
+}
+.payment-method:hover {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+.payment-hint {
+  margin-top: 14px;
+  font-size: 13px;
+}
+.confirm-list__warn {
+  color: var(--amber-ink);
+}
+
+/* Choix du son d'encaissement */
+.sound-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sound-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sound-option__choice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  font-weight: 600;
+  text-align: left;
+}
+.sound-option__radio {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  flex: none;
+}
+.sound-option__choice[aria-pressed='true'] {
+  border-color: var(--red);
+}
+.sound-option__choice[aria-pressed='true'] .sound-option__radio {
+  border-color: var(--red);
+  background: radial-gradient(circle, var(--red) 0 45%, transparent 50%);
+}

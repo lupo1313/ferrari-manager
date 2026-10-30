@@ -5,6 +5,7 @@ import { useToast } from '../components/ui/Toast';
 import { useAppData, useStore } from '../state/StoreContext';
 import { formatPrice, parseEuros } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
+import { PAYMENT_SOUND_KINDS, PAYMENT_SOUND_LABELS, paymentSound, type PaymentSoundKind } from '../audio/paymentSound';
 
 export function SettingsPage() {
   const store = useStore();
@@ -93,6 +94,62 @@ export function SettingsPage() {
               />
             </label>
           ))}
+        </section>
+
+        <section className="card">
+          <h2 className="card__title">
+            <Icon name="volume" /> Son des encaissements
+          </h2>
+          <div className="segmented" role="group" aria-label="Son des encaissements">
+            {[true, false].map((on) => (
+              <button
+                key={String(on)}
+                type="button"
+                className="segmented__item"
+                aria-pressed={data.settings.paymentSound === on}
+                onClick={() => {
+                  // Enregistré immédiatement (sans le bouton « Enregistrer ») : un simple interrupteur.
+                  const r = store.updateSettings({ paymentSound: on });
+                  if (!r.ok) toast(r.error, 'error');
+                  else setDraft((d) => ({ ...d, paymentSound: on }));
+                }}
+              >
+                {on ? 'Activé' : 'Désactivé'}
+              </button>
+            ))}
+          </div>
+          <div className="field">
+            <span className="field__label">Choisir le son</span>
+            <div className="sound-options">
+              {PAYMENT_SOUND_KINDS.map((kind: PaymentSoundKind) => (
+                <div key={kind} className="sound-option">
+                  <button
+                    type="button"
+                    className="sound-option__choice"
+                    aria-pressed={data.settings.paymentSoundKind === kind}
+                    onClick={() => {
+                      const r = store.updateSettings({ paymentSoundKind: kind });
+                      if (!r.ok) toast(r.error, 'error');
+                      else setDraft((d) => ({ ...d, paymentSoundKind: kind }));
+                    }}
+                  >
+                    <span className="sound-option__radio" aria-hidden="true" />
+                    {PAYMENT_SOUND_LABELS[kind]}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--sm"
+                    onClick={() => {
+                      if (!paymentSound.play(kind)) toast('Son indisponible sur cet appareil (vérifiez le volume ou le mode silencieux).', 'info');
+                    }}
+                  >
+                    <Icon name="volume" size={18} /> Écouter
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <span className="field__hint">Joué uniquement quand une commande passe à « Encaissée ». Choix enregistré immédiatement. Pensez au volume de la tablette.</span>
         </section>
 
         <section className="card settings-grid__wide">

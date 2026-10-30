@@ -8,6 +8,7 @@ import { demoCatalog } from './data/catalog';
 import { buildDemoData } from './data/seed';
 import { ToastProvider } from './components/ui/Toast';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { paymentSound } from './audio/paymentSound';
 
 import './styles/tokens.css';
 import './styles/base.css';
@@ -22,7 +23,12 @@ const store = createAppStore({
   repo: createLocalStorageRepository(),
   catalog: demoCatalog,
   seed: buildDemoData,
+  // Joué par le store uniquement après un encaissement réellement enregistré (et si le réglage est actif).
+  effects: { playPaymentSound: (kind) => void paymentSound.play(kind) },
 });
+
+// Fichiers sonores préparés dès le premier appui (geste utilisateur exigé par les navigateurs).
+window.addEventListener('pointerdown', () => paymentSound.preload(), { once: true });
 
 // Panier en cours de saisie : enregistré sans attendre si la tablette met l'onglet en arrière-plan ou le ferme.
 window.addEventListener('pagehide', () => store.flushPendingWrites());
