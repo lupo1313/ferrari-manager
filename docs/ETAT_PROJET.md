@@ -1,17 +1,17 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, intervention 6 (trajet en scooter pour le ticket livreur) sur la branche `feat/intervention-6-trajets-scooter`, **en prévisualisation, non fusionnée**. La production (`main`, `de88a7c`) est à l'état de l'intervention 5.
-Ce document décrit ce qui existe **réellement** dans le code de cette branche. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
+Dernière mise à jour : 30/10/2026, mise en production de l'intervention 6 (trajets en scooter, adresse de livraison de la commande ; fusion `c8cf885`).
+Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 
 ## 1. En production
 
 | Élément | Valeur |
 | --- | --- |
 | URL | https://lupo1313.github.io/ferrari-manager/ |
-| Commit sur `main` | `02c62e7` (fusion `--no-ff` de `feat/intervention-5-tickets-paiements`) |
-| Build servi (vérifié le 30/10) | `assets/index-BoFKIObS.js` |
+| Commit sur `main` | `c8cf885` (fusion `--no-ff` de `feat/intervention-6-trajets-scooter`) |
+| Build servi (vérifié le 30/10) | `assets/index-CvFZA6CO.js` |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
-| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; sert l'intervention 5 (`cafea11`, même code que la production). |
+| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; sert l'intervention 6 (`a913a77`, avant l'ajout du contact de l'exploitant). |
 
 Historique des interventions sur `main` :
 
@@ -26,8 +26,9 @@ Historique des interventions sur `main` :
 | `fbaf93b` → `7f9f392` | Sauvegarde des données (Paramètres → « Sauvegarder mes données ») |
 | `98df805` → `cb49242` | Interventions 4 (services, livraison offerte, Statistiques), 4A (écran Commandes), 4B (navigation pendant une modification, petits écrans), libellé « Reste à encaisser » |
 | `9ff6c85` → `02c62e7` | Intervention 5 : tickets cuisine et livreur, paiement prévu, encaissement détaillé (titres-restaurant, mixte), repères de livraison |
+| `c09c075` → `c8cf885` | Intervention 6 : trajet en scooter sur le ticket livreur, adresse de livraison propre à la commande, conformité au serveur public FOSSGIS |
 
-Branches distantes conservées (déjà intégrées) : `feat/intervention-5-tickets-paiements`, `feat/commandes-cartes`, `feat/statistiques`, `feat/export-donnees`, `feat/encaissement-fidelite`, `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
+Branches distantes conservées (déjà intégrées) : `feat/intervention-6-trajets-scooter`, `feat/intervention-5-tickets-paiements`, `feat/commandes-cartes`, `feat/statistiques`, `feat/export-donnees`, `feat/encaissement-fidelite`, `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
 
 ### Intervention 4 (en production depuis le 30/10)
 
@@ -63,13 +64,13 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - Vérifié dans Chromium (1280×800, 844×340, 390×750, 1440×900), sur la sauvegarde réelle de l'iPhone et sur des données au format de la production `752d3f3` (tests temporaires : aucune réécriture, statistiques et fidélité identiques), puis validé par le gérant sur Safari iPhone (prévisualisation). **Impression physique et tablette réelle non vérifiées.**
 - Décisions par défaut (réversibles) : pas d'encaissement partiel ; montant supérieur au total refusé (pas de rendu de monnaie) ; commande encaissée puis modifiée = reste encaissée, écart affiché ; consignes client sur le ticket livreur seulement ; pas de statistiques par moyen de paiement.
 
-### Intervention 6 en cours de validation (branche `feat/intervention-6-trajets-scooter`)
+### Intervention 6 (en production depuis le 30/10)
 
 - **But** : distance routière et durée estimée **en scooter** de la pizzeria à l'adresse du client, imprimées **uniquement sur le ticket livreur** (« TRAJET EN SCOOTER · DISTANCE · DURÉE ESTIMÉE », mention « Estimation sans trafic · données © OpenStreetMap »). Ticket cuisine inchangé. Livraison toujours offerte (ligne « Livraison offerte » ajoutée au ticket livreur).
 - **Calcul** (`services/trajet.ts`) : géocodage par la Base Adresse Nationale (Géoplateforme IGN, `data.geopf.fr/geocodage`, service public gratuit, sans clé ; filtre sur le code postal ; correspondance refusée sous un score de 0,5 ; rue seule acceptée et signalée « numéro non trouvé ») puis itinéraire **Valhalla, profil `motor_scooter`** (deux-roues motorisé, vitesse plafonnée à 45 km/h, voies interdites aux cyclomoteurs évitées). Départ : adresse de la pizzeria des Paramètres (« 178 rue Ferrari, 13005 Marseille »), géocodée puis mémorisée pendant la session. Aucune clé API dans le code ; serveur Valhalla configurable au build (`VITE_ROUTING_URL`), par défaut le serveur public FOSSGIS `valhalla1.openstreetmap.de`.
 - **Interface** : sous l'adresse de livraison du panier, « Calculer le trajet » (états « Calcul… », résultat « Scooter : 2,2 km · 13 min », « Recalculer », message d'erreur court + « Trajet facultatif »). Jamais bloquant : adresse incomplète ou introuvable, service indisponible, quota, hors ligne → message, commande enregistrable, ticket sans trajet. Aucune valeur inventée.
 - **Données** : `cart.deliveryTrip` et `order.deliveryTrip` (distance en mètres, durée en secondes, clé de l'adresse utilisée, adresse reconnue, date, source). Le trajet n'est utilisé que si la commande est une livraison **et** que la clé correspond à l'adresse copiée sur la commande : adresse modifiée → trajet caduc (jamais réimprimé), recalcul possible ; passage à emporter → aucun trajet. Champ facultatif, absent des anciennes commandes, sans réécriture au chargement ; inclus dans la sauvegarde JSON.
-- Vérifié en réel dans Chromium (calcul effectif depuis l'aperçu local, adresse introuvable, impression), 1280×800, 844×340, 390×750, et sur la sauvegarde réelle de l'iPhone (test temporaire). **Pas encore sur un vrai iPhone ni sur la tablette.**
+- Vérifié en réel dans Chromium (calcul effectif depuis l'aperçu local, adresse introuvable, impression), 1280×800, 844×340, 390×750, et sur la sauvegarde réelle de l'iPhone (test temporaire). Validé par le gérant sur Safari iPhone (prévisualisation) ; compatibilité vérifiée avant fusion sur la sauvegarde réelle et sur des données au format de la production `de88a7c` (commandes, statistiques et tickets identiques). Décisions : profil `motor_scooter` sans distinction 50/125 cm³ ; serveur public FOSSGIS conservé pour la version de test. **Tablette Samsung et impression physique non vérifiées.**
 - **Adresse de livraison propre à la commande** (correctif du 30/10, `domain/delivery.ts`) : sous « Livraison », l'adresse effective est affichée avec « Modifier l'adresse » (formulaire dédié : adresse, code postal, ville, bâtiment, étage, interphone, digicode, complément, consignes de cette livraison ; mêmes contrôles que la fiche, **fiche client jamais modifiée**). Une adresse ponctuelle est signalée (« Adresse ponctuelle ») avec « Utiliser l'adresse habituelle ». Nouvelle adresse ponctuelle = formulaire vierge (aucun repère ni consigne du domicile repris par erreur) ; adresse ponctuelle déjà saisie = reprise pour correction. Saisir exactement l'adresse habituelle revient à l'adresse habituelle.
   - Modèle : `cart.deliveryAddress` (null = adresse habituelle) ; sur la commande, la copie client (`order.customer`) porte l'adresse et les consignes effectives, plus `addressOverridden: true` si ponctuelle. Aucun nouveau champ de commande : tickets, historique et anciennes versions lisent l'adresse au même endroit.
   - Trajet : calculé et validé sur l'adresse effective ; changement de rue, code postal ou ville = trajet retiré immédiatement (digicode, étage ou consignes seuls : trajet conservé, même itinéraire).
@@ -164,7 +165,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 
 ## 4. Tests
 
-268 tests Vitest, tous réussis au 30/10 (branche `feat/intervention-6-trajets-scooter`) :
+268 tests Vitest, tous réussis au 30/10 :
 
 | Fichier | Sujet |
 | --- | --- |
