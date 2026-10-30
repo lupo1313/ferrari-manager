@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
-export type Route = 'prise' | 'commandes' | 'clients' | 'fidelite' | 'parametres';
+export type Route = 'prise' | 'commandes' | 'clients' | 'fidelite' | 'statistiques' | 'parametres';
 
-const ROUTES: Route[] = ['prise', 'commandes', 'clients', 'fidelite', 'parametres'];
+const ROUTES: Route[] = ['prise', 'commandes', 'clients', 'fidelite', 'statistiques', 'parametres'];
 
 function readHash(): Route {
   const value = window.location.hash.replace(/^#\/?/, '');

@@ -1,4 +1,4 @@
-import type { Cents, OrderLine, OrderMode, OrderTotals } from './types';
+import type { Cents, OrderLine, OrderTotals } from './types';
 
 /**
  * Règles de tarification.
@@ -31,12 +31,13 @@ export function rewardSavings(lines: OrderLine[]): Cents {
   return lines.filter((l) => l.reward).reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
 }
 
-export function computeTotals(
-  lines: OrderLine[],
-  mode: OrderMode,
-  options: { deliveryFee: Cents },
-): OrderTotals {
+/**
+ * Règle définitive du gérant : la livraison est toujours offerte (0 €, sans exception).
+ * Aucun réglage ne peut la rendre payante. Les anciennes commandes gardent leurs frais figés.
+ */
+export const DELIVERY_FEE: Cents = 0;
+
+export function computeTotals(lines: OrderLine[]): OrderTotals {
   const sub = subtotal(lines);
-  const deliveryFee = mode === 'livraison' && lines.length > 0 ? options.deliveryFee : 0;
-  return { subtotal: sub, deliveryFee, total: sub + deliveryFee };
+  return { subtotal: sub, deliveryFee: DELIVERY_FEE, total: sub + DELIVERY_FEE };
 }

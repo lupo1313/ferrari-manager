@@ -17,10 +17,8 @@ type Pane = 'client' | 'carte' | 'commande';
 export function OrderTakingPage() {
   // Sélection fine : taper une note (cart.note) ne re-rend pas cette page ni ses trois colonnes.
   const lines = useAppSelector((d) => d.cart.lines);
-  const mode = useAppSelector((d) => d.cart.mode);
   const customerId = useAppSelector((d) => d.cart.customerId);
   const customers = useAppSelector((d) => d.customers);
-  const deliveryFee = useAppSelector((d) => d.settings.deliveryFee);
   const [pane, setPane] = useState<Pane>('carte');
   // En mode onglets : une fois le client choisi, on passe directement à la carte.
   const previousCustomer = useRef(customerId);
@@ -29,7 +27,7 @@ export function OrderTakingPage() {
     previousCustomer.current = customerId;
   }, [customerId]);
   const customer = customerId ? customers.find((c) => c.id === customerId) : undefined;
-  const totals = computeTotals(lines, mode, { deliveryFee });
+  const totals = computeTotals(lines);
 
   return (
     <div className="workspace" data-pane={pane}>

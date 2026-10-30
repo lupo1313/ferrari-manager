@@ -25,6 +25,8 @@ const PATHS = {
   pencil: 'M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4',
   chevronRight: 'M9 6l6 6-6 6',
   chevronDown: 'M6 9l6 6 6-6',
+  chevronLeft: 'M15 6l-6 6 6 6',
+  chart: 'M4 20h16M7 16v-5M12 16V6M17 16v-8',
   check: 'M5 12.5 10 17l9-10',
   alert: 'M12 3 2 20h20L12 3ZM12 10v4M12 17.5v.1',
   info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 11v5M12 8v.1',

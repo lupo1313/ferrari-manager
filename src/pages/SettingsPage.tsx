@@ -3,7 +3,7 @@ import { Icon } from '../components/ui/Icon';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useToast } from '../components/ui/Toast';
 import { useAppData, useStore } from '../state/StoreContext';
-import { formatPrice, parseEuros } from '../domain/money';
+import { formatPrice } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
 import { PAYMENT_SOUND_KINDS, PAYMENT_SOUND_LABELS, paymentSound, type PaymentSoundKind } from '../audio/paymentSound';
 
@@ -12,12 +12,10 @@ export function SettingsPage() {
   const data = useAppData();
   const toast = useToast();
   const [draft, setDraft] = useState<Settings>(data.settings);
-  const [fee, setFee] = useState(formatPrice(data.settings.deliveryFee).replace(' €', ''));
   const [confirmReset, setConfirmReset] = useState(false);
 
   const pizzas = store.catalog.products.filter((p) => p.category === 'pizza');
   const drinks = store.catalog.products.filter((p) => p.category === 'boisson');
-  const feeCents = parseEuros(fee);
 
   const toggle = (key: 'eligiblePizzaIds' | 'eligibleDrinkIds', id: string) =>
     setDraft((d) => {
@@ -26,11 +24,7 @@ export function SettingsPage() {
     });
 
   const save = () => {
-    if (feeCents === null) {
-      toast('Frais de livraison invalides (ex. 2,00).', 'error');
-      return;
-    }
-    const r = store.updateSettings({ ...draft, deliveryFee: feeCents });
+    const r = store.updateSettings(draft);
     if (!r.ok) {
       toast(r.error, 'error');
       return;
@@ -56,11 +50,10 @@ export function SettingsPage() {
           <h2 className="card__title">
             <Icon name="truck" /> Livraison
           </h2>
-          <label className="field">
-            <span className="field__label">Frais de livraison (€)</span>
-            <input className={`input ${feeCents === null ? 'input--invalid' : ''}`} inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} />
-            <span className="field__hint">0 pour une livraison offerte. Valeur de démonstration : 2,00 €.</span>
-          </label>
+          <p className="settings-fixed">
+            <strong>Livraison toujours offerte (0 €)</strong>
+          </p>
+          <span className="field__hint">Règle fixe de la pizzeria, sans exception : aucun frais de livraison ne peut être ajouté.</span>
         </section>
 
         <section className="card">
@@ -186,6 +179,37 @@ export function SettingsPage() {
           </div>
         </section>
 
+        <section className="card">
+          <h2 className="card__title">
+            <Icon name="grid" /> Modules facultatifs
+          </h2>
+          <div className="field">
+            <span className="field__label">Onglet Statistiques</span>
+            <div className="segmented" role="group" aria-label="Onglet Statistiques">
+              {[true, false].map((on) => (
+                <button
+                  key={String(on)}
+                  type="button"
+                  className="segmented__item"
+                  aria-pressed={data.settings.modules.statistiques === on}
+                  onClick={() => {
+                    // Enregistré immédiatement, comme le son : un simple interrupteur d'affichage.
+                    const r = store.updateSettings({ modules: { statistiques: on } });
+                    if (!r.ok) toast(r.error, 'error');
+                    else setDraft((d) => ({ ...d, modules: { statistiques: on } }));
+                  }}
+                >
+                  {on ? 'Affiché' : 'Masqué'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <span className="field__hint">
+            Masquer l’onglet ne supprime aucune donnée : commandes, encaissements et historique des services restent enregistrés. Les bilans
+            réapparaissent dès que l’onglet est de nouveau affiché.
+          </span>
+        </section>
+
         <section className="card settings-grid__wide card--danger">
           <h2 className="card__title">
             <Icon name="database" /> Données de test
@@ -208,7 +232,6 @@ export function SettingsPage() {
           onConfirm={() => {
             store.resetDemoData();
             setDraft(store.getData().settings);
-            setFee(formatPrice(store.getData().settings.deliveryFee).replace(' €', ''));
             setConfirmReset(false);
             toast('Données de démonstration rechargées', 'success');
           }}

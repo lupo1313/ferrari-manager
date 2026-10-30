@@ -40,7 +40,7 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
   // Toute modification de la commande efface le dernier message d'erreur de validation.
   useEffect(() => setErrors(null), [cart.lines, cart.mode, cart.customerId]);
 
-  const totals = computeTotals(cart.lines, cart.mode, { deliveryFee: data.settings.deliveryFee });
+  const totals = computeTotals(cart.lines);
   const savings = rewardSavings(cart.lines);
   const count = itemCount(cart.lines);
   // Cadeau fidélité sans pizza payante : signalé (jamais retiré en silence) et enregistrement bloqué.
@@ -193,7 +193,7 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
           {cart.mode === 'livraison' && (
             <div>
               <dt>Livraison</dt>
-              <dd className="price">{totals.deliveryFee === 0 ? 'Offerte' : formatPrice(totals.deliveryFee)}</dd>
+              <dd className="price">Offerte</dd>
             </div>
           )}
           {savings > 0 && (

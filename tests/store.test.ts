@@ -26,8 +26,8 @@ describe('scénario de validation V1 (store complet)', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const order = result.value;
-    // 14 + (14 + 0,50) + 4 + 0 (Fanta offert) + 2 livraison
-    expect(order.totals).toEqual({ subtotal: 3250, deliveryFee: 200, total: 3450 });
+    // 14 + (14 + 0,50) + 4 + 0 (Fanta offert) + livraison offerte
+    expect(order.totals).toEqual({ subtotal: 3250, deliveryFee: 0, total: 3250 });
     // Enregistrée, non encaissée : récompense réservée, pizzas pas encore créditées.
     expect(balance()).toMatchObject({ available: 0, progress: 2 });
 
@@ -43,7 +43,8 @@ describe('scénario de validation V1 (store complet)', () => {
     expect(ticket.lines[0].details).toContain('Sans œuf');
     expect(ticket.lines[1].details).toContain('+ Miel');
     expect(ticket.lines[3].amount).toBe('OFFERT');
-    expect(ticket.total).toBe('34,50 €');
+    expect(ticket.total).toBe('32,50 €');
+    expect(ticket.deliveryFee).toBe('Offerte');
 
     // Statut
     expect(store.setOrderStatus(order.id, 'en_preparation').ok).toBe(true);

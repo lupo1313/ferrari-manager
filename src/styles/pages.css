@@ -385,6 +385,15 @@
 .settings-grid .card > .btn {
   align-self: flex-start;
 }
+.settings-fixed {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 14px;
+  border-radius: var(--radius-s);
+  background: var(--green-soft);
+  color: var(--green-ink);
+}
 @media (max-width: 899px) {
   .settings-grid {
     grid-template-columns: 1fr;

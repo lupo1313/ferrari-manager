@@ -1,4 +1,4 @@
-import type { Cart, Customer, Order, OrderMode, OrderStatus, Settings } from './types';
+import type { Cart, Customer, Order, OrderMode, OrderStatus } from './types';
 import { computeTotals } from './pricing';
 import { hasDeliveryAddress, snapshotCustomer } from './customers';
 import { isValidTimeOfDay } from './time';
@@ -81,13 +81,15 @@ export interface BuildOrderParams {
   number: number;
   nowIso: string;
   customer: Customer | null;
-  settings: Settings;
+  /** Service en cours, rattaché à une NOUVELLE commande ; une modification garde celui d'origine. */
+  serviceId?: string;
   /** Version précédente quand on modifie une commande existante. */
   previous?: Order;
 }
 
 export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
-  const totals = computeTotals(cart.lines, cart.mode, { deliveryFee: p.settings.deliveryFee });
+  // Livraison toujours offerte : une commande modifiée est elle aussi recalculée sans frais.
+  const totals = computeTotals(cart.lines);
   const base = {
     customerId: p.customer?.id ?? null,
     customer: p.customer ? snapshotCustomer(p.customer) : null,
@@ -113,6 +115,7 @@ export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
     payment: unpaid(),
     printRequests: [],
     archivedAt: null,
+    ...(p.serviceId ? { serviceId: p.serviceId } : {}),
     ...base,
   };
 }

@@ -11,6 +11,13 @@ Chaque intervention suit les règles de `CLAUDE.md` : branche dédiée, tests, v
 
 Livrable attendu : une liste de corrections, sans nouvelle fonctionnalité.
 
+## Intervention 4 · Statistiques (en cours de validation)
+
+Branche `feat/statistiques`, en prévisualisation. B1 (historique des services, livraison offerte) et B2 (module facultatif Statistiques) développés. Avant fusion : validation du gérant sur la prévisualisation, test sur la tablette, instantané réel des données de production chargé dans un test temporaire.
+
+- **B3 · Reprendre un service fermé par erreur** (principe retenu, non développé) : à l'ouverture, choix « Démarrer un nouveau service » (principal) ou « Reprendre le service du … fermé il y a … » ; aucune décision automatique ni délai fixe ; seul le dernier service, si aucun autre n'a été démarré depuis ; reprises tracées ; numérotation reprise après le plus grand numéro du service.
+- **B4 · Fermeture avec commandes restantes** (intervention séparée) : bouton « Examiner les commandes » dans la fenêtre de fermeture ; pas d'annulation groupée sans validation préalable ; commandes encaissées protégées.
+
 ## Priorité 2 · Ergonomie du service
 
 1. **Simplification du suivi des commandes** : refonte des boutons de progression des statuts sur les cartes de la page Commandes.
@@ -26,8 +33,9 @@ Livrable attendu : une liste de corrections, sans nouvelle fonctionnalité.
 ## Priorité 4 · Utilisation quotidienne réelle
 
 1. **Préparer la persistance réelle et la synchronisation** : tablette et PC partagent les mêmes données, sauvegardes. Points techniques déjà identifiés : `README.md`, section *Persistance locale*, « À reprendre côté serveur en V2 ».
-2. **Passage éventuel à Supabase** : réimplémenter `AppRepository` en asynchrone, calcul du prix et de la fidélité côté serveur, numérotation par séquence, unicité du téléphone. Migration des données locales existantes à concevoir sans perte.
-3. **Préparer l'utilisation quotidienne** : remplacer la carte de démonstration par la vraie carte et les vrais prix, frais de livraison réels, authentification du personnel, conformité RGPD (conservation, suppression des fiches), sauvegardes. Ce n'est qu'à cette étape que de vraies données clients pourront être saisies.
+2. **Saturation du stockage local** (environ 55 services de 50 commandes, quota partagé avec les autres sites `lupo1313.github.io`) : export/sauvegarde, purge validée des anciennes commandes, ou base distante. Prévoir de conserver les bilans des services avant toute purge.
+3. **Passage éventuel à Supabase** : réimplémenter `AppRepository` en asynchrone, calcul du prix et de la fidélité côté serveur, numérotation par séquence, unicité du téléphone. Migration des données locales existantes à concevoir sans perte.
+4. **Préparer l'utilisation quotidienne** : remplacer la carte de démonstration par la vraie carte et les vrais prix, authentification du personnel, conformité RGPD (conservation, suppression des fiches), sauvegardes. Ce n'est qu'à cette étape que de vraies données clients pourront être saisies.
 
 ## Hors périmètre (décisions prises)
 

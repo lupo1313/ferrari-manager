@@ -1,4 +1,4 @@
-import type { Cart, Customer, LoyaltyEvent, Order, Settings } from '../domain/types';
+import type { Cart, Customer, LoyaltyEvent, Order, ServiceRecord, Settings } from '../domain/types';
 import type { AppData } from './schema';
 
 /**
@@ -16,13 +16,17 @@ export interface OrderChange {
   nextOrderNumber?: number;
 }
 
-/** Ouverture ou fermeture du service : commandes archivées (à la fermeture), compteur et état du service. */
+/**
+ * Ouverture ou fermeture du service : commandes archivées (à la fermeture), compteur, état du service
+ * et historique des services, en une seule écriture.
+ */
 export interface ServiceChange {
   archivedOrders: Order[];
   nextOrderNumber: number;
   serviceStartedAt: string;
   serviceOpen: boolean;
   serviceClosedAt: string | null;
+  services: ServiceRecord[];
 }
 
 /** Résultat d'une lecture. `cart` est null si aucun panier n'est enregistré à part. */
@@ -156,7 +160,7 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
       writeDoc({ ...current(), settings });
     },
 
-    saveService({ archivedOrders, nextOrderNumber, serviceStartedAt, serviceOpen, serviceClosedAt }) {
+    saveService({ archivedOrders, nextOrderNumber, serviceStartedAt, serviceOpen, serviceClosedAt, services }) {
       const byId = new Map(archivedOrders.map((o) => [o.id, o]));
       writeDoc({
         ...current(),
@@ -165,6 +169,7 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
         serviceStartedAt,
         serviceOpen,
         serviceClosedAt,
+        services,
       });
     },
 

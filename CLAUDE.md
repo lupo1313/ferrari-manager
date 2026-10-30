@@ -11,7 +11,9 @@ Lire `docs/ETAT_PROJET.md` avant toute modification.
 
 Application de **prise de commandes** pour la Pizzeria Ferrari (Marseille), utilisée sur une **tablette Samsung en paysage** (doit rester utilisable sur PC). Clients, catalogue, panier, suivi des commandes, fidélité, suivi d'encaissement, ticket imprimable.
 
-**Ce n'est pas une caisse** : aucun paiement, terminal, total encaissé, rendu de monnaie, facture ou comptabilité. Ne jamais en ajouter.
+**Ce n'est pas une caisse** : aucun paiement, terminal, rendu de monnaie, facture ou comptabilité. Ne jamais en ajouter. Seule exception validée par le gérant (30/10/2026) : le module facultatif *Statistiques* affiche des totaux **indicatifs** des commandes marquées encaissées, jamais présentés comme une comptabilité certifiée.
+
+**Livraison toujours offerte** (règle définitive) : 0 €, sans exception, aucun réglage (`DELIVERY_FEE` dans `domain/pricing.ts`). Les anciennes commandes gardent leurs frais figés.
 
 ## Stack
 
@@ -21,11 +23,12 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 
 | Dossier | Rôle |
 | --- | --- |
-| `src/domain/` | Règles métier en TS pur, **sans React**, testées : `pricing`, `cart`, `customers`, `loyalty`, `payment`, `orders`, `service`, `ticket`, `types` |
+| `src/domain/` | Règles métier en TS pur, **sans React**, testées : `pricing`, `cart`, `customers`, `loyalty`, `payment`, `orders`, `service` (dont historique des services et rattachement des commandes), `ticket`, `types` |
 | `src/state/store.ts` | Store applicatif : orchestre domaine + persistance, actions synchrones renvoyant `Result` |
 | `src/storage/` | `schema.ts` (lecture/normalisation des données stockées), `repository.ts` (écritures par opération, `localStorage`) |
 | `src/data/` | Carte, paramètres par défaut et jeu de démonstration (fictifs) |
 | `src/components/`, `src/pages/` | Interface uniquement : ne calcule aucune règle métier |
+| `src/modules/statistiques/` | Module **facultatif** (masquable dans Paramètres, chargé à la demande) : calculs purs `calculs.ts` + interface. Lecture seule : n'écrit jamais, n'importe pas le store. Le cœur de l'application ne doit jamais dépendre de ce dossier (sauf le point d'entrée dans `App`) |
 | `src/audio/` + `scripts/generate-sounds.mjs` | Sons d'encaissement (WAV originaux générés par le script) |
 | `tests/` | Vitest, environnement Node |
 
@@ -33,7 +36,7 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 
 - Français partout (interface, commentaires, commits, documents). Le gérant préfère éviter les tirets longs dans les textes rédigés.
 - Montants en **centimes entiers** ; totaux toujours recalculés depuis les lignes.
-- Toute règle métier va dans `src/domain/` (fonction pure) **et** est appliquée par le store, pas seulement par un bouton désactivé.
+- Toute règle métier va dans `src/domain/` (fonction pure) **et** est appliquée par le store, pas seulement par un bouton désactivé. Exception : les calculs propres au module Statistiques restent dans son dossier pour qu'il reste supprimable.
 - Les commandes gardent des **copies figées** (client, prix) : modifier une fiche ne change pas l'historique.
 - Fidélité = **journal d'événements** + réconciliation idempotente (`reconcileOrderLoyalty`) : on n'écrit jamais un solde, seulement l'écart.
 - Conserver la direction artistique (tokens dans `src/styles/tokens.css`), cibles tactiles ≥ 44 px, pas de refonte non demandée.
@@ -59,7 +62,7 @@ Ajouter des tests métier pour chaque règle, y compris les tentatives de contou
 ## Déploiement
 
 - **Production** : push sur `main` → GitHub Actions (`.github/workflows/deploy-pages.yml` : tests, build, déploiement) → https://lupo1313.github.io/ferrari-manager/
-- **Prévisualisation isolée** : `npm run build:apercu` (clés `ferrari-manager-apercu-i3:*`, libellé « Prévisualisation »), puis copier `dist-apercu/` dans le dépôt séparé `lupo1313/ferrari-manager-apercu` et pousser → https://lupo1313.github.io/ferrari-manager-apercu/
+- **Prévisualisation isolée** : `npm run build:apercu` (clés `ferrari-manager-apercu-i3:*`, libellé défini dans `.env.apercu`), puis copier `dist-apercu/` dans le dépôt séparé `lupo1313/ferrari-manager-apercu` et pousser → https://lupo1313.github.io/ferrari-manager-apercu/
 - Après déploiement, vérifier que la production sert le nouveau `assets/index-*.js`.
 - Le jeton GitHub est celui du gestionnaire d'identifiants Git (`git credential fill`) ; `gh` n'est pas installé.
 

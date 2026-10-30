@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addLine, addProduct, createLine, describeLine, emptyCart, setLineQuantity, updateLine } from '../src/domain/cart';
-import { computeTotals, lineTotal } from '../src/domain/pricing';
+import { computeTotals, DELIVERY_FEE, lineTotal } from '../src/domain/pricing';
 import { formatPrice, parseEuros } from '../src/domain/money';
 import { demoCatalog } from '../src/data/catalog';
 
@@ -8,7 +8,7 @@ const p = (id: string) => demoCatalog.products.find((x) => x.id === id)!;
 const t = (id: string) => demoCatalog.toppings.find((x) => x.id === id)!;
 
 describe('calcul des prix', () => {
-  it('additionne lignes, quantités et frais de livraison', () => {
+  it('additionne lignes et quantités ; livraison toujours offerte (0 €)', () => {
     let cart = emptyCart('d1');
     cart = addProduct(cart, p('royale'), 'l1');
     cart = addProduct(cart, p('royale'), 'l2'); // fusion → quantité 2
@@ -16,16 +16,12 @@ describe('calcul des prix', () => {
     expect(cart.lines).toHaveLength(2);
     expect(cart.lines[0].quantity).toBe(2);
 
-    expect(computeTotals(cart.lines, 'livraison', { deliveryFee: 200 })).toEqual({
-      subtotal: 2800 + 400,
-      deliveryFee: 200,
-      total: 3400,
-    });
-    expect(computeTotals(cart.lines, 'emporter', { deliveryFee: 200 }).total).toBe(3200);
+    expect(computeTotals(cart.lines)).toEqual({ subtotal: 2800 + 400, deliveryFee: 0, total: 3200 });
+    expect(DELIVERY_FEE).toBe(0);
   });
 
-  it('pas de frais de livraison sur une commande vide', () => {
-    expect(computeTotals([], 'livraison', { deliveryFee: 200 }).total).toBe(0);
+  it('commande vide : total nul', () => {
+    expect(computeTotals([]).total).toBe(0);
   });
 
   it('les suppléments sont payants et multipliés par la quantité', () => {

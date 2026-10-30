@@ -108,7 +108,9 @@ describe('valeurs par défaut des champs manquants', () => {
     const r = normalizeAppData(old, defaults);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.data.settings.deliveryFee).toBe(350);
+    // Ancien réglage des frais de livraison : ignoré, la livraison est toujours offerte.
+    expect('deliveryFee' in r.data.settings).toBe(false);
+    expect(r.data.settings.modules).toEqual({ statistiques: true });
     expect(r.data.settings.ticketWidthMm).toBe(defaultSettings.ticketWidthMm);
     expect('awardOn' in r.data.settings.loyalty).toBe(false);
     expect(r.data.settings.loyalty.eligiblePizzaIds).toEqual(data.settings.loyalty.eligiblePizzaIds);

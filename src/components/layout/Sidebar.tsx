@@ -7,6 +7,8 @@ interface NavItem {
   route: Route;
   label: string;
   icon: IconName;
+  /** Module facultatif : l'entrée n'apparaît que si le module est affiché (Paramètres). */
+  optional?: true;
 }
 
 const ITEMS: NavItem[] = [
@@ -14,6 +16,7 @@ const ITEMS: NavItem[] = [
   { route: 'commandes', label: 'Commandes', icon: 'orders' },
   { route: 'clients', label: 'Clients', icon: 'user' },
   { route: 'fidelite', label: 'Fidélité', icon: 'heart' },
+  { route: 'statistiques', label: 'Statistiques', icon: 'chart', optional: true },
   { route: 'parametres', label: 'Paramètres', icon: 'settings' },
 ];
 
@@ -22,9 +25,12 @@ interface SidebarProps {
   onNavigate: (route: Route) => void;
   activeOrders: number;
   editingOrderNumber: number | null;
+  /** Module Statistiques affiché (Paramètres → Modules facultatifs). */
+  statisticsEnabled: boolean;
 }
 
-export function Sidebar({ route, onNavigate, activeOrders, editingOrderNumber }: SidebarProps) {
+export function Sidebar({ route, onNavigate, activeOrders, editingOrderNumber, statisticsEnabled }: SidebarProps) {
+  const items = ITEMS.filter((item) => !item.optional || statisticsEnabled);
   return (
     <nav className="sidebar" aria-label="Navigation principale">
       <div className="sidebar__brand">
@@ -32,7 +38,7 @@ export function Sidebar({ route, onNavigate, activeOrders, editingOrderNumber }:
         <img className="sidebar__monogram" src={monogram} alt="Pizzeria Ferrari" width={512} height={512} />
       </div>
       <ul className="sidebar__list">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const label = item.route === 'prise' && editingOrderNumber ? `Modification n° ${editingOrderNumber}` : item.label;
           return (
             <li key={item.route}>

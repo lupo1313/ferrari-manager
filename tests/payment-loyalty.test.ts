@@ -7,7 +7,6 @@ import { computeBalance, customerLoyaltyStatus, reconcileOrderLoyalty } from '..
 import { addProduct, createLine, emptyCart, hasRewardWithoutPaidPizza, ONE_REWARD_PER_ORDER, REWARD_NEEDS_PAID_PIZZA } from '../src/domain/cart';
 import { buildOrder, validateCart } from '../src/domain/orders';
 import { cannotMarkPaid } from '../src/domain/payment';
-import { defaultSettings } from '../src/data/defaultSettings';
 import type { Cart } from '../src/domain/types';
 import { createTestStore } from './helpers';
 
@@ -199,13 +198,12 @@ describe('B. Cadeau fidélité : au moins une pizza payante', () => {
     let cart: Cart = { ...emptyCart('x'), customerId: 'c1' };
     const margarita = demoCatalog.products.find((p) => p.id === 'margarita')!;
     cart = { ...cart, lines: [createLine(margarita, 'g', {}, 'pizza')] };
-    const giftOnly = buildOrder(cart, { id: 'x', number: 9, nowIso: '2026-10-29T19:00:00Z', customer: null, settings: defaultSettings });
+    const giftOnly = buildOrder(cart, { id: 'x', number: 9, nowIso: '2026-10-29T19:00:00Z', customer: null });
     expect(cannotMarkPaid({ ...giftOnly, customerId: 'c1' })).toContain(REWARD_NEEDS_PAID_PIZZA);
   });
 
   it('règle précise : une commande à 0 € sans cadeau n’est pas bloquée pour autant', () => {
     const t = setup();
-    t.store.updateSettings({ deliveryFee: 0 });
     // Aucun produit gratuit dans la carte de démo : on vérifie que la règle ne regarde pas le montant.
     t.store.selectCustomer(t.jean.id);
     t.store.addProduct('reine');
@@ -313,7 +311,7 @@ describe('F. Une seule récompense par commande', () => {
     cart = { ...cart, lines: [...cart.lines, createLine(prod('margarita'), 'g1', {}, 'pizza'), createLine(prod('coca-150'), 'g2', {}, 'boisson')] };
     // Même avec assez de récompenses (rewardsRemaining positif), la règle refuse.
     expect(validateCart(cart, { customer: karim, rewardsRemaining: 5 })).toContain(ONE_REWARD_PER_ORDER);
-    const forged = buildOrder(cart, { id: 'f', number: 7, nowIso: 'x', customer: karim, settings: defaultSettings });
+    const forged = buildOrder(cart, { id: 'f', number: 7, nowIso: 'x', customer: karim });
     expect(cannotMarkPaid(forged)).toContain('Une seule récompense');
   });
 
@@ -486,7 +484,7 @@ describe('domaine indépendant de l’interface', () => {
     let cart: Cart = { ...emptyCart('o'), customerId: jean.id };
     cart = addProduct(cart, demoCatalog.products.find((p) => p.id === 'reine')!, 'l1');
     cart = { ...cart, lines: [...cart.lines, createLine(demoCatalog.products.find((p) => p.id === 'coca-150')!, 'g', {}, 'boisson')] };
-    const o = buildOrder(cart, { id: 'o', number: 1, nowIso: 'x', customer: jean, settings: defaultSettings });
+    const o = buildOrder(cart, { id: 'o', number: 1, nowIso: 'x', customer: jean });
     const ctx = { nowIso: 'x', newId: (p: string) => p + Math.random() };
     const e1 = reconcileOrderLoyalty([], o, ctx);
     expect(e1.map((e) => [e.type, e.delta])).toEqual([['rewards_used', 1]]);
