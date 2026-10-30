@@ -45,9 +45,11 @@ import { isRewardEligible, netForOrder, reconcileOrderLoyalty, rewardsRemainingF
 import {
   buildOrder,
   canCancelOrder,
+  canChangeCartCustomer,
   canChangeStatus,
   canEditOrder,
   closeService,
+  EDIT_CUSTOMER_LOCKED_MESSAGE,
   orderToCart,
   SERVICE_CLOSED_MESSAGE,
   validateCart,
@@ -55,6 +57,7 @@ import {
 } from '../domain/orders';
 import { isValidTimeOfDay } from '../domain/time';
 import { cannotMarkPaid, isPaid, markPaid, markUnpaid } from '../domain/payment';
+import { closeServiceRecord, currentService, openServiceRecord } from '../domain/service';
 
 export type Result<T = void> =
   | { ok: true; value: T }
@@ -214,6 +217,7 @@ export function createAppStore(deps: StoreDeps) {
   const nowIso = () => now().toISOString();
   const findCustomer = (id: string | null) => (id ? data.customers.find((c) => c.id === id) ?? null : null);
   const findOrder = (id: string) => data.orders.find((o) => o.id === id);
+  const editedOrder = () => (data.cart.editingOrderId ? findOrder(data.cart.editingOrderId) : undefined);
   const product = (id: string): Product | undefined => productById.get(id);
 
   /**
@@ -269,6 +273,7 @@ export function createAppStore(deps: StoreDeps) {
     selectCustomer(customerId: string | null): Result<{ removedRewards: number }> {
       if (customerId && !findCustomer(customerId)) return fail('Client introuvable.');
       if (data.cart.customerId === customerId) return ok({ removedRewards: 0 });
+      if (!canChangeCartCustomer(data.cart, customerId, editedOrder())) return fail(EDIT_CUSTOMER_LOCKED_MESSAGE);
       // Les récompenses appartiennent au client : on les retire si on change de client.
       const removedRewards = rewardLineCount(data.cart.lines);
       const cart = { ...withoutRewardLines(data.cart), customerId, counterName: customerId ? '' : data.cart.counterName };
@@ -287,7 +292,9 @@ export function createAppStore(deps: StoreDeps) {
         });
       }
       const customer = buildCustomer(input, newId('cus'), nowIso());
-      const cart = options.select ? { ...withoutRewardLines(data.cart), customerId: customer.id, counterName: '' } : undefined;
+      // Pendant une modification, la fiche est créée mais la commande garde son client d'origine.
+      const select = options.select && canChangeCartCustomer(data.cart, customer.id, editedOrder());
+      const cart = select ? { ...withoutRewardLines(data.cart), customerId: customer.id, counterName: '' } : undefined;
       if (!commitCustomer(customer, cart)) return fail(SAVE_FAILED);
       return ok(customer);
     },
@@ -381,6 +388,18 @@ export function createAppStore(deps: StoreDeps) {
       setCart(emptyCart(newId('ord')));
     },
 
+    /**
+     * Abandonne la modification en cours (la commande enregistrée reste telle quelle : seul le panier est remplacé)
+     * et commence une nouvelle commande pour ce client. Refusé si le service est fermé : rien n'est abandonné.
+     */
+    abandonEditAndStartOrder(customerId: string): Result<Customer> {
+      const customer = findCustomer(customerId);
+      if (!customer) return fail('Client introuvable.');
+      if (!data.serviceOpen) return fail(SERVICE_CLOSED_MESSAGE);
+      setCart({ ...emptyCart(newId('ord')), customerId: customer.id });
+      return ok(customer);
+    },
+
     /* ---------- Fidélité ---------- */
 
     rewardsRemaining(): number {
@@ -430,7 +449,7 @@ export function createAppStore(deps: StoreDeps) {
         number: previous ? previous.number : data.counters.nextOrderNumber,
         nowIso: nowIso(),
         customer,
-        settings: data.settings,
+        serviceId: currentService(data.services).id,
         previous,
       });
       const saved = commitOrder(order, {
@@ -544,26 +563,40 @@ export function createAppStore(deps: StoreDeps) {
       const counters = stillActive + waitingPayment === 0 ? { nextOrderNumber: 1 } : data.counters;
       const serviceClosedAt = alreadyClosed ? data.serviceClosedAt ?? nowIso() : nowIso();
       const archivedOrders = orders.filter((o, i) => o !== data.orders[i]);
+      // Le bilan du service reste consultable : le service est clôturé dans l'historique, rien n'est effacé.
+      const services = closeServiceRecord(data.services, serviceClosedAt);
       const change = {
         archivedOrders,
         nextOrderNumber: counters.nextOrderNumber,
         serviceStartedAt: data.serviceStartedAt,
         serviceOpen: false,
         serviceClosedAt,
+        services,
       };
       if (!persist(() => repo.saveService(change))) return fail(SAVE_FAILED);
-      data = { ...data, orders, counters, serviceOpen: false, serviceClosedAt };
+      data = { ...data, orders, counters, serviceOpen: false, serviceClosedAt, services };
       notify();
       return ok({ archived, stillActive, waitingPayment, alreadyClosed });
     },
 
-    /** Ouverture : nouveau début de service. Commandes, clients et fidélité sont conservés tels quels. */
+    /**
+     * Ouverture : nouveau service, ajouté à l'historique (ses chiffres partent de zéro).
+     * Commandes, clients, fidélité et services précédents sont conservés tels quels.
+     */
     openService(): Result<{ alreadyOpen: boolean }> {
       if (data.serviceOpen) return ok({ alreadyOpen: true });
       const serviceStartedAt = nowIso();
-      const change = { archivedOrders: [], nextOrderNumber: data.counters.nextOrderNumber, serviceStartedAt, serviceOpen: true, serviceClosedAt: null };
+      const services = openServiceRecord(data.services, serviceStartedAt);
+      const change = {
+        archivedOrders: [],
+        nextOrderNumber: data.counters.nextOrderNumber,
+        serviceStartedAt,
+        serviceOpen: true,
+        serviceClosedAt: null,
+        services,
+      };
       if (!persist(() => repo.saveService(change))) return fail(SAVE_FAILED);
-      data = { ...data, serviceStartedAt, serviceOpen: true, serviceClosedAt: null };
+      data = { ...data, serviceStartedAt, serviceOpen: true, serviceClosedAt: null, services };
       notify();
       return ok({ alreadyOpen: false });
     },
@@ -571,10 +604,16 @@ export function createAppStore(deps: StoreDeps) {
     /* ---------- Paramètres & données ---------- */
 
     updateSettings(patch: Partial<Settings>): Result<Settings> {
-      const next: Settings = { ...data.settings, ...patch, pizzeria: { ...data.settings.pizzeria, ...patch.pizzeria } };
-      if (!Number.isInteger(next.deliveryFee) || next.deliveryFee < 0 || next.deliveryFee > 5000) {
-        return fail('Frais de livraison invalides (entre 0 et 50 €).');
-      }
+      // Un ancien réglage de frais de livraison transmis par erreur est ignoré : la livraison reste offerte.
+      const { deliveryFee: _ignoredFee, ...clean } = patch as Partial<Settings> & { deliveryFee?: unknown };
+      void _ignoredFee;
+      const next: Settings = {
+        ...data.settings,
+        ...clean,
+        pizzeria: { ...data.settings.pizzeria, ...clean.pizzeria },
+        modules: { ...data.settings.modules, ...clean.modules },
+      };
+      next.modules = { statistiques: next.modules.statistiques !== false };
       if (next.ticketWidthMm !== 58 && next.ticketWidthMm !== 80) return fail('Largeur de ticket invalide.');
       next.paymentSound = next.paymentSound !== false;
       if (next.paymentSoundKind !== 'vente' && next.paymentSoundKind !== 'caisse') next.paymentSoundKind = 'caisse';

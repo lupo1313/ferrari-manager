@@ -1,7 +1,7 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, après la mise en production des interventions 3 et 3.1, puis de la sauvegarde des données (Paramètres).
-Ce document décrit ce qui existe **réellement** dans le code. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
+Dernière mise à jour : 30/10/2026, intégration de `main` (sauvegarde des données, en production) dans la branche `feat/commandes-cartes` (interventions 4, 4A et 4B) ; **interventions 4, 4A et 4B en prévisualisation, non fusionnées**.
+Ce document décrit ce qui existe **réellement** dans le code de cette branche. La production (`main`) est à l'état des interventions 3 et 3.1 plus la sauvegarde des données tant que la fusion n'est pas validée. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
 
 ## 1. En production
 
@@ -26,6 +26,28 @@ Historique des interventions sur `main` :
 
 Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `main`), `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
 
+### Intervention 4 en cours de validation (branche `feat/statistiques`)
+
+| Lot | Contenu | État |
+| --- | --- | --- |
+| B1 | Historique des services, rattachement des commandes (`serviceId`), livraison toujours offerte | Développé, testé, en prévisualisation |
+| B2 | Module facultatif Statistiques (service, jour, semaine, mois) | Développé, testé, en prévisualisation |
+| B3 | Reprendre un service fermé par erreur | **Non développé** (principe retenu, à faire après validation) |
+| B4 | Fermeture avec commandes restantes (« Examiner les commandes ») | **Non développé** (intervention séparée) |
+
+### Intervention 4A en cours de validation (branche `feat/commandes-cartes`)
+
+Refonte de l'écran Commandes pour la tablette en paysage (cartes compactes), **sans changement de règle métier**. Branche créée à partir de `feat/statistiques` (dernière version en prévisualisation) : la fusionner suppose d'avoir validé l'intervention 4, ou de la rebaser sur `main` si l'intervention 4 était refusée.
+
+Prévisualisation : build de la branche, libellé « Prévisualisation · statistiques », mêmes clés isolées `ferrari-manager-apercu-i3:*` (les données de test de l'intervention 3 y sont reprises, ce qui sert aussi de test de compatibilité).
+
+### Intervention 4B en cours de validation (même branche `feat/commandes-cartes`)
+
+Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles de récompense, d'archivage, de paiement ni le stockage :
+- **Changement de client pendant une modification** : « Commander » depuis la page Clients (ou un client de la recherche globale) remplaçait en silence le client de la commande en cours de modification, panier et mode « Modification n° X » conservés. Désormais une commande en modification reste rattachée à son client d'origine (règle `canChangeCartCustomer` dans `domain/orders.ts`, appliquée par le store : sélection, retrait du client, nouvelle fiche). « Commander » pendant une modification ouvre une fenêtre (`EditInProgressDialog`) : continuer la modification, abandonner et commander pour ce client (désactivé si le service est fermé, avec le message), ou annuler. Abandonner ne touche jamais la commande enregistrée (seul le panier est remplacé). Pendant la modification, la colonne Client n'affiche plus la recherche ni « Nouveau client » ; le bandeau de modification a un bouton « Quitter » et le bouton « Annuler » du panier devient « Abandonner ».
+- **« Enregistrer » inaccessible sur iPhone en paysage** : le panneau Commande avait une hauteur fixe (`overflow: hidden`), seule la liste des produits défilait, avec une hauteur minimale de 120 px ; sur un écran d'environ 340 px de haut, le récapitulatif et les boutons sortaient du panneau sans pouvoir être atteints. Désormais le panneau défile s'il déborde, et sur un écran peu haut (`max-height: 560px`) tout le panneau défile d'un bloc avec les actions collées en bas (une seule ligne en pleine largeur). L'application évite aussi l'encoche et la barre d'accueil de l'iPhone (`viewport-fit=cover` était déjà actif sans marges de sécurité). Sans effet sur la tablette en 1280×800 (vérifié : aucun défilement du panneau, actions inchangées).
+- Vérifié dans Chromium en émulation 844×340 (iPhone paysage), 375×660, 1024×700 et 1280×800 ; **pas encore vérifié sur un vrai iPhone avec Safari**. En 1024×700, une commande en modification dépasse légèrement : le panneau défile pour atteindre « Enregistrer sans imprimer ».
+
 ## 2. Fonctionnalités opérationnelles
 
 ### Prise de commande (écran principal, 3 colonnes ; onglets sur écran étroit)
@@ -34,11 +56,18 @@ Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `mai
 - Commande comptoir sans fiche (nom facultatif, à emporter uniquement).
 - Catalogue de démonstration (15 pizzas, 11 boissons dont 3 alcoolisées, 4 desserts, 12 suppléments), filtres par famille.
 - Personnalisation : ingrédients retirés (sans effet sur le prix), suppléments payants, note de préparation, quantité. Les lignes identiques non personnalisées sont fusionnées.
-- Livraison (frais configurables, 2,00 € par défaut, adresse obligatoire) ou à emporter ; heure souhaitée ou « dès que possible ».
+- Livraison (**toujours offerte, 0 €**, adresse obligatoire) ou à emporter ; heure souhaitée ou « dès que possible ». Aucun réglage de frais ; les anciennes commandes gardent leurs frais figés (ticket compris), une commande modifiée est recalculée à 0 €.
 - Validation idempotente (double clic sans doublon) ; modification d'une commande enregistrée (même numéro, révision +1).
 
 ### Suivi des commandes (page Commandes)
 - Statuts : À préparer → En préparation → Prête → Terminée, ou Annulée (définitif, avec confirmation).
+- Cartes compactes (intervention 4A) : deux colonnes sur la tablette en paysage, trois seulement si chaque carte garde 380 px (`components/orders/columns.ts`), une sur écran étroit ; hauteur libre, ordre de traitement lu de gauche à droite (plus anciennes en premier).
+- Carte : numéro, heure, statut, ancienneté (commandes en cours, rafraîchie toutes les 30 s) ; client, téléphone, mode, heure souhaitée, adresse complète avec complément et consignes de livraison ; produits avec quantité, personnalisations, suppléments, cadeau « Offert fidélité » et montant de ligne ; note ; total ; paiement.
+- Une seule action principale par statut (`primaryAction`) : « Lancer la préparation », « Marquer prête », « Terminer la commande », aucune une fois terminée. « Marquer encaissée » directement sur la carte si non encaissée. « Modifier » (ou « Ticket » quand la commande ne se modifie plus).
+- Menu « ••• » (`components/ui/ActionMenu.tsx`, tactile et clavier, sans survol, liste simple sans sous-menu) : Ticket, Corriger le statut…, Annuler l'encaissement, Annuler la commande. Confirmations et avertissements inchangés. Le menu ne se ferme jamais sur une simple perte de focus (correctif Safari, voir ci-dessous).
+- **Corriger le statut** ouvre une petite fenêtre (`StatusDialog`) qui affiche les quatre statuts, le statut actuel signalé ; un appui applique le statut choisi (mêmes transitions qu'avant, ex. Terminée → En préparation). Seuls le statut et son historique changent ; un message indique l'onglet où retrouver la commande.
+- Correctif Safari (30/10/2026) : sur Safari (macOS, iPad), « Corriger le statut » d'une commande terminée ne faisait rien. Cause : le menu se fermait sur toute perte de focus sans cible ; Safari en produit une quand on touche un bouton (il ne lui donne pas le focus) et quand l'élément qui a le focus disparaît (ici le premier élément du menu, remplacé par le sous-menu). Le sous-menu a été remplacé par la fenêtre ci-dessus et la fermeture sur perte de focus supprimée. Vérifié dans Chromium en rejouant la séquence d'événements de Safari ; **pas encore vérifié sur un vrai Safari ou iPad**.
+- « En préparation » passe en bleu (au lieu d'orange) pour ne plus se confondre avec « À encaisser ».
 - Filtres : En cours / Terminées et annulées / Archives ; recherche par numéro, nom ou téléphone.
 - Ticket : aperçu et impression via la boîte de dialogue du navigateur (58 ou 80 mm). La demande d'impression est tracée, jamais présentée comme une impression réussie.
 
@@ -66,6 +95,22 @@ Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `mai
 - Service fermé : **nouvelle commande refusée par le store** (message et bouton « Ouvrir le service » dans le panier) ; encaissement, modification et annulation des commandes existantes toujours possibles ; fidélité inchangée.
 - Numérotation remise à 1 seulement si plus aucune commande n'est affichée.
 
+### Historique des services (socle, intervention 4)
+- Chaque ouverture ajoute un service à l'historique (`services`), chaque fermeture le clôture (date d'origine conservée en cas de double fermeture). Tenu dans la même écriture que l'ouverture ou la fermeture.
+- Une nouvelle commande reçoit l'identifiant du service en cours (`serviceId`), jamais modifié ensuite (modification, encaissement, annulation, service suivant).
+- Commande sans `serviceId` (anciennes données) : rattachée au service ouvert au moment de sa création ; avant le premier service suivi, « Avant le suivi des services ».
+- Indépendant du module Statistiques : il continue d'être tenu même module masqué.
+
+### Statistiques (module facultatif, intervention 4)
+- Onglet *Statistiques* entre Fidélité et Paramètres. Vues **Service / Jour / Semaine / Mois**, flèches pour remonter l'historique, retour au plus récent. Service clôturé consultable sans le rouvrir ; un nouveau service part de zéro.
+- Indicateurs : total encaissé (dominant, avec « avant / après la clôture »), commandes enregistrées et montant total, reste à encaisser, pizzas vendues (payantes, produits offerts à part), panier moyen, boissons, desserts, livraisons, à emporter, annulées.
+- Situations signalées à part : encaissements de services précédents, « Paiement non suivi », annulées après encaissement, anciennes commandes avec frais de livraison, bloc « Avant le suivi des services ». Sous « Reste à encaisser », le libellé distingue les commandes en attente de paiement et les anciennes au paiement non suivi ; « Tout est encaissé » n’apparaît que si toutes les commandes le sont (`dueHint`).
+- Graphique SVG maison (sans bibliothèque) : commandes enregistrées et encaissements confirmés par heure, axe continu après minuit, pic d'activité. Tableau équivalent pour les lecteurs d'écran.
+- Meilleures ventes : top 5 pizzas, boissons, desserts, par quantité ou montant (hors suppléments), « Voir tout ».
+- Avertissement permanent : chiffres indicatifs, ni caisse ni comptabilité certifiée.
+- **Module masquable** : Paramètres → Modules facultatifs. Masqué, l'onglet disparaît et `#/statistiques` ramène à la prise de commande ; aucune donnée n'est supprimée ni modifiée. Code isolé dans `src/modules/statistiques/`, chargé à la demande (fichier séparé), en lecture seule.
+- Vérifié à l'écran (Chromium) en 1280×800 et 1024×700 avec une semaine fictive de 90 commandes ; **pas encore sur la tablette Samsung**.
+
 ### Son d'encaissement
 - Joué uniquement sur une vraie transition vers « Encaissée » enregistrée avec succès ; jamais au rechargement, au double clic, au changement de moyen ni à l'annulation d'un encaissement. Un échec audio ne bloque jamais l'encaissement.
 - Deux sons au choix, avec un bouton « Écouter » chacun : **Caisse enregistreuse** (`caisse.wav`, son B retenu, **par défaut**) et Notification de vente (`vente.wav`). Réglage Activé/Désactivé, activé par défaut, préférences existantes conservées.
@@ -77,15 +122,19 @@ Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `mai
 - `SCHEMA_VERSION = 1`. Les champs ajoutés depuis la V1 sont complétés **à la lecture**, sans réécriture :
   - commande sans bloc paiement : `payment.legacy = true`, affichée « Paiement non suivi ». Ses points historiques sont gelés (ni retirés ni ajoutés sans encaissement ou annulation) ;
   - service sans état : considéré ouvert ;
-  - réglages absents : valeurs par défaut (son activé, « caisse ») ; l'ancien réglage `awardOn` est ignoré.
+  - réglages absents : valeurs par défaut (son activé, « caisse », module Statistiques affiché) ; les anciens réglages `awardOn` et `deliveryFee` sont ignorés ;
+  - historique des services absent : un service est reconstitué en mémoire à partir de `serviceStartedAt`, avec un identifiant déterministe (`svc-<date d'ouverture>`), sans réécriture ; enregistré à la prochaine ouverture ou fermeture ;
+  - historique en retard sur l'état du service (ancienne version utilisée entre-temps) : rattrapé en mémoire.
 - Compatibilité vérifiée le 30/10 sur un instantané réel de l'ancienne production : aucune alerte, aucune réécriture au chargement, commandes et points intacts.
 - Prévisualisation : clés `ferrari-manager-apercu-i3:*` (variable `VITE_STORAGE_NAMESPACE`), totalement séparées de la production, même origine.
+- **Retour à l'ancienne version** possible : elle conserve les champs ajoutés (`services`, `serviceId`) car le dépôt réécrit le document en gardant les champs inconnus. Elle réafficherait toutefois 2 € de frais par défaut (son propre réglage).
 - **Sauvegarde** (Paramètres → « Sauvegarder mes données », `src/storage/export.ts`) : fichier JSON nommé avec la date et l'heure, contenant le texte exact de chaque clé `ferrari-manager:*` (historique et panier), la longueur et l'empreinte SHA-256 de chacune, et un résumé (commandes, encaissées, clients, fidélité, prochain numéro, état du service). Lecture seule : aucune écriture ni suppression. Le fichier est vérifié avant d'être proposé (empreintes, résumé, identité avec le stockage), puis téléchargé par un appui sur « Télécharger le fichier » (ou « Partager » si le navigateur le permet). Pas de fonction d'import à ce stade : une restauration consisterait à remettre ces textes dans les deux clés.
 - **Limites** : données propres à chaque appareil et à chaque navigateur, sans synchronisation ; perdues si le navigateur est vidé (sauf sauvegarde manuelle) ; deux onglets ouverts = le dernier qui écrit gagne.
+- **Saturation** : environ 5 Mo par origine, partagés entre la production, la prévisualisation et les autres sites `lupo1313.github.io`. Environ 1,8 Ko par commande, soit environ 93 Ko par service de 50 commandes : saturation vers 55 services (environ 2 mois). Les commandes ne sont jamais supprimées automatiquement ; une écriture refusée bloque l'action avec un message. À traiter avant l'utilisation quotidienne (Priorité 4).
 
 ## 4. Tests
 
-125 tests Vitest, tous réussis au 30/10 :
+197 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -97,6 +146,10 @@ Branches distantes conservées : `feat/encaissement-fidelite` (= contenu de `mai
 | `store.test.ts` (9) | Parcours complet de validation |
 | `persistence.test.ts` (12), `storage.test.ts` (10) | Persistance, échecs d'écriture, données corrompues |
 | `apercu-isolation.test.ts` (4) | Isolation des clés de la prévisualisation |
+| `services.test.ts` (17) | Historique des services, rattachement, anciennes données sans réécriture, livraison offerte, module masquable |
+| `statistiques.test.ts` (26) | Indicateurs, libellé « Reste à encaisser » (encaissées, en attente, non suivies), quantités, cadeaux, annulations (dont après encaissement), modifications, encaissements tardifs, minuit, changement d'heure, anciennes données, jour/semaine/mois, lecture seule |
+| `modification-navigation.test.ts` (10) | Intervention 4B : client verrouillé pendant une modification (tous les chemins), annulation, abandon sans toucher la commande enregistrée, service fermé, commande encaissée modifiée service fermé, fidélité sans double crédit, contrat CSS des actions sur petit écran |
+| `commandes-cartes.test.ts` (19) | Action principale par statut, correction de statut (dont Terminée → En préparation : paiement, fidélité, produits préservés, retour dans « En cours »), actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
 | `sauvegarde.test.ts` (13) | Export à l'identique, aucune écriture (stockage espion), restauration possible, intégrité (fichier tronqué, modifié, résumé falsifié), données illisibles |
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.
@@ -104,11 +157,14 @@ Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à 
 ## 5. Bugs connus, limites et éléments absents
 
 - **Non vérifié par Claude** : utilisation réelle sur la tablette Samsung (seulement en émulation 1280×800, 1024×700 et 800×1100) et parcours complet en production après la mise en ligne du 30/10.
-- Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne.
+- Personnaliser **une seule** pizza parmi plusieurs identiques est impossible : la personnalisation s'applique à toute la ligne (prévue initialement comme « 4B », numéro repris par le correctif de navigation du 30/10).
+- Écran Commandes : vérifié à l'écran (Chromium, 1280×800, 1024×700, 800×1100, 375×812, 1440×900) avec un service fictif ; **pas encore sur la tablette Samsung**. Les consignes permanentes du client (ex. allergie) ne s'affichent que pour les livraisons, comme sur le ticket.
 - Pas d'alerte sur les heures de retrait dépassées, pas de statuts propres à la livraison, pas de gestion des livreurs.
 - Le ticket n'affiche pas le statut de paiement ; aucune imprimante thermique n'est pilotée.
 - Une commande encaissée puis modifiée reste « Encaissée » : un écart de montant se règle hors de l'appli.
-- Carte figée dans le code (`src/data/catalog.ts`, prix de démonstration) ; les entrées « Carte » et « Statistiques » de la maquette n'existent pas.
+- Carte figée dans le code (`src/data/catalog.ts`, prix de démonstration) ; l'entrée « Carte » de la maquette n'existe pas.
+- Statistiques : une commande encaissée puis modifiée compte pour son nouveau montant (l'écart réel se règle hors de l'appli) ; le classement par montant ignore les suppléments ; la nuit du changement d'heure, les deux « 2 h » sont regroupées ; un bilan clôturé peut encore évoluer si une commande est encaissée après coup (affiché « après la clôture »).
 - Pas d'authentification, pas de rôles, pas de suppression de fiche client (RGPD), sauvegarde manuelle uniquement (pas d'import ni de sauvegarde automatique).
 - Le README contient encore le parcours de validation et les « points à valider » de la V1 : à relire lors d'une future intervention.
-- Décisions encore ouvertes : liste définitive des pizzas éligibles, frais de livraison réels (le site annonce une livraison gratuite dans certains arrondissements).
+- Décisions encore ouvertes : liste définitive des pizzas éligibles ; reprise d'un service fermé par erreur (B3) ; intérêt définitif du module Statistiques (masquable en attendant).
+- Instantané réel testé le 30/10 (règle CLAUDE.md) : sauvegarde Safari iPhone de la production (14h15, 5 clients, 4 commandes au format d'avant l'intervention 3 : sans suivi de paiement, `awardOn`, frais de livraison 2 €, sans état du service). Test temporaire non commité sur la branche 4 + 4A + 4B : chargement sans alerte ni réécriture, données, montants et frais historiques conservés, soldes de fidélité identiques, 4 commandes « Paiement non suivi » dans les Statistiques, encaissement sans double crédit, modification, fermeture du service et rechargement corrects. À noter : modifier une ancienne commande avec frais de livraison la recalcule à 0 € (règle validée de la livraison offerte).

@@ -6,6 +6,8 @@
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  /* iPhone (viewport-fit=cover) : rien sous l'encoche ni sous la barre d'accueil. Vaut 0 sur la tablette et le PC. */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 .main {

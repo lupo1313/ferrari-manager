@@ -1,17 +1,54 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../components/ui/Icon';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useToast } from '../components/ui/Toast';
 import { OrderCard } from '../components/orders/OrderCard';
+import { columnCount, distributeColumns } from '../components/orders/columns';
 import { PaymentDialog } from '../components/orders/PaymentDialog';
+import { StatusDialog } from '../components/orders/StatusDialog';
 import { TicketModal } from '../components/ticket/TicketModal';
 import { useAppData, useStore } from '../state/StoreContext';
 import { isActiveOrder, orderDisplayName, STATUS_LABELS } from '../domain/orders';
 import { netForOrder } from '../domain/loyalty';
 import { isPaid } from '../domain/payment';
-import type { Order } from '../domain/types';
+import type { Order, OrderStatus } from '../domain/types';
 
 type Filter = 'actives' | 'terminees' | 'archives';
+
+/** Heure courante, rafraîchie toutes les 30 s (ancienneté affichée sur les cartes en cours). */
+function useNow(): string {
+  const [now, setNow] = useState(() => new Date().toISOString());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date().toISOString()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
+
+/** Grille de cartes en colonnes de hauteur libre ; le nombre de colonnes suit la largeur réellement disponible. */
+function OrdersColumns({ children }: { children: ReactNode[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(2);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setColumns(columnCount(el.clientWidth));
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className="orders-grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+      {distributeColumns(children, columns).map((column, i) => (
+        <div key={i} className="orders-grid__column">
+          {column}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface OrdersPageProps {
   onGoToOrderTaking: () => void;
@@ -30,6 +67,8 @@ export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: 
   const [editing, setEditing] = useState<Order | null>(null);
   const [paying, setPaying] = useState<Order | null>(null);
   const [unpaying, setUnpaying] = useState<Order | null>(null);
+  const [correcting, setCorrecting] = useState<Order | null>(null);
+  const now = useNow();
 
   const groups = useMemo(() => {
     const actives = data.orders.filter(isActiveOrder).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -91,6 +130,19 @@ export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: 
     return parts.length ? `Fidélité de ${order.customer?.name} : ${parts.join(', ')}.` : 'Aucun impact fidélité.';
   };
 
+  /** Correction d'un statut : même action du store que la progression ; indique l'onglet où retrouver la commande. */
+  const correctStatus = (order: Order, status: OrderStatus) => {
+    setCorrecting(null);
+    const r = store.setOrderStatus(order.id, status);
+    if (!r.ok) {
+      toast(r.error, 'error');
+      return;
+    }
+    const tab: Filter = isActiveOrder(r.value) ? 'actives' : 'terminees';
+    const where = tab !== filter ? ` · visible dans l’onglet « ${tab === 'actives' ? 'En cours' : 'Terminées et annulées'} »` : '';
+    toast(`N° ${order.number} remise à « ${STATUS_LABELS[status]} »${where}`, 'success');
+  };
+
   const tabs: { id: Filter; label: string }[] = [
     { id: 'actives', label: 'En cours' },
     { id: 'terminees', label: 'Terminées et annulées' },
@@ -146,15 +198,17 @@ export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: 
           )}
         </div>
       ) : (
-        <div className="orders-grid">
+        <OrdersColumns>
           {list.map((order) => (
             <OrderCard
               key={order.id}
               order={order}
+              now={now}
               onStatus={(status) => {
                 const r = store.setOrderStatus(order.id, status);
                 toast(r.ok ? `N° ${order.number} : ${STATUS_LABELS[status]}` : r.error, r.ok ? 'success' : 'error');
               }}
+              onCorrectStatus={() => setCorrecting(order)}
               onTicket={() => setTicketFor(order.id)}
               onEdit={() => askEdit(order)}
               onCancel={() => setCancelling(order)}
@@ -162,7 +216,7 @@ export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: 
               onMarkUnpaid={() => setUnpaying(order)}
             />
           ))}
-        </div>
+        </OrdersColumns>
       )}
 
       {ticketFor && <TicketModal orderId={ticketFor} onClose={() => setTicketFor(null)} />}
@@ -218,6 +272,7 @@ export function OrdersPage({ onGoToOrderTaking, serviceOpen, onServiceAction }: 
           }
         />
       )}
+      {correcting && <StatusDialog order={correcting} onClose={() => setCorrecting(null)} onConfirm={(s) => correctStatus(correcting, s)} />}
       {paying && <PaymentDialog order={paying} onClose={() => setPaying(null)} onConfirm={(m) => confirmPaid(paying, m)} />}
       {unpaying && (
         <ConfirmDialog

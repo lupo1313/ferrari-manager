@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
 import { EndServiceDialog } from './components/orders/EndServiceDialog';
@@ -8,6 +8,7 @@ import { OrdersPage } from './pages/OrdersPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { LoyaltyPage } from './pages/LoyaltyPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { StatistiquesPage } from './modules/statistiques';
 import { useAppSelector, usePersistError, useStore } from './state/StoreContext';
 import { useToast } from './components/ui/Toast';
 import { useRoute } from './state/useRoute';
@@ -18,7 +19,10 @@ export function App() {
   const orders = useAppSelector((d) => d.orders);
   const editingOrderId = useAppSelector((d) => d.cart.editingOrderId);
   const persistError = usePersistError();
-  const [route, navigate] = useRoute();
+  const [requestedRoute, navigate] = useRoute();
+  // Module Statistiques masqué : son adresse ramène à la prise de commande (aucune donnée n'est touchée).
+  const statisticsEnabled = useAppSelector((d) => d.settings.modules.statistiques);
+  const route = requestedRoute === 'statistiques' && !statisticsEnabled ? 'prise' : requestedRoute;
   const [endService, setEndService] = useState(false);
   const store = useStore();
   const toast = useToast();
@@ -39,7 +43,7 @@ export function App() {
 
   return (
     <div className="app">
-      <Sidebar route={route} onNavigate={navigate} activeOrders={activeOrders} editingOrderNumber={editing?.number ?? null} />
+      <Sidebar route={route} onNavigate={navigate} activeOrders={activeOrders} editingOrderNumber={editing?.number ?? null} statisticsEnabled={statisticsEnabled} />
       <main className="main">
         <TopBar onGoToOrderTaking={goToOrderTaking} serviceOpen={serviceOpen} onServiceAction={onServiceAction} />
         {persistError && (
@@ -51,6 +55,11 @@ export function App() {
         {route === 'commandes' && <OrdersPage onGoToOrderTaking={goToOrderTaking} serviceOpen={serviceOpen} onServiceAction={onServiceAction} />}
         {route === 'clients' && <ClientsPage onGoToOrderTaking={goToOrderTaking} />}
         {route === 'fidelite' && <LoyaltyPage />}
+        {route === 'statistiques' && (
+          <Suspense fallback={<p className="page muted">Chargement des statistiques…</p>}>
+            <StatistiquesPage />
+          </Suspense>
+        )}
         {route === 'parametres' && <SettingsPage />}
       </main>
       {endService && <EndServiceDialog onClose={() => setEndService(false)} />}

@@ -7,4 +7,5 @@ declare module 'node:fs' {
     readInt16LE(offset: number): number;
   }
   export function readFileSync(path: URL): BinaryFile;
+  export function readFileSync(path: URL, encoding: 'utf8'): string;
 }

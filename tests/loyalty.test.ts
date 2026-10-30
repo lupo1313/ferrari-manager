@@ -25,7 +25,7 @@ function orderWith(ids: string[], rewardIds: string[] = []) {
     const kind = p(id).category === 'pizza' ? 'pizza' : 'boisson';
     cart = { ...cart, lines: [...cart.lines, createLine(p(id), `r${i}`, {}, kind)] };
   });
-  return buildOrder(cart, { id: 'o1', number: 1, nowIso: ctx.nowIso, customer, settings: defaultSettings });
+  return buildOrder(cart, { id: 'o1', number: 1, nowIso: ctx.nowIso, customer });
 }
 
 /** Les pizzas ne sont créditées qu'une fois la commande encaissée. */

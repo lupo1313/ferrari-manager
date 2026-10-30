@@ -36,18 +36,21 @@ src/
 │   ├── customers.ts   Validation, normalisation du téléphone, recherche, doublons
 │   ├── loyalty.ts     Fidélité : solde recalculé depuis un journal, réconciliation idempotente
 │   ├── orders.ts      Statuts, validation de commande, modification, fin de service
+│   ├── service.ts     Service ouvert/fermé, historique des services, rattachement des commandes
 │   ├── ticket.ts      Modèle de ticket indépendant de l'affichage
 │   └── money.ts, time.ts, ids.ts
 ├── data/              Données de démonstration (à remplacer par la vraie carte)
 │   ├── catalog.ts     Pizzas, boissons, desserts, suppléments
-│   ├── defaultSettings.ts  Frais de livraison, largeur de ticket, produits éligibles
+│   ├── defaultSettings.ts  Largeur de ticket, son, produits éligibles, modules facultatifs
 │   └── seed.ts        Clients et commandes fictifs
 ├── storage/           Persistance abstraite (localStorage aujourd'hui, base de données demain)
 ├── state/             Store applicatif (orchestration domaine + persistance) et navigation
 ├── components/        Interface : layout, customer, catalog, order, orders, ticket, loyalty, ui
 ├── pages/             Prise de commande, Commandes, Clients, Fidélité, Paramètres
+├── modules/
+│   └── statistiques/  Module FACULTATIF : tableau de bord (calculs purs + interface), chargé à la demande
 └── styles/            CSS organisé par zone (tokens, base, layout, colonnes, pages, ticket)
-tests/                 Tests Vitest : prix, clients, fidélité, scénario complet du store
+tests/                 Tests Vitest : prix, clients, fidélité, services, statistiques, scénario complet du store
 ```
 
 ### Choix d'architecture
@@ -68,7 +71,7 @@ Deux clés `localStorage` :
 
 | Clé | Contenu | Écrite quand |
 | --- | --- | --- |
-| `ferrari-manager:v1` | Historique : commandes, journal de fidélité, clients, paramètres, compteur, état du service | Validation, modification, statut, encaissement, annulation, impression demandée, fiche client, paramètres, ouverture/fermeture du service |
+| `ferrari-manager:v1` | Historique : commandes, journal de fidélité, clients, paramètres, compteur, état et historique des services | Validation, modification, statut, encaissement, annulation, impression demandée, fiche client, paramètres, ouverture/fermeture du service |
 | `ferrari-manager:v1:panier` | Commande en cours de saisie | Immédiatement à chaque ajout, quantité, client, mode ou heure ; regroupée (au plus 300 ms) pendant la saisie d'une note ou d'un nom comptoir, et forcée quand l'onglet passe en arrière-plan ou se ferme (`pagehide`, `visibilitychange`) |
 
 Ce qui est garanti :
@@ -85,6 +88,8 @@ Limites assumées en V1 :
 - Une fermeture brutale (plantage du navigateur, batterie) dans les 300 ms qui suivent une frappe peut perdre ces derniers caractères de la note.
 - Deux onglets ouverts sur l'application ne se synchronisent pas : le dernier qui écrit gagne.
 - Un panier illisible est remplacé par un panier vide (l'historique, lui, reste protégé).
+- **Saturation du stockage.** `localStorage` est limité à environ 5 Mo par origine, et `lupo1313.github.io` est **une seule origine** partagée par la production, la prévisualisation et les autres sites GitHub Pages du compte. Une commande pèse environ 1,8 Ko : un service de 50 commandes ajoute environ 93 Ko, soit environ 55 services (2 mois à 6 services par semaine) avant saturation. Aucune commande n'est jamais supprimée automatiquement. Quand le stockage est plein, l'écriture échoue et l'action est refusée avec un message (rien n'est perdu de ce qui était déjà enregistré, mais plus rien ne peut l'être). À traiter avant une utilisation quotidienne réelle : export/sauvegarde, purge validée des anciennes commandes ou base distante.
+- L'historique des services et les statistiques ajoutent très peu (environ 150 octets par service) : le risque de saturation vient des commandes, conservées indéfiniment.
 
 À reprendre côté serveur en V2 (Supabase) :
 
@@ -96,6 +101,27 @@ Limites assumées en V1 :
 - Le panier peut rester local.
 
 ---
+
+## Livraison
+
+Règle définitive du gérant (30/10/2026) : **la livraison est toujours offerte, 0 €, sans exception.** Il n'existe plus aucun réglage de frais (`DELIVERY_FEE = 0` dans `domain/pricing.ts`) ; un ancien réglage stocké est ignoré à la lecture et un frais transmis à `updateSettings` est écarté. Les anciennes commandes enregistrées avec 2,00 € de frais **gardent leurs frais figés** (ticket compris) ; si l'une d'elles est modifiée, elle est recalculée à 0 €.
+
+## Statistiques (module facultatif)
+
+Onglet *Statistiques* : bilan par **service**, **jour**, **semaine** (lundi à dimanche) ou **mois**, avec flèches pour remonter l'historique. Les chiffres sont **indicatifs** : ils reposent sur les encaissements marqués à la main, ce n'est ni une caisse ni une comptabilité certifiée (avertissement permanent sur la page).
+
+- **Historique des services** (socle, indépendant du module) : chaque ouverture crée un service (`services` dans l'historique), chaque fermeture le clôture. Un nouveau service commence à zéro ; les bilans précédents restent consultables, rien n'est effacé.
+- **Rattachement** : une commande appartient au service où elle a été créée (`order.serviceId`, jamais modifié ensuite, même si elle est modifiée, encaissée ou annulée plus tard).
+- **Encaissement tardif** : reste compté dans le service d'origine, affiché « après la clôture » ; le service en cours le signale à part sans l'ajouter à son total.
+- **Montants** = somme des lignes : les frais de livraison, même anciens, ne sont jamais comptés.
+- **Annulées** : exclues de tous les totaux et compteurs, affichées à part (y compris annulées après encaissement).
+- **Cadeaux fidélité** : jamais comptés comme ventes ; comptés à part (« produits offerts »).
+- **Paiement non suivi** (anciennes commandes) : ni encaissé ni à encaisser, inclus dans le total enregistré et signalé.
+- **Avant le suivi des services** : commandes antérieures à la mise en place de l'historique, regroupées dans un bloc à part (vue Service), jamais mêlées aux jours, semaines et mois.
+- **Après minuit** : un service reste rattaché au jour de son ouverture ; l'axe horaire suit l'ordre du service (23 h, 0 h, 1 h).
+- **Classement** : top 5 des pizzas, boissons et desserts par quantité (ou par montant hors suppléments), sur les commandes non annulées.
+
+**Module facultatif** : *Paramètres → Modules facultatifs → Onglet Statistiques : Affiché / Masqué*. Masquer l'onglet ne supprime ni ne modifie aucune donnée ; l'historique des services continue d'être tenu. Le module ne fait que LIRE les données (aucun appel au store qui écrit), il est chargé à la demande (fichier séparé). Pour le retirer complètement : voir l'en-tête de `src/modules/statistiques/index.ts`.
 
 ## Programme de fidélité (règles implémentées)
 
@@ -112,7 +138,7 @@ Limites assumées en V1 :
 
 ## Suivi d'encaissement
 
-Ferrari Manager reste une application de prise de commandes, **pas une caisse** : aucun total encaissé, aucune ventilation par moyen de paiement, aucun rendu de monnaie, aucune facture.
+Ferrari Manager reste une application de prise de commandes, **pas une caisse** : aucune ventilation par moyen de paiement, aucun rendu de monnaie, aucune facture. Seul le module facultatif *Statistiques* affiche un total des commandes marquées encaissées, présenté comme indicatif (voir plus bas).
 
 - Chaque commande a un statut de paiement **À encaisser / Encaissée**, indépendant de son statut de préparation (une commande peut être prête et à encaisser, ou en préparation et encaissée).
 - Sur la carte de la commande : **Marquer encaissée**, puis un appui sur *Espèces*, *Carte bancaire* ou *Non précisé*.
@@ -136,11 +162,11 @@ Ces commandes n'ont pas de statut de paiement. Elles ne sont **ni supposées enc
 
 1. Recherche client : taper `06 12 34` dans la colonne Client, puis sélectionner **Jean Dupont** (1 récompense disponible, 2/10).
 2. Ajouter une **Royale** via le crayon : retirer *Œuf*. Ajouter une **Chèvre Miel** avec le supplément *Miel* (+0,50 €).
-3. Ajouter un **Coca-Cola 1,5L**, choisir **Livraison** (adresse affichée, frais 2,00 €).
-4. Vérifier le total : 14,00 + 14,50 + 4,00 + 2,00 = **34,50 €**.
+3. Ajouter un **Coca-Cola 1,5L**, choisir **Livraison** (adresse affichée, livraison « Offerte »).
+4. Vérifier le total : 14,00 + 14,50 + 4,00 = **32,50 €** (livraison toujours offerte).
 5. **Utiliser une récompense** → Grande bouteille → Fanta 1,5L (offert, le total ne change pas).
 6. **Valider et imprimer** → aperçu du ticket → *Imprimer* ouvre la boîte de dialogue du navigateur.
-7. **Commandes** : retrouver la commande, changer son statut (boutons de statut ou « Lancer la préparation »).
+7. **Commandes** : retrouver la commande, la faire avancer avec le bouton principal (« Lancer la préparation », « Marquer prête », « Terminer la commande ») ; corriger un statut via le menu « ••• ».
 8. Page **Fidélité** : Jean a toujours 2/10 (pizzas en attente d'encaissement) et 1 récompense réservée.
 9. Sur la commande : **Marquer encaissée** → *Carte bancaire*. Jean passe à 4/10, la récompense est consommée.
 10. **Annuler** la commande (confirmation « remboursement traité ») : Jean revient à 2/10 avec 1 récompense disponible.
@@ -189,7 +215,7 @@ Après un changement de carte, réinitialiser les données de démonstration (Pa
 - Impression via la boîte de dialogue du navigateur. Aucune imprimante thermique n'est pilotée, et un ticket n'est jamais marqué « imprimé » (seule la demande d'impression est tracée).
 - Pas d'authentification ni de rôles (tout le monde a accès à tout).
 - Carte figée dans le code : pas d'écran d'édition des produits.
-- Les entrées *Carte* et *Statistiques* de la maquette ne sont pas développées (hors périmètre V1, aucun bouton décoratif ajouté).
+- L'entrée *Carte* de la maquette n'est pas développée. *Statistiques* existe sous forme de module facultatif (masquable dans Paramètres).
 - Pas de suppression de fiche client (prévu avec la gestion RGPD en V2).
 - Testé en navigateur (Chromium) aux formats 1280×800, 1024×700 et 800×1100. À valider sur la tablette Samsung réelle.
 
@@ -206,7 +232,7 @@ Après un changement de carte, réinitialiser les données de démonstration (Pa
 ### Points à valider avec le client
 
 - Les suppléments ajoutés sur une pizza offerte restent payants (choix actuel).
-- Frais de livraison : 2,00 € dans la maquette, alors que le site annonce la livraison offerte dans certains arrondissements. Valeur modifiable dans Paramètres.
+- ~~Frais de livraison~~ : **réglé le 30/10/2026**, la livraison est toujours offerte (0 €, sans exception, non modifiable).
 - Liste des pizzas éligibles (actuellement Margarita, Reine, Fromage, Napolitaine, Anchois) et des grandes bouteilles (Coca, Fanta, Sprite 1,5 L).
 - Numérotation des commandes remise à 1 à la fin de service, seulement s'il ne reste aucune commande affichée (en cours ou terminée non encaissée).
 - Plusieurs récompenses dans une même commande : une seule pizza payante suffit actuellement (règle « au moins une pizza payante »). À confirmer si le gérant veut une pizza payante par cadeau.

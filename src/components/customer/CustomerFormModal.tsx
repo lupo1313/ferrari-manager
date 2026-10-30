@@ -94,8 +94,8 @@ export function CustomerFormModal({ customer, initialPhone, selectOnCreate = tru
                 type="button"
                 className="btn btn--sm"
                 onClick={() => {
-                  store.selectCustomer(duplicate.id);
-                  toast(`${customerFullName(duplicate)} sélectionné`, 'success');
+                  const r = store.selectCustomer(duplicate.id);
+                  toast(r.ok ? `${customerFullName(duplicate)} sélectionné` : r.error, r.ok ? 'success' : 'error');
                   onClose();
                 }}
               >

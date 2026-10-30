@@ -6,6 +6,7 @@ import { addProduct, emptyCart } from '../domain/cart';
 import { buildCustomer, EMPTY_CUSTOMER_INPUT, type CustomerInput } from '../domain/customers';
 import { buildOrder, withStatus } from '../domain/orders';
 import { reconcileOrderLoyalty } from '../domain/loyalty';
+import { serviceIdFromStart } from '../domain/service';
 import { defaultSettings } from './defaultSettings';
 
 /**
@@ -107,20 +108,24 @@ export function buildDemoData(catalog: Catalog, now: Date, newId: IdFactory): Ap
     return p;
   };
 
+  // Service de démonstration ouvert depuis deux heures.
+  const serviceStartedAt = iso(120);
+  const serviceId = serviceIdFromStart(serviceStartedAt);
+
   // Deux commandes en cours pour que l'écran de suivi ne soit pas vide.
   const orders: Order[] = [];
 
   let cart: Cart = { ...emptyCart(newId('ord')), customerId: customers[1].id, mode: 'livraison' };
   cart = addProduct(cart, product('reine'), newId('lin'));
   cart = addProduct(cart, product('coca-150'), newId('lin'));
-  let order = buildOrder(cart, { id: cart.draftId, number: 1, nowIso: iso(18), customer: customers[1], settings });
+  let order = buildOrder(cart, { id: cart.draftId, number: 1, nowIso: iso(18), customer: customers[1], serviceId });
   order = withStatus(order, 'en_preparation', iso(12));
   orders.push(order);
 
   let counter: Cart = { ...emptyCart(newId('ord')), counterName: 'Paul', mode: 'emporter' };
   counter = addProduct(counter, product('margarita'), newId('lin'));
   counter = addProduct(counter, product('margarita'), newId('lin'));
-  orders.push(buildOrder(counter, { id: counter.draftId, number: 2, nowIso: iso(6), customer: null, settings }));
+  orders.push(buildOrder(counter, { id: counter.draftId, number: 2, nowIso: iso(6), customer: null, serviceId }));
 
   for (const o of orders) {
     events = [...events, ...reconcileOrderLoyalty(events, o, { nowIso: o.createdAt, newId })];
@@ -134,8 +139,9 @@ export function buildDemoData(catalog: Catalog, now: Date, newId: IdFactory): Ap
     settings,
     counters: { nextOrderNumber: 3 },
     cart: emptyCart(newId('ord')),
-    serviceStartedAt: iso(120),
+    serviceStartedAt,
     serviceOpen: true,
     serviceClosedAt: null,
+    services: [{ id: serviceId, openedAt: serviceStartedAt, closedAt: null }],
   };
 }

@@ -245,6 +245,68 @@ p {
   color: #fff;
 }
 
+/* ---------- Menu d'actions « ••• » (tactile, sans survol) ---------- */
+
+.action-menu {
+  position: relative;
+}
+.action-menu__trigger {
+  min-width: var(--tap);
+}
+.action-menu__trigger[aria-expanded='true'] {
+  background: var(--surface-2);
+  border-color: var(--text-3);
+}
+.action-menu__dots {
+  font-size: 16px;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+.action-menu__list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 290px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+}
+.action-menu__list--up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.action-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text);
+}
+.action-menu__item > span {
+  flex: 1;
+}
+.action-menu__item:hover,
+.action-menu__item:focus-visible {
+  background: var(--surface-2);
+}
+.action-menu__item--danger {
+  color: var(--red-ink);
+}
+
 /* ---------- Divers ---------- */
 
 .badge {

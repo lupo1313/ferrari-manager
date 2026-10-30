@@ -170,6 +170,24 @@ export interface Order {
   printRequests: string[];
   /** Renseigné à la fin de service : la commande quitte l'écran opérationnel mais reste conservée. */
   archivedAt: string | null;
+  /**
+   * Service pendant lequel la commande a été créée (voir ServiceRecord). Fixé à la création,
+   * jamais modifié ensuite. Absent sur les commandes d'avant le suivi des services.
+   */
+  serviceId?: string;
+}
+
+/* ---------- Services ---------- */
+
+/**
+ * Un service, de son ouverture à sa fermeture. Socle de l'historique des services :
+ * indépendant de l'affichage des statistiques, qui ne fait que le lire.
+ */
+export interface ServiceRecord {
+  id: string;
+  openedAt: string;
+  /** null tant que le service est ouvert. */
+  closedAt: string | null;
 }
 
 /* ---------- Fidélité ---------- */
@@ -226,11 +244,15 @@ export interface Settings {
     address: string;
     phone: string;
   };
-  deliveryFee: Cents;
   ticketWidthMm: TicketWidth;
   /** Petit son de confirmation à chaque encaissement réussi. */
   paymentSound: boolean;
   /** Son choisi : « Notification de vente » ou « Caisse enregistreuse ». */
   paymentSoundKind: PaymentSoundKind;
   loyalty: LoyaltyRules;
+  /**
+   * Modules facultatifs, masquables à tout moment. Les masquer ne supprime aucune donnée :
+   * commandes et services sont enregistrés de la même façon, module visible ou non.
+   */
+  modules: { statistiques: boolean };
 }

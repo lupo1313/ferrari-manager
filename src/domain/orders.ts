@@ -1,4 +1,4 @@
-import type { Cart, Customer, Order, OrderMode, OrderStatus, Settings } from './types';
+import type { Cart, Customer, Order, OrderMode, OrderStatus } from './types';
 import { computeTotals } from './pricing';
 import { hasDeliveryAddress, snapshotCustomer } from './customers';
 import { isValidTimeOfDay } from './time';
@@ -45,6 +45,48 @@ export function nextStatus(status: OrderStatus): OrderStatus | null {
   return i >= 0 && i < STATUS_FLOW.length - 1 ? STATUS_FLOW[i + 1] : null;
 }
 
+/* ---------- Actions proposées sur une carte de commande ---------- */
+
+const PRIMARY_LABELS: Partial<Record<OrderStatus, string>> = {
+  a_preparer: 'Lancer la préparation',
+  en_preparation: 'Marquer prête',
+  prete: 'Terminer la commande',
+};
+
+/**
+ * Action principale de préparation : une seule, l'étape suivante du flux.
+ * Aucune pour une commande terminée, annulée ou archivée.
+ */
+export function primaryAction(order: Order): { to: OrderStatus; label: string } | null {
+  if (order.archivedAt || order.status === 'annulee') return null;
+  const to = nextStatus(order.status);
+  return to ? { to, label: PRIMARY_LABELS[order.status] ?? STATUS_LABELS[to] } : null;
+}
+
+/** Statuts proposés pour corriger une erreur de saisie : tous ceux du flux sauf l'actuel (mêmes transitions qu'avant). */
+export function statusCorrections(order: Order): OrderStatus[] {
+  return STATUS_FLOW.filter((s) => canChangeStatus(order, s));
+}
+
+/** « Marquer encaissée » visible directement sur la carte. */
+export function canMarkPaidFromCard(order: Order): boolean {
+  return !order.archivedAt && order.status !== 'annulee' && !isPaid(order);
+}
+
+export type OrderMenuAction = 'ticket' | 'corriger_statut' | 'annuler_encaissement' | 'annuler';
+
+/**
+ * Actions secondaires d'une carte (menu « ••• »), dans l'ordre d'affichage. Aucune n'est automatique :
+ * l'annulation et l'annulation d'encaissement gardent leurs confirmations.
+ */
+export function secondaryActions(order: Order): OrderMenuAction[] {
+  const actions: OrderMenuAction[] = ['ticket'];
+  if (statusCorrections(order).length > 0) actions.push('corriger_statut');
+  if (isPaid(order) && !order.archivedAt && order.status !== 'annulee') actions.push('annuler_encaissement');
+  if (canCancelOrder(order)) actions.push('annuler');
+  return actions;
+}
+
 export interface CartValidationContext {
   customer: Customer | null;
   /** Récompenses restantes une fois celles du panier déduites (voir rewardsRemainingForCart). */
@@ -81,13 +123,15 @@ export interface BuildOrderParams {
   number: number;
   nowIso: string;
   customer: Customer | null;
-  settings: Settings;
+  /** Service en cours, rattaché à une NOUVELLE commande ; une modification garde celui d'origine. */
+  serviceId?: string;
   /** Version précédente quand on modifie une commande existante. */
   previous?: Order;
 }
 
 export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
-  const totals = computeTotals(cart.lines, cart.mode, { deliveryFee: p.settings.deliveryFee });
+  // Livraison toujours offerte : une commande modifiée est elle aussi recalculée sans frais.
+  const totals = computeTotals(cart.lines);
   const base = {
     customerId: p.customer?.id ?? null,
     customer: p.customer ? snapshotCustomer(p.customer) : null,
@@ -113,6 +157,7 @@ export function buildOrder(cart: Cart, p: BuildOrderParams): Order {
     payment: unpaid(),
     printRequests: [],
     archivedAt: null,
+    ...(p.serviceId ? { serviceId: p.serviceId } : {}),
     ...base,
   };
 }
@@ -138,6 +183,18 @@ export function orderToCart(order: Order): Cart {
     lines: order.lines.map((l) => ({ ...l })),
     note: order.note,
   };
+}
+
+export const EDIT_CUSTOMER_LOCKED_MESSAGE =
+  'Une commande en modification reste rattachée à son client d’origine. Enregistrez ou abandonnez la modification pour servir un autre client.';
+
+/**
+ * Pendant la modification d'une commande, son client ne change pas (recherche, page Clients, nouvelle fiche) :
+ * l'enregistrement ne doit jamais rattacher silencieusement la commande à quelqu'un d'autre.
+ */
+export function canChangeCartCustomer(cart: Cart, customerId: string | null, editedOrder: Order | undefined): boolean {
+  if (!cart.editingOrderId) return true;
+  return customerId === (editedOrder ? editedOrder.customerId : cart.customerId);
 }
 
 /**

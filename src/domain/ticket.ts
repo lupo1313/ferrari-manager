@@ -83,7 +83,8 @@ export function buildTicket(order: Order, settings: Settings): TicketModel {
     })),
     note: order.note || null,
     subtotal: formatPrice(order.totals.subtotal),
-    deliveryFee: order.mode === 'livraison' ? formatPrice(order.totals.deliveryFee) : null,
+    // Livraison toujours offerte ; une ancienne commande garde l'affichage de ses frais d'origine.
+    deliveryFee: order.mode === 'livraison' ? (order.totals.deliveryFee > 0 ? formatPrice(order.totals.deliveryFee) : 'Offerte') : null,
     savings: savings > 0 ? formatPrice(savings) : null,
     total: formatPrice(order.totals.total),
     statusWarning: order.status === 'annulee' ? 'COMMANDE ANNULÉE' : null,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../ui/Icon';
 import { useAppSelector, useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
+import { useOrderForCustomer } from '../order/EditInProgressDialog';
 import { customerFullName, formatPhone, searchCustomers } from '../../domain/customers';
 import { formatPrice } from '../../domain/money';
 import { serviceIndicator } from '../../domain/service';
@@ -34,6 +35,7 @@ export function TopBar({ onGoToOrderTaking, serviceOpen, onServiceAction }: TopB
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const orderFor = useOrderForCustomer(onGoToOrderTaking);
 
   const results = useMemo(() => {
     const q = query.trim();
@@ -98,10 +100,7 @@ export function TopBar({ onGoToOrderTaking, serviceOpen, onServiceAction }: TopB
                     type="button"
                     className="search-results__item"
                     onClick={() => {
-                      const r = store.selectCustomer(c.id);
-                      if (r.ok && r.value.removedRewards > 0) toast('Récompenses du client précédent retirées de la commande.', 'info');
-                      toast(`${customerFullName(c)} sélectionné`, 'success');
-                      onGoToOrderTaking();
+                      orderFor.request(c);
                       close();
                     }}
                   >
@@ -159,6 +158,7 @@ export function TopBar({ onGoToOrderTaking, serviceOpen, onServiceAction }: TopB
           <small>{service.action}</small>
         </span>
       </button>
+      {orderFor.dialog}
     </header>
   );
 }
