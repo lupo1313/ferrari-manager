@@ -1,7 +1,7 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 30/10/2026, intervention 4B (navigation pendant une modification, petits écrans) sur la branche `feat/commandes-cartes` (intervention 4A), partie de `feat/statistiques` (intervention 4) ; **toutes en prévisualisation, non fusionnées**.
-Ce document décrit ce qui existe **réellement** dans le code de cette branche. La production (`main`) reste à l'état des interventions 3 et 3.1 tant que la fusion n'est pas validée. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
+Dernière mise à jour : 30/10/2026, intégration de `main` (sauvegarde des données, en production) dans la branche `feat/commandes-cartes` (interventions 4, 4A et 4B) ; **interventions 4, 4A et 4B en prévisualisation, non fusionnées**.
+Ce document décrit ce qui existe **réellement** dans le code de cette branche. La production (`main`) est à l'état des interventions 3 et 3.1 plus la sauvegarde des données tant que la fusion n'est pas validée. Les règles ci-dessous sont couvertes par des tests sauf mention contraire.
 
 ## 1. En production
 
@@ -128,12 +128,13 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - Compatibilité vérifiée le 30/10 sur un instantané réel de l'ancienne production : aucune alerte, aucune réécriture au chargement, commandes et points intacts.
 - Prévisualisation : clés `ferrari-manager-apercu-i3:*` (variable `VITE_STORAGE_NAMESPACE`), totalement séparées de la production, même origine.
 - **Retour à l'ancienne version** possible : elle conserve les champs ajoutés (`services`, `serviceId`) car le dépôt réécrit le document en gardant les champs inconnus. Elle réafficherait toutefois 2 € de frais par défaut (son propre réglage).
-- **Limites** : données propres à chaque appareil et à chaque navigateur, sans synchronisation ni sauvegarde ; perdues si le navigateur est vidé ; deux onglets ouverts = le dernier qui écrit gagne.
+- **Sauvegarde** (Paramètres → « Sauvegarder mes données », `src/storage/export.ts`) : fichier JSON nommé avec la date et l'heure, contenant le texte exact de chaque clé `ferrari-manager:*` (historique et panier), la longueur et l'empreinte SHA-256 de chacune, et un résumé (commandes, encaissées, clients, fidélité, prochain numéro, état du service). Lecture seule : aucune écriture ni suppression. Le fichier est vérifié avant d'être proposé (empreintes, résumé, identité avec le stockage), puis téléchargé par un appui sur « Télécharger le fichier » (ou « Partager » si le navigateur le permet). Pas de fonction d'import à ce stade : une restauration consisterait à remettre ces textes dans les deux clés.
+- **Limites** : données propres à chaque appareil et à chaque navigateur, sans synchronisation ; perdues si le navigateur est vidé (sauf sauvegarde manuelle) ; deux onglets ouverts = le dernier qui écrit gagne.
 - **Saturation** : environ 5 Mo par origine, partagés entre la production, la prévisualisation et les autres sites `lupo1313.github.io`. Environ 1,8 Ko par commande, soit environ 93 Ko par service de 50 commandes : saturation vers 55 services (environ 2 mois). Les commandes ne sont jamais supprimées automatiquement ; une écriture refusée bloque l'action avec un message. À traiter avant l'utilisation quotidienne (Priorité 4).
 
 ## 4. Tests
 
-180 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
+193 tests Vitest, tous réussis au 30/10 (branche `feat/commandes-cartes`) :
 
 | Fichier | Sujet |
 | --- | --- |
@@ -149,6 +150,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 | `statistiques.test.ts` (22) | Indicateurs, quantités, cadeaux, annulations (dont après encaissement), modifications, encaissements tardifs, minuit, changement d'heure, anciennes données, jour/semaine/mois, lecture seule |
 | `modification-navigation.test.ts` (10) | Intervention 4B : client verrouillé pendant une modification (tous les chemins), annulation, abandon sans toucher la commande enregistrée, service fermé, commande encaissée modifiée service fermé, fidélité sans double crédit, contrat CSS des actions sur petit écran |
 | `commandes-cartes.test.ts` (19) | Action principale par statut, correction de statut (dont Terminée → En préparation : paiement, fidélité, produits préservés, retour dans « En cours »), actions secondaires (aucune perdue), encaissement depuis la carte, service fermé, ancienneté, colonnes |
+| `sauvegarde.test.ts` (13) | Export à l'identique, aucune écriture (stockage espion), restauration possible, intégrité (fichier tronqué, modifié, résumé falsifié), données illisibles |
 
 Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à la main dans le navigateur.
 
@@ -162,7 +164,7 @@ Aucun test d'interface automatisé (Playwright) : l'interface est vérifiée à 
 - Une commande encaissée puis modifiée reste « Encaissée » : un écart de montant se règle hors de l'appli.
 - Carte figée dans le code (`src/data/catalog.ts`, prix de démonstration) ; l'entrée « Carte » de la maquette n'existe pas.
 - Statistiques : une commande encaissée puis modifiée compte pour son nouveau montant (l'écart réel se règle hors de l'appli) ; le classement par montant ignore les suppléments ; la nuit du changement d'heure, les deux « 2 h » sont regroupées ; un bilan clôturé peut encore évoluer si une commande est encaissée après coup (affiché « après la clôture »).
-- Pas d'authentification, pas de rôles, pas de suppression de fiche client (RGPD), pas de sauvegarde.
+- Pas d'authentification, pas de rôles, pas de suppression de fiche client (RGPD), sauvegarde manuelle uniquement (pas d'import ni de sauvegarde automatique).
 - Le README contient encore le parcours de validation et les « points à valider » de la V1 : à relire lors d'une future intervention.
 - Décisions encore ouvertes : liste définitive des pizzas éligibles ; reprise d'un service fermé par erreur (B3) ; intérêt définitif du module Statistiques (masquable en attendant).
 - Avant la fusion de l'intervention 4 : charger un instantané réel des données de la tablette dans un test temporaire (règle CLAUDE.md), non encore fait.
