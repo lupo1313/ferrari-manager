@@ -2,7 +2,7 @@ import type { Cart, Customer, Order, OrderMode, OrderStatus, Settings } from './
 import { computeTotals } from './pricing';
 import { hasDeliveryAddress, snapshotCustomer } from './customers';
 import { isValidTimeOfDay } from './time';
-import { hasRewardWithoutPaidPizza, MAX_QUANTITY, REWARD_NEEDS_PAID_PIZZA } from './cart';
+import { hasRewardWithoutPaidPizza, hasTooManyRewards, MAX_QUANTITY, ONE_REWARD_PER_ORDER, REWARD_NEEDS_PAID_PIZZA } from './cart';
 import { isLegacyUnpaid, isPaid, unpaid } from './payment';
 
 export const STATUS_FLOW: OrderStatus[] = ['a_preparer', 'en_preparation', 'prete', 'terminee'];
@@ -69,6 +69,7 @@ export function validateCart(cart: Cart, ctx: CartValidationContext): string[] {
     else if (ctx.rewardsRemaining < 0) errors.push('Le client n’a pas assez de récompenses disponibles.');
     // Règle précise de fidélité (pas une interdiction des commandes à 0 €) : cadeau = au moins une pizza payante.
     if (hasRewardWithoutPaidPizza(cart.lines)) errors.push(REWARD_NEEDS_PAID_PIZZA);
+    if (hasTooManyRewards(cart.lines)) errors.push(ONE_REWARD_PER_ORDER);
   }
   return errors;
 }

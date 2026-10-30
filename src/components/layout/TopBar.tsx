@@ -136,7 +136,7 @@ export function TopBar({ onGoToOrderTaking, onEndService }: TopBarProps) {
       </div>
 
       <span className="pill pill--muted topbar__test" title="Version de test : ne pas saisir de véritables données clients">
-        <Icon name="info" size={14} /> Version de test
+        <Icon name="info" size={14} /> {import.meta.env.VITE_PREVIEW_LABEL || 'Version de test'}
       </span>
 
       <div className="topbar__clock" aria-label="Date et heure">

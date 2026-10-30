@@ -39,7 +39,8 @@ export function LoyaltyCard({
   onUseReward,
 }: LoyaltyCardProps) {
   const hasReward = balance.available > 0;
-  const canUse = remaining >= 1 && !needsPaidPizza;
+  // Une seule récompense par commande (règle appliquée aussi par le store).
+  const canUse = remaining >= 1 && !needsPaidPizza && rewardsInCart === 0;
   return (
     <section className={`loyalty-card ${hasReward ? 'loyalty-card--ready' : ''}`} aria-label="Fidélité">
       <div className="loyalty-card__head">
@@ -92,15 +93,15 @@ export function LoyaltyCard({
 
       <button type="button" className="btn btn--gold btn--block" onClick={onUseReward} disabled={!canUse}>
         <Icon name="gift" size={20} />
-        {rewardsInCart > 0 && remaining < 1 ? 'Récompense ajoutée' : 'Utiliser une récompense'}
+        {rewardsInCart > 0 ? 'Récompense ajoutée' : 'Utiliser une récompense'}
       </button>
-      {remaining >= 1 && needsPaidPizza && (
+      {rewardsInCart === 0 && remaining >= 1 && needsPaidPizza && (
         <p className="loyalty-card__note">Ajoutez d’abord une pizza payante : le cadeau s’ajoute à un achat.</p>
       )}
       {rewardsInCart > 0 && (
         <p className="loyalty-card__note">
-          {rewardsInCart} récompense{s(rewardsInCart)} dans la commande : réservée{s(rewardsInCart)} à l’enregistrement, consommée
-          {s(rewardsInCart)} à l’encaissement.
+          Récompense dans la commande : réservée à l’enregistrement, consommée à l’encaissement. Une seule par commande
+          {remaining > 0 ? ` (${remaining} autre${s(remaining)} gardée${s(remaining)} pour une prochaine commande)` : ''}.
         </p>
       )}
     </section>

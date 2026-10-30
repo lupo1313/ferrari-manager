@@ -53,8 +53,21 @@ export interface AppRepository {
   clear(): void;
 }
 
-export const STORAGE_KEY = 'ferrari-manager:v1';
-export const CART_KEY = 'ferrari-manager:v1:panier';
+/**
+ * Espace de noms des clés locales, fixé au build (VITE_STORAGE_NAMESPACE).
+ * Build normal : « ferrari-manager », clés inchangées. Prévisualisation : un autre espace, pour ne jamais
+ * lire ni écrire les données de la version actuelle, même sur la même origine (lupo1313.github.io).
+ * Valeur invalide : on retombe sur l'espace par défaut plutôt que de fabriquer une clé imprévisible.
+ */
+export const DEFAULT_STORAGE_NAMESPACE = 'ferrari-manager';
+
+export function storageNamespace(raw: unknown): string {
+  return typeof raw === 'string' && /^[a-z0-9][a-z0-9-]{1,48}$/.test(raw) ? raw : DEFAULT_STORAGE_NAMESPACE;
+}
+
+export const STORAGE_NAMESPACE = storageNamespace(import.meta.env.VITE_STORAGE_NAMESPACE);
+export const STORAGE_KEY = `${STORAGE_NAMESPACE}:v1`;
+export const CART_KEY = `${STORAGE_NAMESPACE}:v1:panier`;
 
 /** Interprète le texte stocké. Un JSON corrompu est une erreur, jamais « rien d'enregistré ». */
 export function parseStored(raw: string | null): { kind: 'empty' } | { kind: 'data'; value: unknown } | { kind: 'error'; error: string } {

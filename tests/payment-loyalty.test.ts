@@ -4,8 +4,8 @@ import { createMemoryRepository } from '../src/storage/repository';
 import { demoCatalog } from '../src/data/catalog';
 import { buildDemoData } from '../src/data/seed';
 import { computeBalance, customerLoyaltyStatus, reconcileOrderLoyalty } from '../src/domain/loyalty';
-import { addProduct, createLine, emptyCart, hasRewardWithoutPaidPizza, REWARD_NEEDS_PAID_PIZZA } from '../src/domain/cart';
-import { buildOrder } from '../src/domain/orders';
+import { addProduct, createLine, emptyCart, hasRewardWithoutPaidPizza, ONE_REWARD_PER_ORDER, REWARD_NEEDS_PAID_PIZZA } from '../src/domain/cart';
+import { buildOrder, validateCart } from '../src/domain/orders';
 import { cannotMarkPaid } from '../src/domain/payment';
 import { defaultSettings } from '../src/data/defaultSettings';
 import type { Cart } from '../src/domain/types';
@@ -250,14 +250,88 @@ describe('C. Réservation des récompenses', () => {
     expect(t.rewardEvents(a.id).map((e) => e.delta)).toEqual([1, -1]);
   });
 
-  it('plusieurs récompenses disponibles : chacune n’est utilisable qu’une fois', () => {
+});
+
+describe('F. Une seule récompense par commande', () => {
+  /** Karim Benali (démo) : 23 pizzas = 2 récompenses disponibles. */
+  const karimSetup = () => {
     const t = setup();
-    const karim = t.customer('Benali'); // 23 pizzas = 2 récompenses
-    t.store.selectCustomer(karim.id);
+    const karim = t.customer('Benali');
+    const bal = () => computeBalance(t.store.getData().loyaltyEvents, karim.id, t.store.getData().settings.loyalty);
+    return { ...t, karim, bal };
+  };
+
+  it('client avec plusieurs récompenses et plusieurs pizzas payantes : une seule récompense acceptée, les autres restent disponibles', () => {
+    const t = karimSetup();
+    expect(t.bal().available).toBe(2);
+    t.store.selectCustomer(t.karim.id);
     t.store.addProduct('reine');
+    t.store.addProduct('royale');
     expect(t.store.addReward('pizza', 'margarita').ok).toBe(true);
+    const second = t.store.addReward('boisson', 'coca-150');
+    expect(!second.ok && second.error).toContain('Une seule récompense');
+    expect(t.store.getData().cart.lines.filter((l) => l.reward)).toHaveLength(1);
+    const r = t.store.validateCart();
+    expect(r.ok).toBe(true);
+    // 1 récompense réservée, 1 toujours disponible pour une prochaine commande.
+    expect(t.bal().available).toBe(1);
+    t.store.selectCustomer(t.karim.id);
+    t.store.addProduct('reine');
     expect(t.store.addReward('boisson', 'coca-150').ok).toBe(true);
-    expect(t.store.addReward('boisson', 'fanta-150').ok).toBe(false);
+    expect(t.store.validateCart().ok).toBe(true);
+    expect(t.bal().available).toBe(0);
+  });
+
+  it('contournement par modification : impossible d’ajouter un 2e cadeau à une commande existante', () => {
+    const t = karimSetup();
+    t.store.selectCustomer(t.karim.id);
+    t.store.addProduct('reine');
+    t.store.addProduct('royale');
+    t.store.addReward('pizza', 'margarita');
+    const r = t.store.validateCart();
+    if (!r.ok) throw new Error(r.error);
+    // Modification de la commande (encaissée ou non) : le 2e cadeau est refusé.
+    t.store.markOrderPaid(r.value.id, 'especes');
+    t.store.startEditOrder(r.value.id);
+    expect(t.store.addReward('boisson', 'coca-150').ok).toBe(false);
+    // Retirer puis remettre un cadeau reste possible (toujours un seul).
+    const gift = t.store.getData().cart.lines.find((l) => l.reward)!;
+    t.store.removeLine(gift.id);
+    expect(t.store.addReward('boisson', 'coca-150').ok).toBe(true);
+    const v2 = t.store.validateCart();
+    expect(v2.ok && v2.value.lines.filter((l) => l.reward)).toHaveLength(1);
+    expect(t.rewardEvents(r.value.id).reduce((s, e) => s + e.delta, 0)).toBe(1);
+    expect(t.bal().available).toBe(1);
+  });
+
+  it('contournement par un panier forgé (2 cadeaux) : refusé à l’enregistrement et à l’encaissement', () => {
+    const karim = buildDemoData(demoCatalog, new Date('2026-10-29T19:00:00'), (p) => p + Math.random()).customers[2];
+    const prod = (id: string) => demoCatalog.products.find((p) => p.id === id)!;
+    let cart: Cart = { ...emptyCart('f'), customerId: karim.id };
+    cart = addProduct(cart, prod('reine'), 'l1');
+    cart = addProduct(cart, prod('royale'), 'l2');
+    cart = { ...cart, lines: [...cart.lines, createLine(prod('margarita'), 'g1', {}, 'pizza'), createLine(prod('coca-150'), 'g2', {}, 'boisson')] };
+    // Même avec assez de récompenses (rewardsRemaining positif), la règle refuse.
+    expect(validateCart(cart, { customer: karim, rewardsRemaining: 5 })).toContain(ONE_REWARD_PER_ORDER);
+    const forged = buildOrder(cart, { id: 'f', number: 7, nowIso: 'x', customer: karim, settings: defaultSettings });
+    expect(cannotMarkPaid(forged)).toContain('Une seule récompense');
+  });
+
+  it('commande stockée avec 2 cadeaux (anciennes données) : non encaissable tant qu’elle n’est pas corrigée', () => {
+    const t = karimSetup();
+    t.store.selectCustomer(t.karim.id);
+    t.store.addProduct('reine');
+    t.store.addReward('pizza', 'margarita');
+    const r = t.store.validateCart();
+    if (!r.ok) throw new Error(r.error);
+    const doc = JSON.parse(t.repo.raw()!);
+    const stored = doc.orders.find((x: { id: string }) => x.id === r.value.id);
+    stored.lines.push({ ...stored.lines.find((l: { reward: unknown }) => l.reward), id: 'g2', productId: 'coca-150', name: 'Coca-Cola 1,5L', category: 'boisson', reward: 'boisson' });
+    const s = reload(createMemoryRepository(null, JSON.stringify(doc)));
+    const pay = s.markOrderPaid(r.value.id, 'carte');
+    expect(!pay.ok && pay.error).toContain('Une seule récompense');
+    // L'annulation, elle, reste possible et restitue sans erreur.
+    expect(s.cancelOrder(r.value.id).ok).toBe(true);
   });
 });
 

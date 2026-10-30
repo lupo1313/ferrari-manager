@@ -1,5 +1,5 @@
 import type { Order, Payment, PaymentMethod, PaymentStatus } from './types';
-import { hasRewardWithoutPaidPizza, REWARD_NEEDS_PAID_PIZZA } from './cart';
+import { hasRewardWithoutPaidPizza, hasTooManyRewards, ONE_REWARD_PER_ORDER, REWARD_NEEDS_PAID_PIZZA } from './cart';
 
 /**
  * Suivi d'encaissement : deux statuts, un moyen facultatif. Pas de caisse, pas de montants encaissés.
@@ -41,6 +41,9 @@ export function cannotMarkPaid(order: Order): string | null {
   // La commande a pu évoluer (ou date d'avant la règle) : la condition du cadeau est revérifiée ici.
   if (order.customerId && hasRewardWithoutPaidPizza(order.lines)) {
     return `${REWARD_NEEDS_PAID_PIZZA} Modifiez la commande (ajout d’une pizza ou retrait du cadeau) avant de l’encaisser.`;
+  }
+  if (order.customerId && hasTooManyRewards(order.lines)) {
+    return `${ONE_REWARD_PER_ORDER} Modifiez la commande (retrait d’un cadeau) avant de l’encaisser.`;
   }
   return null;
 }

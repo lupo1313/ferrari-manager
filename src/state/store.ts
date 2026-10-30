@@ -22,6 +22,8 @@ import {
   addToppingToLine,
   createLine,
   emptyCart,
+  MAX_REWARDS_PER_ORDER,
+  ONE_REWARD_PER_ORDER,
   paidPizzaCount,
   REWARD_NEEDS_PAID_PIZZA,
   removeLine,
@@ -389,6 +391,8 @@ export function createAppStore(deps: StoreDeps) {
       const p = product(productId);
       if (!p || !isRewardEligible(p, kind, data.settings.loyalty)) return fail('Ce produit n’est pas éligible à la récompense.');
       // Le cadeau s'ajoute à un achat : au moins une pizza payante doit déjà être dans la commande.
+      // Une seule récompense par commande (y compris en modification d'une commande existante).
+      if (rewardLineCount(data.cart.lines) >= MAX_REWARDS_PER_ORDER) return fail(ONE_REWARD_PER_ORDER);
       if (paidPizzaCount(data.cart.lines) === 0) return fail(`${REWARD_NEEDS_PAID_PIZZA} Ajoutez d’abord la pizza achetée.`);
       if (rewardsRemainingForCart(data.loyaltyEvents, data.cart, data.settings.loyalty) < 1) {
         return fail('Aucune récompense disponible pour ce client.');

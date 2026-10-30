@@ -5,7 +5,7 @@ import { useAppData, useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { eligibleRewardProducts } from '../../domain/loyalty';
 import { formatPrice } from '../../domain/money';
-import { paidPizzaCount, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
+import { ONE_REWARD_PER_ORDER, paidPizzaCount, rewardLineCount, REWARD_NEEDS_PAID_PIZZA } from '../../domain/cart';
 import type { RewardKind } from '../../domain/types';
 
 interface RewardModalProps {
@@ -24,6 +24,7 @@ export function RewardModal({ customerName, onClose }: RewardModalProps) {
   const remaining = store.rewardsRemaining();
   const product = selected ? store.product(selected) : undefined;
   const needsPaidPizza = paidPizzaCount(data.cart.lines) === 0;
+  const alreadyHasReward = rewardLineCount(data.cart.lines) > 0;
 
   const confirm = () => {
     if (!product) return;
@@ -47,7 +48,7 @@ export function RewardModal({ customerName, onClose }: RewardModalProps) {
           <button type="button" className="btn btn--lg" onClick={onClose}>
             Plus tard
           </button>
-          <button type="button" className="btn btn--lg btn--gold" onClick={confirm} disabled={!product || remaining < 1 || needsPaidPizza}>
+          <button type="button" className="btn btn--lg btn--gold" onClick={confirm} disabled={!product || remaining < 1 || needsPaidPizza || alreadyHasReward}>
             <Icon name="gift" /> Ajouter le cadeau
           </button>
         </>
@@ -108,6 +109,11 @@ export function RewardModal({ customerName, onClose }: RewardModalProps) {
         </div>
       )}
 
+      {alreadyHasReward && (
+        <p className="notice notice--error reward-needs-pizza" role="alert">
+          {ONE_REWARD_PER_ORDER}
+        </p>
+      )}
       {needsPaidPizza && (
         <p className="notice notice--error reward-needs-pizza" role="alert">
           {REWARD_NEEDS_PAID_PIZZA} Ajoutez d’abord la pizza achetée par le client.

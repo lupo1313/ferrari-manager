@@ -8,6 +8,7 @@
     "dev": "vite",
     "dev:tablette": "vite --host",
     "build": "tsc --noEmit && vite build",
+    "build:apercu": "tsc --noEmit && vite build --mode apercu --outDir dist-apercu",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
