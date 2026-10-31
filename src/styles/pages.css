@@ -805,3 +805,75 @@
     grid-template-columns: minmax(0, 1fr) 110px auto;
   }
 }
+
+/* Restauration d’une sauvegarde (intervention 8) */
+.restore-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.restore-review__source {
+  font-size: 14px;
+  color: var(--text-2);
+}
+.restore-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.restore-table th,
+.restore-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.restore-table thead th {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.restore-table tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.restore-warning {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  font-size: 14px;
+}
+.restore-warning > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.restore-warning p + p {
+  margin-top: 6px;
+}
+.restore-notes,
+.restore-problems {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.restore-problems {
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.restore-confirm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  font-weight: 600;
+}
+.restore-confirm input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}

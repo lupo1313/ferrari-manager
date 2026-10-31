@@ -108,8 +108,10 @@ export async function sha256(text: string): Promise<string | null> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function createBackup(store: ReadableStore, options: { now: Date; origin: string }): Promise<BackupFile> {
-  const stockage = readAppKeys(store);
+/** `namespace` : espace à copier (par défaut celui du build ; la copie de sécurité de la restauration le précise). */
+export async function createBackup(store: ReadableStore, options: { now: Date; origin: string; namespace?: string }): Promise<BackupFile> {
+  const namespace = options.namespace ?? STORAGE_NAMESPACE;
+  const stockage = readAppKeys(store, namespace);
   const integrite: BackupFile['integrite'] = {};
   for (const [k, v] of Object.entries(stockage)) integrite[k] = { longueur: v.length, sha256: await sha256(v) };
   return {
@@ -118,10 +120,10 @@ export async function createBackup(store: ReadableStore, options: { now: Date; o
     application: 'Ferrari Manager',
     exporteLe: options.now.toISOString(),
     origine: options.origin,
-    espaceDeStockage: STORAGE_NAMESPACE,
+    espaceDeStockage: namespace,
     stockage,
     integrite,
-    resume: summarize(stockage),
+    resume: summarize(stockage, `${namespace}:v1`),
   };
 }
 
