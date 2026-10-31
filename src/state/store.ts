@@ -127,6 +127,11 @@ export function createAppStore(deps: StoreDeps) {
    * tant que l'utilisateur ne choisit pas explicitement « Réinitialiser les données de démonstration ».
    */
   let storageLocked: string | null = null;
+  /**
+   * Écritures suspendues (restauration en cours dans cet onglet ou un autre) : plus aucune écriture,
+   * pas même le panier enregistré à la fermeture de la page, jusqu'au rechargement ou à la reprise.
+   */
+  let frozen: string | null = null;
   let cartTimer: ReturnType<typeof setTimeout> | null = null;
   let data: AppData = loadOrSeed();
 
@@ -185,6 +190,7 @@ export function createAppStore(deps: StoreDeps) {
    * et signale l'échec. En mode protégé (données illisibles), rien n'est écrit, volontairement.
    */
   function persist(write: () => void): boolean {
+    if (frozen) return false;
     if (storageLocked) return true;
     try {
       write();
@@ -202,7 +208,7 @@ export function createAppStore(deps: StoreDeps) {
       clearTimeout(cartTimer);
       cartTimer = null;
     }
-    if (storageLocked) return;
+    if (storageLocked || frozen) return;
     try {
       repo.saveCart(data.cart);
       cartError = null;
@@ -267,10 +273,27 @@ export function createAppStore(deps: StoreDeps) {
   return {
     catalog,
     getData: () => data,
-    getPersistError: () => storageLocked ?? docError ?? cartError,
+    getPersistError: () => frozen ?? storageLocked ?? docError ?? cartError,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    /** Données illisibles au chargement (mode protégé) : la restauration reste possible pour en sortir. */
+    isStorageLocked: () => storageLocked !== null,
+    /**
+     * Restauration : plus aucune écriture (le panier en attente est abandonné, il figure dans la copie
+     * de sécurité). Sert aussi quand une restauration démarre dans un autre onglet.
+     */
+    suspendWrites(reason: string) {
+      if (cartTimer !== null) clearTimeout(cartTimer);
+      cartTimer = null;
+      frozen = reason;
+      notify();
+    },
+    /** Restauration abandonnée avant toute modification : l'application reprend normalement. */
+    resumeWrites() {
+      frozen = null;
+      notify();
     },
     /** Enregistre immédiatement un panier en attente (mise en arrière-plan, fermeture de l'onglet). */
     flushPendingWrites() {

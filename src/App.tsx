@@ -24,6 +24,7 @@ import {
   type SidebarState,
 } from './components/layout/disposition';
 import { browserPreferenceStore, readSidebarPreference, writeSidebarPreference } from './storage/interface';
+import { restoreKeys } from './storage/restore';
 
 /** Prévisualisation seulement : affiche la taille réelle de la fenêtre dans la barre latérale. */
 const SHOW_VIEWPORT = import.meta.env.VITE_VIEWPORT_INDICATOR === '1';
@@ -56,6 +57,19 @@ export function App() {
   const store = useStore();
   const toast = useToast();
   const serviceOpen = useAppSelector((d) => d.serviceOpen);
+  // Résultat d'une restauration, affiché une fois après le rechargement automatique.
+  useEffect(() => {
+    try {
+      const key = restoreKeys().notice;
+      const message = sessionStorage.getItem(key);
+      if (message) {
+        sessionStorage.removeItem(key);
+        toast(message, 'success');
+      }
+    } catch {
+      /* message seulement */
+    }
+  }, [toast]);
   /** Service ouvert → fenêtre de fermeture ; service fermé → ouverture immédiate. */
   const onServiceAction = () => {
     if (serviceOpen) {

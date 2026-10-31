@@ -7,6 +7,7 @@ import { formatPrice } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
 import { PAYMENT_SOUND_KINDS, PAYMENT_SOUND_LABELS, paymentSound, type PaymentSoundKind } from '../audio/paymentSound';
 import { OPERATOR_CONTACT_EMAIL } from '../services/trajet';
+import { RestoreCard } from '../components/settings/RestoreCard';
 import {
   backupFileName,
   backupToText,
@@ -325,6 +326,8 @@ export function SettingsPage() {
         </section>
 
         <BackupCard />
+
+        <RestoreCard />
 
         {/* Mentions exigées par les conditions du serveur public FOSSGIS et la licence OpenStreetMap. */}
         <section className="card settings-grid__wide">
