@@ -388,3 +388,10 @@
   margin-top: 12px;
   font-size: 13px;
 }
+
+/* Personnalisation d’une ligne de produit désactivé ou absent (intervention 9a) */
+.customize__limit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber-ink);
+}

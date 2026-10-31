@@ -343,6 +343,53 @@ describe('4. panier : lignes figées, repères, fusion stricte', () => {
   });
 });
 
+describe('4 bis. personnalisation d’une ligne de produit désactivé (bug Samsung, aperçu 9a)', () => {
+  it('quantité augmentée par la personnalisation : refusée par le store, ligne inchangée ; diminution et autres réglages possibles', () => {
+    const s = open(memory().kv, NS, 'q');
+    ok(s.addProduct('margarita'));
+    ok(s.addProduct('margarita'));
+    ok(s.setCatalogProductActive('margarita', false));
+    const id = s.getData().cart.lines[0].id;
+    // Scénario constaté : quantité réduite à 1, puis « + » dans la personnalisation et « Enregistrer ».
+    expect(s.setLineQuantity(id, 1).ok).toBe(true);
+    const before = s.getData().cart.lines[0];
+    const refused = s.updateLine(id, { quantity: 2, removedIngredients: ['Basilic'], note: 'Bien cuite' });
+    expect(refused).toMatchObject({ ok: false, error: expect.stringMatching(/désactivé.*Quantité inchangée/) });
+    expect(s.getData().cart.lines[0]).toEqual(before);
+    // Mêmes réglages sans augmentation : acceptés, quantité conservée.
+    ok(s.updateLine(id, { quantity: 1, removedIngredients: ['Basilic'], note: 'Bien cuite' }));
+    expect(s.getData().cart.lines[0]).toMatchObject({ quantity: 1, removedIngredients: ['Basilic'], note: 'Bien cuite', unitPrice: 1000 });
+    // Diminution par la personnalisation : possible.
+    ok(s.addProduct('reine'));
+    ok(s.setCatalogProductActive('margarita', true));
+    ok(s.setLineQuantity(id, 3));
+    ok(s.setCatalogProductActive('margarita', false));
+    ok(s.updateLine(id, { quantity: 2, note: 'Bien cuite' }));
+    expect(s.getData().cart.lines[0].quantity).toBe(2);
+  });
+
+  it('même refus pour un produit absent de la carte ou une carte illisible', () => {
+    const base = memory();
+    const s0 = open(base.kv, NS, 'r');
+    ok(s0.addProduct('reine'));
+    s0.flushPendingWrites();
+    const lineId = s0.getData().cart.lines[0].id;
+    for (const carte of ['{"v":1,"products":[]}', '{coupé']) {
+      const m = memory({ ...Object.fromEntries(base.map), [K.carte]: carte });
+      const s = open(m.kv, NS, 'u');
+      expect(s.updateLine(lineId, { quantity: 2 }).ok, carte).toBe(false);
+      expect(s.getData().cart.lines[0].quantity, carte).toBe(1);
+      expect(s.updateLine(lineId, { quantity: 1, note: 'ok' }).ok, carte).toBe(true);
+    }
+  });
+
+  it('interface : le « + » de la personnalisation est plafonné à la quantité de la ligne', () => {
+    const modal = readFileSync(new URL('../src/components/catalog/CustomizeModal.tsx', import.meta.url), 'utf8');
+    expect(modal).toContain('max={canIncrease ? undefined : line?.quantity}');
+    expect(modal).toContain('isActive(product)');
+  });
+});
+
 describe('5. ancienne commande rouverte : aucun contenu actualisé', () => {
   it('produit modifié, recatégorisé puis désactivé : la commande rouverte et réenregistrée garde lignes et totaux', () => {
     const s = open(memory().kv);

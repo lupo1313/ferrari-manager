@@ -481,6 +481,11 @@ export function createAppStore(deps: StoreDeps) {
     updateLine(lineId: string, options: LineOptions): Result {
       const line = data.cart.lines.find((l) => l.id === lineId);
       if (!line) return fail('Ligne introuvable.');
+      // Même règle que setLineQuantity : augmenter la quantité est une nouvelle sélection.
+      if (options.quantity !== undefined && options.quantity > line.quantity) {
+        const s = selectable(line.productId);
+        if (!s.ok) return fail(`${s.error} Quantité inchangée (diminuer ou supprimer reste possible).`);
+      }
       setCart(updateLine(data.cart, lineId, options, product(line.productId)));
       return ok(undefined);
     },

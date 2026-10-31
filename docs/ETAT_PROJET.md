@@ -11,7 +11,7 @@ Ce document décrit ce qui existe **réellement** dans le code de `main`. Les r�
 | Commit sur `main` | Code : `3eabd56` (fusion `--no-ff` de `feat/intervention-8-restauration`), suivi uniquement de commits de documentation |
 | Build servi | `assets/index-Bj_3rjjO.js` (vérifié le 31/10 : déploiement `github-pages` en succès pour `b8ec595`, fichier servi identique au build local, aucun élément de la prévisualisation, carte « Restaurer une sauvegarde » présente, aucune écriture au chargement ni en naviguant, aucune copie de sécurité ni trace créée, 6 modules sans erreur JavaScript). Précédents : `index-DzDJxLvB.js` (intervention 7), `index-CvFZA6CO.js` (intervention 6) |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
-| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; depuis le 01/11, sert l'**intervention 9a** (branche `feat/intervention-9a-produits`, `40253d0`), build `index-DFj3XyJN.js` (commit `7324e14` du dépôt d'aperçu). Précédemment : intervention 8 (`index-d24VVupI.js`). |
+| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; depuis le 01/11, sert l'**intervention 9a** (branche `feat/intervention-9a-produits`, `40253d0`), build `index-CO8XSGJn.js` (correctif du « + » de la personnalisation pour un produit désactivé). Précédemment : intervention 8 (`index-d24VVupI.js`). |
 
 Historique des interventions sur `main` :
 

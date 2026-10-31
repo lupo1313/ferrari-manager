@@ -7,6 +7,7 @@ import { useToast } from '../ui/Toast';
 import { formatPrice } from '../../domain/money';
 import { lineTotal } from '../../domain/pricing';
 import { createLine, lineIngredients } from '../../domain/cart';
+import { isActive } from '../../domain/catalog';
 import type { LineTopping, OrderLine, Product } from '../../domain/types';
 
 const QUICK_NOTES = ['Bien cuite', 'Peu cuite', 'Non coupée', 'Coupée en 8', 'Sauce à part'];
@@ -30,6 +31,9 @@ export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) 
   const [quantity, setQuantity] = useState(line?.quantity ?? 1);
   const [note, setNote] = useState(line?.note ?? '');
   const isReward = Boolean(line?.reward);
+  // Ligne existante d'un produit désactivé, absent ou d'une carte illisible : quantité non augmentable
+  // (augmenter serait une nouvelle sélection, refusée aussi par le store) ; diminuer reste possible.
+  const canIncrease = !line || (!store.getCatalogError() && product !== undefined && isActive(product));
 
   const preview = useMemo(
     () =>
@@ -67,7 +71,8 @@ export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) 
       size="lg"
       footer={
         <>
-          {!isReward && <Stepper value={quantity} onChange={setQuantity} label="quantité" />}
+          {!isReward && <Stepper value={quantity} onChange={setQuantity} label="quantité" max={canIncrease ? undefined : line?.quantity} />}
+          {!isReward && !canIncrease && <span className="customize__limit">Quantité non augmentable</span>}
           <button type="button" className="btn btn--lg btn--success customize__save" onClick={save} data-autofocus>
             <Icon name={line ? 'check' : 'plus'} />
             {line ? 'Enregistrer' : 'Ajouter'} · {formatPrice(lineTotal(preview))}
