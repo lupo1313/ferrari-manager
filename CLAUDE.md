@@ -15,7 +15,7 @@ Application de **prise de commandes** pour la Pizzeria Ferrari (Marseille), util
 
 **Livraison toujours offerte** (règle définitive) : 0 €, sans exception, aucun réglage (`DELIVERY_FEE` dans `domain/pricing.ts`), quelle que soit la distance. Les anciennes commandes gardent leurs frais figés.
 
-**Version de test** : données fictives, pas d'exploitation commerciale réelle tant que le gérant ne l'a pas décidé. Tablette Samsung (Galaxy TabPro S, Windows 10, Edge) testée manuellement sur les fonctions principales le 31/10, sans validation exhaustive ; impression thermique, restauration d'une sauvegarde, cycle complet de fidélité, coupure de connexion et parcours réel restent à valider (`docs/ETAT_PROJET.md`, section 4). Ne jamais présenter un test manuel partiel comme une validation complète.
+**Version de test** : données fictives, pas d'exploitation commerciale réelle tant que le gérant ne l'a pas décidé. Tablette Samsung (Galaxy TabPro S, Windows 10, Edge) testée manuellement sur les fonctions principales le 31/10, sans validation exhaustive ; restauration testée sur la Samsung avec des données fictives (intervention 8 ; vraie sauvegarde et Safari iPhone non testés), impression thermique, cycle complet de fidélité, coupure de connexion et parcours réel restent à valider (`docs/ETAT_PROJET.md`, section 4). Ne jamais présenter un test manuel partiel comme une validation complète.
 
 ## Stack
 
@@ -66,7 +66,7 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 ## Tests et vérifications (obligatoires avant tout commit)
 
 ```bash
-npm test          # Vitest (300 tests au 31/10/2026)
+npm test          # Vitest (338 tests au 31/10/2026)
 npm run build     # tsc --noEmit + build de production
 ```
 
@@ -86,4 +86,4 @@ Ajouter des tests métier pour chaque règle, y compris les tentatives de contou
 3. Intervention ciblée : pas de fonctionnalité ni de refonte non demandée ; signaler les incertitudes et les décisions métier au lieu d'inventer ; arrêter et expliquer si un contrôle obligatoire échoue.
 4. Mettre à jour `docs/ETAT_PROJET.md` (et `docs/ROADMAP.md` si besoin) à la fin de chaque intervention, et après chaque mise en production.
 5. Ne pas supprimer les branches ni le dépôt d'aperçu sans accord.
-6. Ne pas commencer une nouvelle intervention (intervention 8 et suivantes) sans demande explicite du gérant.
+6. Ne pas commencer une nouvelle intervention (intervention 9 et suivantes) sans demande explicite du gérant.
