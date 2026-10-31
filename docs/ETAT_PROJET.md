@@ -9,7 +9,7 @@ Ce document décrit ce qui existe **réellement** dans le code de `main`. Les r�
 | --- | --- |
 | URL | https://lupo1313.github.io/ferrari-manager/ |
 | Commit sur `main` | Code : `641f759` (fusion `--no-ff` de `feat/intervention-7-barre-laterale`), suivi uniquement de commits de documentation |
-| Build servi | `assets/index-DzDJxLvB.js` attendu (build local identique au commit de fusion ; à confirmer après déploiement). Précédent : `index-CvFZA6CO.js` (intervention 6) |
+| Build servi | `assets/index-DzDJxLvB.js` (vérifié le 31/10 : déploiement `github-pages` en succès pour `3cf0210`, fichier servi identique au build local, aucun élément de la prévisualisation, aucune écriture au chargement ni en naviguant, 6 modules sans erreur JavaScript). Précédent : `index-CvFZA6CO.js` (intervention 6) |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
 | Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; depuis le 31/10, sert l'**intervention 7** (branche `feat/intervention-7-barre-laterale`, `e0ab93b`), build `index-Dpv0k2_7.js` (commit `03a38f6` du dépôt d'aperçu, déploiement Pages en succès, version servie vérifiée). Isolation vérifiée en ligne : actions dans l'aperçu sans aucune modification des clés `ferrari-manager:*` ni création de `ferrari-manager-interface`. |
 
