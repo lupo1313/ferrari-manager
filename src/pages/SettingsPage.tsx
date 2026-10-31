@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../components/ui/Icon';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useToast } from '../components/ui/Toast';
-import { useAppData, useStore } from '../state/StoreContext';
+import { useAppData, useStore, useCatalog } from '../state/StoreContext';
 import { formatPrice } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
 import { PAYMENT_SOUND_KINDS, PAYMENT_SOUND_LABELS, paymentSound, type PaymentSoundKind } from '../audio/paymentSound';
 import { OPERATOR_CONTACT_EMAIL } from '../services/trajet';
 import { RestoreCard } from '../components/settings/RestoreCard';
+import { isActive } from '../domain/catalog';
 import {
   backupFileName,
   backupToText,
@@ -129,8 +130,11 @@ export function SettingsPage() {
   const [draft, setDraft] = useState<Settings>(data.settings);
   const [confirmReset, setConfirmReset] = useState(false);
 
-  const pizzas = store.catalog.products.filter((p) => p.category === 'pizza');
-  const drinks = store.catalog.products.filter((p) => p.category === 'boisson');
+  // Listes d'éligibilité fidélité : produits actifs (un produit désactivé garde sa place dans le réglage).
+  const catalog = useCatalog();
+  const pizzas = catalog.products.filter((p) => p.category === 'pizza' && isActive(p));
+  const drinks = catalog.products.filter((p) => p.category === 'boisson' && isActive(p));
+  const activeCount = catalog.products.filter(isActive).length;
 
   const toggle = (key: 'eligiblePizzaIds' | 'eligibleDrinkIds', id: string) =>
     setDraft((d) => {
@@ -323,6 +327,20 @@ export function SettingsPage() {
             Masquer l’onglet ne supprime aucune donnée : commandes, encaissements et historique des services restent enregistrés. Les bilans
             réapparaissent dès que l’onglet est de nouveau affiché.
           </span>
+        </section>
+
+        <section className="card settings-grid__wide">
+          <h2 className="card__title">
+            <Icon name="pizza" /> Carte des produits
+          </h2>
+          <p>
+            {store.getCatalogError()
+              ? 'Carte illisible : aucune nouvelle sélection de produit possible. Restaurez une sauvegarde contenant une carte valide.'
+              : `${activeCount} produits actifs, ${catalog.products.length - activeCount} désactivé${catalog.products.length - activeCount > 1 ? 's' : ''}. Ajouter, modifier, désactiver ou réactiver un produit : les commandes déjà enregistrées ne changent pas.`}
+          </p>
+          <a className="btn btn--dark" href="#/parametres/carte">
+            <Icon name="pencil" /> Gérer les produits
+          </a>
         </section>
 
         <BackupCard />

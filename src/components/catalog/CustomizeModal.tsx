@@ -6,19 +6,23 @@ import { useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { formatPrice } from '../../domain/money';
 import { lineTotal } from '../../domain/pricing';
-import { createLine } from '../../domain/cart';
+import { createLine, lineIngredients } from '../../domain/cart';
 import type { LineTopping, OrderLine, Product } from '../../domain/types';
 
 const QUICK_NOTES = ['Bien cuite', 'Peu cuite', 'Non coupée', 'Coupée en 8', 'Sauce à part'];
 
-interface CustomizeModalProps {
-  product: Product;
-  /** Ligne existante à modifier ; sinon, une nouvelle ligne est ajoutée. */
-  line?: OrderLine;
-  onClose: () => void;
-}
+type CustomizeModalProps =
+  /** Nouvelle ligne à partir de la fiche actuelle. */
+  | { product: Product; line?: undefined; onClose: () => void }
+  /**
+   * Ligne existante : modifiée à partir d'ELLE-MÊME (nom, prix, catégorie, composition figés), même si la
+   * fiche a changé, a été désactivée ou retirée. `product` ne sert qu'aux anciennes lignes sans composition.
+   */
+  | { product?: Product; line: OrderLine; onClose: () => void };
 
 export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) {
+  const title = line ? line.name : product.name;
+  const ingredients = line ? lineIngredients(line, product) : product.ingredients ?? [];
   const store = useStore();
   const toast = useToast();
   const [removed, setRemoved] = useState<string[]>(line?.removedIngredients ?? []);
@@ -27,11 +31,13 @@ export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) 
   const [note, setNote] = useState(line?.note ?? '');
   const isReward = Boolean(line?.reward);
 
-  const preview = useMemo(() => {
-    const draft = createLine(product, 'preview', { quantity, addedToppings: toppings, removedIngredients: removed, note }, line?.reward ?? null);
-    // Une ligne existante garde son prix figé.
-    return line ? { ...draft, unitPrice: line.unitPrice } : draft;
-  }, [product, quantity, toppings, removed, note, line]);
+  const preview = useMemo(
+    () =>
+      line
+        ? { ...line, quantity, addedToppings: toppings, removedIngredients: removed, note }
+        : createLine(product, 'preview', { quantity, addedToppings: toppings, removedIngredients: removed, note }),
+    [product, quantity, toppings, removed, note, line],
+  );
 
   const toggleIngredient = (ingredient: string) =>
     setRemoved((list) => (list.includes(ingredient) ? list.filter((i) => i !== ingredient) : [...list, ingredient]));
@@ -49,14 +55,14 @@ export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) 
       toast(r.error, 'error');
       return;
     }
-    toast(line ? `${product.name} modifiée` : `${quantity} × ${product.name} ajoutée`, 'success');
+    toast(line ? `${title} modifiée` : `${quantity} × ${title} ajoutée`, 'success');
     onClose();
   };
 
   return (
     <Modal
-      title={product.name}
-      subtitle={isReward ? 'Pizza offerte (fidélité) · les suppléments restent payants' : `Prix de base ${formatPrice(line?.unitPrice ?? product.price)}`}
+      title={title}
+      subtitle={isReward ? 'Pizza offerte (fidélité) · les suppléments restent payants' : `Prix de base ${formatPrice(line ? line.unitPrice : product.price)}`}
       onClose={onClose}
       size="lg"
       footer={
@@ -69,13 +75,13 @@ export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) 
         </>
       }
     >
-      {product.ingredients && product.ingredients.length > 0 && (
+      {ingredients.length > 0 && (
         <section className="customize__section">
           <h3 className="customize__title">
             Ingrédients <span className="muted">· toucher pour retirer (sans changement de prix)</span>
           </h3>
           <div className="chip-grid">
-            {product.ingredients.map((ingredient) => {
+            {ingredients.map((ingredient) => {
               const isRemoved = removed.includes(ingredient);
               return (
                 <button

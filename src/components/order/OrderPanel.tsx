@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../ui/Icon';
-import { useAppData, useStore } from '../../state/StoreContext';
+import { useAppData, useCatalog, useStore } from '../../state/StoreContext';
+import { lineCatalogState } from '../../domain/catalog';
+import type { OrderLine as CartOrderLine } from '../../domain/types';
 import { useToast } from '../ui/Toast';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { CartLine } from './CartLine';
@@ -39,6 +41,20 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
   const [noteOpen, setNoteOpen] = useState(cart.note !== '');
   const [confirmClear, setConfirmClear] = useState(false);
   const [customizing, setCustomizing] = useState<OrderLine | null>(null);
+  // Carte en vigueur : repères sur les lignes (jamais de modification silencieuse d'une ligne existante).
+  const catalog = useCatalog();
+  const catalogError = store.getCatalogError();
+  const lineNotice = (line: CartOrderLine): { notice: string | null; canIncrease: boolean } => {
+    if (catalogError) return { notice: 'Carte illisible · quantité non augmentable', canIncrease: false };
+    const state = lineCatalogState(line, catalog.products.find((p) => p.id === line.productId));
+    if (state.kind === 'absent') return { notice: 'Absent de la carte · quantité non augmentable', canIncrease: false };
+    if (state.kind === 'desactive') return { notice: 'Produit désactivé · quantité non augmentable', canIncrease: false };
+    if (state.kind === 'modifie') {
+      const renamed = state.name !== line.name ? `« ${state.name} », ` : '';
+      return { notice: `Fiche modifiée · actuellement ${renamed}${formatPrice(state.price)}`, canIncrease: true };
+    }
+    return { notice: null, canIncrease: true };
+  };
   const [ticketFor, setTicketFor] = useState<string | null>(null);
   const [errors, setErrors] = useState<string | null>(null);
   const submitting = useRef(false);
@@ -220,7 +236,11 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
               <CartLine
                 key={line.id}
                 line={line}
-                onQuantity={(q) => store.setLineQuantity(line.id, q)}
+                {...lineNotice(line)}
+                onQuantity={(q) => {
+                  const r = store.setLineQuantity(line.id, q);
+                  if (!r.ok) toast(r.error, 'error');
+                }}
                 onRemove={() => {
                   store.removeLine(line.id);
                   if (line.reward) toast('Récompense retirée : elle reste disponible pour le client.', 'info');
@@ -344,9 +364,7 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
       {timeOpen && (
         <TimePickerModal value={cart.requestedTime} onSelect={(t) => store.setRequestedTime(t)} onClose={() => setTimeOpen(false)} />
       )}
-      {customizing && store.product(customizing.productId) && (
-        <CustomizeModal product={store.product(customizing.productId)!} line={customizing} onClose={() => setCustomizing(null)} />
-      )}
+      {customizing && <CustomizeModal product={store.product(customizing.productId)} line={customizing} onClose={() => setCustomizing(null)} />}
       {confirmClear && (
         <ConfirmDialog
           title={editing ? 'Abandonner la modification ?' : 'Annuler la saisie ?'}

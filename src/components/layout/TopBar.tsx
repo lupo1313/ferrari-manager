@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../ui/Icon';
-import { useAppSelector, useStore } from '../../state/StoreContext';
+import { useAppSelector, useStore, useCatalog } from '../../state/StoreContext';
+import { isActive } from '../../domain/catalog';
 import { useToast } from '../ui/Toast';
 import { useOrderForCustomer } from '../order/EditInProgressDialog';
 import { customerFullName, formatPhone, searchCustomers } from '../../domain/customers';
@@ -37,6 +38,7 @@ export function TopBar({ onGoToOrderTaking, serviceOpen, onServiceAction }: TopB
   const boxRef = useRef<HTMLDivElement>(null);
   const orderFor = useOrderForCustomer(onGoToOrderTaking);
 
+  const catalog = useCatalog();
   const results = useMemo(() => {
     const q = query.trim();
     if (!q) return { customers: [], products: [] as Product[] };
@@ -44,9 +46,9 @@ export function TopBar({ onGoToOrderTaking, serviceOpen, onServiceAction }: TopB
     const folded = fold(q);
     const products = /^[\d\s.+-]+$/.test(q)
       ? []
-      : store.catalog.products.filter((p) => fold(`${p.name} ${p.description ?? ''}`).includes(folded)).slice(0, 6);
+      : catalog.products.filter((p) => isActive(p) && fold(`${p.name} ${p.description ?? ''}`).includes(folded)).slice(0, 6);
     return { customers: found, products };
-  }, [query, customers, store.catalog.products]);
+  }, [query, customers, catalog.products]);
 
   useEffect(() => {
     const onDown = (e: PointerEvent) => {

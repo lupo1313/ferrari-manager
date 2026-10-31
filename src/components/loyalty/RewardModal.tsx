@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Icon } from '../ui/Icon';
-import { useAppData, useStore } from '../../state/StoreContext';
+import { useAppData, useStore, useCatalog } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { eligibleRewardProducts } from '../../domain/loyalty';
 import { formatPrice } from '../../domain/money';
@@ -19,8 +19,10 @@ export function RewardModal({ customerName, onClose }: RewardModalProps) {
   const toast = useToast();
   const [kind, setKind] = useState<RewardKind>('pizza');
   const [selected, setSelected] = useState<string | null>(null);
+  const catalog = useCatalog();
   const rules = data.settings.loyalty;
-  const products = eligibleRewardProducts(store.catalog, kind, rules);
+  // Produits actifs seulement (un produit désactivé n'est jamais proposé comme nouvelle récompense).
+  const products = eligibleRewardProducts(catalog, kind, rules);
   const remaining = store.rewardsRemaining();
   const product = selected ? store.product(selected) : undefined;
   const needsPaidPizza = paidPizzaCount(data.cart.lines) === 0;

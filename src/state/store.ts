@@ -47,6 +47,17 @@ import {
 } from '../domain/customers';
 import { isRewardEligible, netForOrder, reconcileOrderLoyalty, rewardsRemainingForCart } from '../domain/loyalty';
 import {
+  applyProductInput,
+  buildProduct,
+  catalogDocument,
+  isActive,
+  readCatalogDocument,
+  setProductActive,
+  validateProductInput,
+  type ProductErrors,
+  type ProductInput,
+} from '../domain/catalog';
+import {
   buildOrder,
   canCancelOrder,
   canChangeCartCustomer,
@@ -74,7 +85,7 @@ import { closeServiceRecord, currentService, openServiceRecord } from '../domain
 
 export type Result<T = void> =
   | { ok: true; value: T }
-  | { ok: false; error: string; fieldErrors?: CustomerFieldErrors; existingCustomerId?: string };
+  | { ok: false; error: string; fieldErrors?: CustomerFieldErrors; existingCustomerId?: string; productErrors?: ProductErrors };
 
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const fail = (error: string, extra: Partial<Extract<Result, { ok: false }>> = {}): Result<never> => ({
@@ -89,6 +100,8 @@ export const CART_TEXT_DELAY_MS = 300;
 const SAVE_FAILED = 'Enregistrement impossible (stockage plein ou bloqué) : rien n’a été enregistré. Réessayez.';
 const DOC_ERROR = 'Sauvegarde locale impossible (stockage plein ou bloqué) : la dernière action n’a pas été enregistrée.';
 const CART_ERROR = 'Sauvegarde du panier impossible : la commande en cours de saisie risque d’être perdue au rechargement.';
+const PRODUCT_INACTIVE = 'Produit désactivé : il n’est plus proposé pour les nouvelles sélections.';
+const CATALOG_SAVE_FAILED = 'Enregistrement de la carte impossible (stockage plein ou bloqué) : la modification n’a pas été appliquée.';
 
 export interface StoreDeps {
   repo: AppRepository;
@@ -114,9 +127,18 @@ const withoutCart = ({ cart: _cart, ...rest }: AppData): PersistedData => (void 
 export function createAppStore(deps: StoreDeps) {
   const now = deps.now ?? (() => new Date());
   const newId = deps.newId ?? createId;
-  const { catalog, repo } = deps;
-  const productById = new Map(catalog.products.map((p) => [p.id, p]));
-  const toppingById = new Map(catalog.toppings.map((t) => [t.id, t]));
+  const { repo } = deps;
+  /** Carte du code : produits de départ (initialisation unique de la carte enregistrée) et suppléments (intervention 9b). */
+  const defaultCatalog = deps.catalog;
+  const toppingById = new Map(defaultCatalog.toppings.map((t) => [t.id, t]));
+  /** Carte en vigueur : celle enregistrée (clé carte), jamais une autre que celle retrouvée au rechargement. */
+  let catalog: Catalog = defaultCatalog;
+  let productById = new Map(catalog.products.map((p) => [p.id, p]));
+  /**
+   * Carte enregistrée illisible : conservée intacte, aucune nouvelle sélection de produit possible (la carte
+   * de démonstration n'est jamais utilisée à sa place) jusqu'à la restauration d'une carte valide.
+   */
+  let catalogError: string | null = null;
   const listeners = new Set<() => void>();
 
   let docError: string | null = null;
@@ -134,6 +156,65 @@ export function createAppStore(deps: StoreDeps) {
   let frozen: string | null = null;
   let cartTimer: ReturnType<typeof setTimeout> | null = null;
   let data: AppData = loadOrSeed();
+  initCatalog();
+
+  function setCatalogProducts(products: Product[]) {
+    catalog = { products, toppings: defaultCatalog.toppings };
+    productById = new Map(products.map((p) => [p.id, p]));
+  }
+
+  function initCatalog() {
+    const loaded = repo.loadCatalog();
+    if (loaded.kind === 'error') return lockCatalog(loaded.error);
+    if (loaded.kind === 'data') {
+      const read = readCatalogDocument(loaded.value);
+      return read.ok ? setCatalogProducts(read.products) : lockCatalog(read.reason);
+    }
+    // Première utilisation de la carte modifiable : initialisée UNE fois depuis les produits actuels.
+    // Si l'écriture échoue, la même carte sera recréée au prochain lancement (même contenu).
+    setCatalogProducts(defaultCatalog.products);
+    if (storageLocked) return;
+    try {
+      repo.saveCatalog(catalogDocument(defaultCatalog.products));
+    } catch {
+      /* réessayé au prochain lancement */
+    }
+  }
+
+  function lockCatalog(reason: string) {
+    catalogError =
+      `Carte des produits illisible (${reason}) : elle est conservée intacte, mais aucun produit ne peut être ajouté à une commande. ` +
+      'Restaurez une sauvegarde (Paramètres → Restaurer une sauvegarde). Les commandes existantes restent consultables.';
+    setCatalogProducts([]);
+  }
+
+  /** Raison pour laquelle la carte ne peut pas être modifiée, ou null. */
+  function catalogWriteBlocked(): string | null {
+    if (frozen) return frozen;
+    if (storageLocked) return 'Données locales non chargées : la carte ne peut pas être modifiée (rien ne serait conservé).';
+    return catalogError;
+  }
+
+  /** Écrit d'abord ; la carte affichée ne change que si l'écriture a réussi (sinon rien n'est appliqué). */
+  function commitCatalog(products: Product[]): boolean {
+    try {
+      repo.saveCatalog(catalogDocument(products));
+    } catch {
+      return false;
+    }
+    setCatalogProducts(products);
+    notify();
+    return true;
+  }
+
+  /** Produit disponible pour une NOUVELLE sélection (ajout, récompense, quantité augmentée). */
+  function selectable(productId: string): Result<Product> {
+    if (catalogError) return fail(catalogError);
+    const p = product(productId);
+    if (!p) return fail('Produit absent de la carte actuelle.');
+    if (!isActive(p)) return fail(PRODUCT_INACTIVE);
+    return ok(p);
+  }
 
   function loadOrSeed(): AppData {
     const loaded = repo.load();
@@ -167,7 +248,7 @@ export function createAppStore(deps: StoreDeps) {
     }
 
     // Premier lancement : rien d'enregistré, on installe le jeu de démonstration.
-    const seeded = deps.seed(catalog, now(), newId);
+    const seeded = deps.seed(defaultCatalog, now(), newId);
     try {
       repo.replaceAll(withoutCart(seeded), seeded.cart);
     } catch {
@@ -180,7 +261,7 @@ export function createAppStore(deps: StoreDeps) {
     storageLocked =
       `Données locales non chargées (${reason}). Elles sont conservées intactes et rien ne sera enregistré : ` +
       'les données affichées sont celles de démonstration. Pour repartir de zéro, utilisez Paramètres → Réinitialiser les données de démonstration.';
-    return deps.seed(catalog, now(), newId);
+    return deps.seed(defaultCatalog, now(), newId);
   }
 
   const notify = () => listeners.forEach((l) => l());
@@ -271,9 +352,14 @@ export function createAppStore(deps: StoreDeps) {
   }
 
   return {
-    catalog,
+    /** Carte en vigueur (change quand le gérant modifie un produit : lire via useCatalog dans l'interface). */
+    get catalog() {
+      return catalog;
+    },
+    getCatalog: () => catalog,
+    getCatalogError: () => catalogError,
     getData: () => data,
-    getPersistError: () => frozen ?? storageLocked ?? docError ?? cartError,
+    getPersistError: () => frozen ?? storageLocked ?? catalogError ?? docError ?? cartError,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -375,24 +461,27 @@ export function createAppStore(deps: StoreDeps) {
     /* ---------- Panier ---------- */
 
     addProduct(productId: string): Result<Product> {
-      const p = product(productId);
-      if (!p) return fail('Produit introuvable.');
-      setCart(addProduct(data.cart, p, newId('lin')));
-      return ok(p);
+      const s = selectable(productId);
+      if (!s.ok) return s;
+      setCart(addProduct(data.cart, s.value, newId('lin')));
+      return ok(s.value);
     },
 
     addConfiguredLine(productId: string, options: LineOptions): Result<Product> {
-      const p = product(productId);
-      if (!p) return fail('Produit introuvable.');
-      setCart(addLine(data.cart, createLine(p, newId('lin'), options)));
-      return ok(p);
+      const s = selectable(productId);
+      if (!s.ok) return s;
+      setCart(addLine(data.cart, createLine(s.value, newId('lin'), options)));
+      return ok(s.value);
     },
 
+    /**
+     * Personnalisation d'une ligne existante : possible même si le produit a été modifié, désactivé ou
+     * retiré de la carte (ce n'est pas une nouvelle sélection) ; la ligne garde ses valeurs figées.
+     */
     updateLine(lineId: string, options: LineOptions): Result {
       const line = data.cart.lines.find((l) => l.id === lineId);
-      const p = line && product(line.productId);
-      if (!line || !p) return fail('Ligne introuvable.');
-      setCart(updateLine(data.cart, lineId, options, p));
+      if (!line) return fail('Ligne introuvable.');
+      setCart(updateLine(data.cart, lineId, options, product(line.productId)));
       return ok(undefined);
     },
 
@@ -403,8 +492,15 @@ export function createAppStore(deps: StoreDeps) {
       return ok(undefined);
     },
 
-    setLineQuantity(lineId: string, quantity: number) {
+    /** Diminuer ou supprimer : toujours possible. Augmenter = nouvelle sélection : refusé pour un produit désactivé ou absent. */
+    setLineQuantity(lineId: string, quantity: number): Result {
+      const line = data.cart.lines.find((l) => l.id === lineId);
+      if (line && quantity > line.quantity) {
+        const s = selectable(line.productId);
+        if (!s.ok) return fail(`${s.error} Quantité inchangée (diminuer ou supprimer reste possible).`);
+      }
       setCart(setLineQuantity(data.cart, lineId, quantity));
+      return ok(undefined);
     },
 
     removeLine(lineId: string) {
@@ -506,8 +602,10 @@ export function createAppStore(deps: StoreDeps) {
     addReward(kind: RewardKind, productId: string): Result<Product> {
       const customer = findCustomer(data.cart.customerId);
       if (!customer) return fail('Sélectionnez d’abord le client.');
-      const p = product(productId);
-      if (!p || !isRewardEligible(p, kind, data.settings.loyalty)) return fail('Ce produit n’est pas éligible à la récompense.');
+      const s = selectable(productId);
+      if (!s.ok) return s;
+      const p = s.value;
+      if (!isRewardEligible(p, kind, data.settings.loyalty)) return fail('Ce produit n’est pas éligible à la récompense.');
       // Le cadeau s'ajoute à un achat : au moins une pizza payante doit déjà être dans la commande.
       // Une seule récompense par commande (y compris en modification d'une commande existante).
       if (rewardLineCount(data.cart.lines) >= MAX_REWARDS_PER_ORDER) return fail(ONE_REWARD_PER_ORDER);
@@ -761,14 +859,58 @@ export function createAppStore(deps: StoreDeps) {
       return ok(next);
     },
 
-    /** Efface toutes les données locales et recharge le jeu de démonstration. */
+    /* ---------- Carte des produits (intervention 9a) ---------- */
+
+    addCatalogProduct(input: ProductInput): Result<Product> {
+      const blocked = catalogWriteBlocked();
+      if (blocked) return fail(blocked);
+      const { errors, price } = validateProductInput(input, catalog.products);
+      if (price === null) return fail('Vérifiez les champs signalés.', { productErrors: errors });
+      const created = buildProduct(input, price, newId('prd'), nowIso());
+      if (!commitCatalog([...catalog.products, created])) return fail(CATALOG_SAVE_FAILED);
+      return ok(created);
+    },
+
+    /** Nouvelle fiche pour les PROCHAINES sélections ; paniers et commandes existants inchangés. */
+    updateCatalogProduct(productId: string, input: ProductInput): Result<{ product: Product; categoryChanged: boolean }> {
+      const blocked = catalogWriteBlocked();
+      if (blocked) return fail(blocked);
+      const existing = product(productId);
+      if (!existing) return fail('Produit introuvable.');
+      const { errors, price } = validateProductInput(input, catalog.products, productId);
+      if (price === null) return fail('Vérifiez les champs signalés.', { productErrors: errors });
+      const updated = applyProductInput(existing, input, price, nowIso());
+      if (!commitCatalog(catalog.products.map((p) => (p.id === productId ? updated : p)))) return fail(CATALOG_SAVE_FAILED);
+      return ok({ product: updated, categoryChanged: updated.category !== existing.category });
+    },
+
+    /** Désactivation / réactivation : jamais de suppression, l'identifiant reste réservé. */
+    setCatalogProductActive(productId: string, active: boolean): Result<Product> {
+      const blocked = catalogWriteBlocked();
+      if (blocked) return fail(blocked);
+      const existing = product(productId);
+      if (!existing) return fail('Produit introuvable.');
+      if (active) {
+        const { errors } = validateProductInput(
+          { name: existing.name, category: existing.category, price: '1', ingredients: [], tags: [], description: '', alcohol: false },
+          catalog.products,
+          productId,
+        );
+        if (errors.name) return fail(`Réactivation impossible : ${errors.name.toLowerCase()}`);
+      }
+      const updated = setProductActive(existing, active, nowIso());
+      if (!commitCatalog(catalog.products.map((p) => (p.id === productId ? updated : p)))) return fail(CATALOG_SAVE_FAILED);
+      return ok(updated);
+    },
+
+    /** Efface toutes les données locales et recharge le jeu de démonstration (la carte des produits est conservée). */
     resetDemoData() {
       // Choix explicite de l'utilisateur : seule action autorisée à remplacer des données illisibles.
       storageLocked = null;
       if (cartTimer !== null) clearTimeout(cartTimer);
       cartTimer = null;
       repo.clear();
-      const seeded = deps.seed(catalog, now(), newId);
+      const seeded = deps.seed(defaultCatalog, now(), newId);
       try {
         repo.replaceAll(withoutCart(seeded), seeded.cart);
         docError = null;

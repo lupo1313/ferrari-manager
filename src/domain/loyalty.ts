@@ -80,6 +80,8 @@ export function countEarningPizzas(lines: OrderLine[]): number {
  * Les garde-fous (alcool, desserts, catégorie) s'appliquent même si la configuration les liste par erreur.
  */
 export function isRewardEligible(product: Product, kind: RewardKind, rules: LoyaltyRules): boolean {
+  // Produit désactivé : jamais proposé comme NOUVELLE récompense (les lignes déjà enregistrées ne sont pas concernées).
+  if (product.active === false) return false;
   if (kind === 'pizza') {
     return product.category === 'pizza' && rules.eligiblePizzaIds.includes(product.id);
   }

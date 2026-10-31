@@ -1,4 +1,4 @@
-import type { Cart, Customer, LoyaltyEvent, Order, ServiceRecord, Settings } from '../domain/types';
+import type { Cart, CatalogDocument, Customer, LoyaltyEvent, Order, ServiceRecord, Settings } from '../domain/types';
 import type { AppData } from './schema';
 
 /**
@@ -56,7 +56,12 @@ export interface AppRepository {
   saveCart(cart: Cart): void;
   /** Remplace tout (premier lancement, réinitialisation explicite). */
   replaceAll(data: PersistedData, cart: Cart): void;
+  /** Efface l'historique et le panier ; la carte des produits est conservée. */
   clear(): void;
+  /** Carte des produits (intervention 9a), dans sa propre clé. Ne lève jamais d'exception. */
+  loadCatalog(): { kind: 'empty' } | { kind: 'data'; value: unknown } | { kind: 'error'; error: string };
+  /** Écrit la carte complète ; lève une exception si le stockage refuse (rien n'est alors enregistré). */
+  saveCatalog(doc: CatalogDocument): void;
 }
 
 /**
@@ -74,6 +79,8 @@ export function storageNamespace(raw: unknown): string {
 export const STORAGE_NAMESPACE = storageNamespace(import.meta.env.VITE_STORAGE_NAMESPACE);
 export const STORAGE_KEY = `${STORAGE_NAMESPACE}:v1`;
 export const CART_KEY = `${STORAGE_NAMESPACE}:v1:panier`;
+/** Carte des produits : hors du document principal, incluse dans les sauvegardes (préfixe `<espace>:`). */
+export const CATALOG_KEY = `${STORAGE_NAMESPACE}:v1:carte`;
 
 /** Interprète le texte stocké. Un JSON corrompu est une erreur, jamais « rien d'enregistré ». */
 export function parseStored(raw: string | null): { kind: 'empty' } | { kind: 'data'; value: unknown } | { kind: 'error'; error: string } {
@@ -96,7 +103,7 @@ export interface KeyValueStore {
  * Implémentation locale. Elle garde en mémoire le dernier document écrit avec succès et lui applique
  * chaque opération : si l'écriture échoue, ce document n'est pas modifié (rien n'a été enregistré).
  */
-export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, cartKey = CART_KEY): AppRepository {
+export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, cartKey = CART_KEY, catalogKey = `${key}:carte`): AppRepository {
   /** Dernier contenu durable connu (lu ou écrit). null tant que rien n'a été chargé. */
   let doc: Record<string, unknown> | null = null;
 
@@ -183,8 +190,21 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
       kv.setItem(cartKey, JSON.stringify(cart));
     },
 
+    loadCatalog() {
+      try {
+        return parseStored(kv.getItem(catalogKey));
+      } catch {
+        return { kind: 'error', error: 'stockage local inaccessible' };
+      }
+    },
+
+    saveCatalog(catalog) {
+      kv.setItem(catalogKey, JSON.stringify(catalog));
+    },
+
     clear() {
       doc = null;
+      // La carte (`catalogKey`) n'est pas effacée : « Réinitialiser les données de démonstration » la conserve.
       for (const k of [key, cartKey]) {
         try {
           kv.removeItem(k);
@@ -218,17 +238,18 @@ export function createMemoryRepository(initial: unknown = null, initialRaw?: str
   if (initialRaw !== undefined) store.set(STORAGE_KEY, initialRaw);
   else if (initial) store.set(STORAGE_KEY, JSON.stringify(initial));
   if (initialCartRaw !== undefined) store.set(CART_KEY, initialCartRaw);
-  const control = { saves: 0, cartSaves: 0, failOn: null as null | 'doc' | 'cart' | 'all' };
+  const control = { saves: 0, cartSaves: 0, failOn: null as null | 'doc' | 'cart' | 'carte' | 'all' };
   const kv: KeyValueStore = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => {
       const isCart = k === CART_KEY;
-      if (control.failOn === 'all' || (control.failOn === 'cart' && isCart) || (control.failOn === 'doc' && !isCart)) {
+      const isCatalog = k === CATALOG_KEY;
+      if (control.failOn === 'all' || (control.failOn === 'cart' && isCart) || (control.failOn === 'carte' && isCatalog) || (control.failOn === 'doc' && !isCart && !isCatalog)) {
         throw new Error('QuotaExceededError');
       }
       store.set(k, v);
       if (isCart) control.cartSaves++;
-      else control.saves++;
+      else if (!isCatalog) control.saves++;
     },
     removeItem: (k) => void store.delete(k),
   };
@@ -238,6 +259,8 @@ export function createMemoryRepository(initial: unknown = null, initialRaw?: str
     /** Contenu brut de la clé principale (historique) et de la clé du panier. */
     raw: () => store.get(STORAGE_KEY) ?? null,
     rawCart: () => store.get(CART_KEY) ?? null,
+    rawCatalog: () => store.get(CATALOG_KEY) ?? null,
+    setRaw: (k: string, v: string) => void store.set(k, v),
     /** Nombre d'écritures réussies de l'historique (hors panier). */
     get saves() {
       return control.saves;

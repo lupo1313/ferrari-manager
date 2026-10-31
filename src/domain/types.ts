@@ -25,6 +25,20 @@ export interface Product {
   tags?: PizzaTag[];
   /** Boisson alcoolisée : jamais éligible à une récompense fidélité, quelle que soit la configuration. */
   alcohol?: boolean;
+  /**
+   * Produit proposé pour les nouvelles sélections (absent = actif). Un produit n'est jamais supprimé :
+   * désactivé, il reste visible dans les commandes et statistiques existantes.
+   */
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  deactivatedAt?: string | null;
+}
+
+/** Carte enregistrée (intervention 9a), dans sa propre clé de stockage. Les suppléments restent dans le code. */
+export interface CatalogDocument {
+  v: 1;
+  products: Product[];
 }
 
 /** Supplément ajoutable sur une pizza (ingrédient en plus, payant). */
@@ -122,6 +136,11 @@ export interface OrderLine {
   note: string;
   /** Ligne offerte par le programme de fidélité (quantité toujours 1). */
   reward: RewardKind | null;
+  /**
+   * Composition du produit figée à l'ajout (lignes créées depuis l'intervention 9a). Absente des lignes
+   * plus anciennes : elle n'est jamais reconstituée, seuls leurs retraits enregistrés font foi.
+   */
+  ingredients?: string[];
 }
 
 /** Commande en cours de saisie (persistée localement pour ne rien perdre en cas de rechargement). */

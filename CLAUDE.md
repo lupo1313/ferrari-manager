@@ -32,6 +32,7 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 | `src/data/` | Carte, paramètres par défaut et jeu de démonstration (fictifs) |
 | `src/components/`, `src/pages/` | Interface uniquement : ne calcule aucune règle métier. `components/layout/disposition.ts` : barre latérale et disposition de la prise de commande selon la place disponible (intervention 7) |
 | `src/storage/restore.ts`, `src/state/restoreDryRun.ts`, `src/storage/tabs.ts` | Restauration d'une sauvegarde (intervention 8) : contrôles, chargement à blanc, copie de sécurité `<espace>-copie-avant-restauration`, trace `<espace>-restauration-en-cours` reprise au démarrage, détection des autres onglets. N'écrit que les deux clés métier du build |
+| `src/domain/catalog.ts`, `components/settings/CatalogManager.tsx`, `ProductFormModal.tsx` | Carte des produits modifiable (intervention 9a) : validation, produits actifs ou désactivés (jamais supprimés), sous-page `#/parametres/carte` |
 | `src/storage/interface.ts` | Préférences d'affichage de l'appareil (barre latérale), clé `<espace>-interface` hors du préfixe des données : jamais sauvegardée, restaurée ni réinitialisée avec elles |
 | `src/modules/statistiques/` | Module **facultatif** (masquable dans Paramètres, chargé à la demande) : calculs purs `calculs.ts` + interface. Lecture seule : n'écrit jamais, n'importe pas le store. Le cœur de l'application ne doit jamais dépendre de ce dossier (sauf le point d'entrée dans `App`) |
 | `src/audio/` + `scripts/generate-sounds.mjs` | Sons d'encaissement (WAV originaux générés par le script) |
@@ -49,7 +50,7 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 
 ## Données existantes : précautions impératives
 
-- Clés de production : `ferrari-manager:v1` (historique) et `ferrari-manager:v1:panier`. **Ne jamais les renommer** ni changer `SCHEMA_VERSION` (= 1) sans migration explicite validée.
+- Clés de production : `ferrari-manager:v1` (historique), `ferrari-manager:v1:panier` et, depuis l'intervention 9a, `ferrari-manager:v1:carte` (carte des produits). **Ne jamais les renommer** ni changer `SCHEMA_VERSION` (= 1) sans migration explicite validée.
 - Toute nouvelle donnée doit être **facultative**, avoir une **valeur par défaut à la lecture** (`normalizeAppData` ou fonction `as…` du domaine) qui reproduit le comportement précédent, **sans réécrire** le stockage au chargement.
 - **Retour arrière** : la version précédente doit pouvoir relire les nouvelles données sans perte. Exemple : `payment.method` reste limité à `especes | carte | non_precise` (une valeur inconnue ferait passer la commande en « Paiement non suivi » dans l'ancienne version, puis serait réécrite) ; le détail va dans des champs facultatifs (`payment.tenders`).
 - Ne jamais supposer qu'une ancienne commande est encaissée, ni effacer de données. Les données illisibles ne sont jamais écrasées (seule *Paramètres → Réinitialiser* le peut).

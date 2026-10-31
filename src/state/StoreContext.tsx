@@ -30,6 +30,12 @@ export function useAppSelector<T>(selector: (data: AppData) => T): T {
   return useSyncExternalStore(store.subscribe, () => selector(store.getData()));
 }
 
+/** Carte des produits en vigueur : re-rendu quand le gérant modifie un produit. */
+export function useCatalog() {
+  const store = useStore();
+  return useSyncExternalStore(store.subscribe, store.getCatalog);
+}
+
 export function usePersistError() {
   const store = useStore();
   return useSyncExternalStore(store.subscribe, store.getPersistError);
