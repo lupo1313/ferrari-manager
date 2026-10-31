@@ -129,6 +129,14 @@ Produits uniquement ; suppléments inchangés (intervention 9b) ; carte de démo
 - **Retour à l'ancienne version** (intervention 8) : elle ignore la clé carte et reprend la carte du code (produits ajoutés absents, produits désactivés de nouveau proposés, anciens prix pour les nouvelles commandes) ; commandes, paniers et statistiques intacts (lignes figées) ; la clé carte est conservée et retrouvée par la nouvelle version ; enregistrer les réglages de fidélité dans l'ancienne version retirerait les produits nouveaux des listes éligibles.
 - Vérifié dans Chromium (aperçu local, données fictives, 1432×836, 390×750) : ajout par le formulaire (saisie réelle), modification de prix, désactivation avec confirmation, repères du panier, nouvelle ligne au nouveau prix, persistance au rechargement, restauration d'une ancienne sauvegarde sans carte (carte conservée et annoncée), carte illisible (sélections bloquées, données intactes) puis récupération par restauration, aucune erreur console. Publiée sur la prévisualisation le 01/11 (`index-DFj3XyJN.js`). **Non vérifié** : Samsung réelle, Safari iPhone.
 
+### Correctif local 9a : aller-retour de catégorie
+
+Anomalie signalée sur Samsung : Pizza → Dessert → Pizza après enregistrements effaçait ingrédients et familles (Margarita et Reine). La reconstruction de la fiche ne conservait que les champs de la catégorie active.
+- Correction locale : champ facultatif `categoryMemory` dans la fiche produit, contrôlé à la lecture, pour retrouver ingrédients, familles, description et choix alcool après changement de catégorie et rechargement. Aucun changement des clés ni de SCHEMA_VERSION ; aucune réécriture au chargement. Les champs actifs restent propres à la catégorie choisie.
+- Trois tests de non-régression : Margarita, Reine (composition, familles, commande historique et totaux conservés), et boisson alcoolisée (description et alcool conservés). 374 tests réussis. Builds locaux de production et d’aperçu réussis (TypeScript et Vite), respectivement `index-Bc1JKFt7.js` et `index-C0JKHLaC.js`.
+- Non publié, non commité ; nouvel essai Samsung et Safari iPhone à faire. Ne récupère pas les champs déjà effacés par l’ancienne version.
+- Publication précédente de l’aperçu transmise par le gérant : commit `1dfd19d`, build `index-CO8XSGJn.js` (non revérifiée à distance pendant ce correctif). Production annoncée inchangée : `index-Bj_3rjjO.js`.
+
 ## 2. Fonctionnalités opérationnelles
 
 ### Prise de commande (écran principal, 3 colonnes ; onglets sur écran étroit)

@@ -126,7 +126,15 @@ export function applyProductInput(product: Product, input: ProductInput, price: 
   if (product.active !== undefined) kept.active = product.active;
   if (product.createdAt) kept.createdAt = product.createdAt;
   if (product.deactivatedAt !== undefined) kept.deactivatedAt = product.deactivatedAt;
-  return { id: product.id, ...fieldsFor(input, price), ...kept, updatedAt: nowIso };
+  return {
+    id: product.id, ...fieldsFor(input, price), ...kept, updatedAt: nowIso,
+    categoryMemory: {
+      ingredients: cleanList(input.ingredients),
+      tags: PIZZA_TAGS.filter((t) => input.tags.includes(t)),
+      description: input.description.trim(),
+      alcohol: input.alcohol,
+    },
+  };
 }
 
 export function setProductActive(product: Product, active: boolean, nowIso: string): Product {
@@ -138,10 +146,10 @@ export function productToInput(p: Product): ProductInput {
     name: p.name,
     category: p.category,
     price: (p.price / 100).toFixed(2).replace('.', ','),
-    ingredients: [...(p.ingredients ?? [])],
-    tags: [...(p.tags ?? [])],
-    description: p.category === 'pizza' ? '' : p.description ?? '',
-    alcohol: Boolean(p.alcohol),
+    ingredients: [...(p.ingredients ?? p.categoryMemory?.ingredients ?? [])],
+    tags: [...(p.tags ?? p.categoryMemory?.tags ?? [])],
+    description: p.category === 'pizza' ? p.categoryMemory?.description ?? '' : p.description ?? '',
+    alcohol: p.category === 'boisson' ? Boolean(p.alcohol) : p.categoryMemory?.alcohol ?? false,
   };
 }
 
@@ -171,6 +179,14 @@ export function readCatalogDocument(raw: unknown): { ok: true; products: Product
     if (p.tags !== undefined && !(Array.isArray(p.tags) && p.tags.every((t) => PIZZA_TAGS.includes(t as PizzaTag)))) return { ok: false, reason: `produit ${p.id} : familles invalides` };
     if (p.description !== undefined && typeof p.description !== 'string') return { ok: false, reason: `produit ${p.id} : description invalide` };
     if (p.alcohol !== undefined && typeof p.alcohol !== 'boolean') return { ok: false, reason: `produit ${p.id} : indication alcool invalide` };
+    if (p.categoryMemory !== undefined) {
+      const m = p.categoryMemory;
+      if (!isObject(m) || !isStringList(m.ingredients) ||
+        !(Array.isArray(m.tags) && m.tags.every((t) => PIZZA_TAGS.includes(t as PizzaTag))) ||
+        typeof m.description !== 'string' || typeof m.alcohol !== 'boolean') {
+        return { ok: false, reason: `produit ${p.id} : champs mémorisés invalides` };
+      }
+    }
     if (p.active !== undefined && typeof p.active !== 'boolean') return { ok: false, reason: `produit ${p.id} : état invalide` };
   }
   return { ok: true, products: raw.products as Product[] };

@@ -390,6 +390,42 @@ describe('4 bis. personnalisation d’une ligne de produit désactivé (bug Sams
   });
 });
 
+describe('aller-retour de catégorie après enregistrement et rechargement', () => {
+  it.each(['margarita', 'reine'])('%s conserve ingrédients, familles et historique', (id) => {
+    const m = memory();
+    let s = open(m.kv);
+    s.selectCustomer(s.getData().customers[0].id);
+    ok(s.addProduct(id));
+    const order = ok(s.validateCart());
+    const original = s.product(id)!;
+    ok(s.updateCatalogProduct(id, { ...productToInput(original), category: 'dessert', description: 'Dessert test' }));
+    s = open(m.kv);
+    expect(s.product(id)!.ingredients).toBeUndefined();
+    expect(s.product(id)!.tags).toBeUndefined();
+    ok(s.updateCatalogProduct(id, { ...productToInput(s.product(id)!), category: 'pizza' }));
+    s = open(m.kv);
+    expect(s.product(id)).toMatchObject({ ingredients: original.ingredients, tags: original.tags });
+    expect(s.getData().orders.find((o) => o.id === order.id)).toEqual(order);
+    ok(s.startEditOrder(order.id));
+    const saved = ok(s.validateCart());
+    expect(saved.lines).toEqual(order.lines);
+    expect(saved.totals).toEqual(order.totals);
+    ok(s.updateCatalogProduct(id, { ...productToInput(s.product(id)!), category: 'dessert' }));
+    expect(open(m.kv).product(id)?.description).toBe('Dessert test');
+  });
+
+  it('conserve description et alcool après Boisson → Pizza → Dessert → Boisson', () => {
+    const m = memory();
+    let s = open(m.kv);
+    const drink = ok(s.addCatalogProduct(input({ name: 'Boisson test', category: 'boisson', description: '33 cl', alcohol: true })));
+    for (const category of ['pizza', 'dessert', 'boisson'] as const) {
+      ok(s.updateCatalogProduct(drink.id, { ...productToInput(s.product(drink.id)!), category }));
+      s = open(m.kv);
+    }
+    expect(s.product(drink.id)).toMatchObject({ description: '33 cl', alcohol: true });
+  });
+});
+
 describe('5. ancienne commande rouverte : aucun contenu actualisé', () => {
   it('produit modifié, recatégorisé puis désactivé : la commande rouverte et réenregistrée garde lignes et totaux', () => {
     const s = open(memory().kv);

@@ -23,6 +23,8 @@ export interface Product {
   /** Ingrédients retirables (pizzas uniquement). */
   ingredients?: string[];
   tags?: PizzaTag[];
+  /** Champs masqués conservés entre catégories, sans effet sur les commandes. */
+  categoryMemory?: { ingredients: string[]; tags: PizzaTag[]; description: string; alcohol: boolean };
   /** Boisson alcoolisée : jamais éligible à une récompense fidélité, quelle que soit la configuration. */
   alcohol?: boolean;
   /**
