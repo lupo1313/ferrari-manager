@@ -277,7 +277,11 @@
   border-top: 1px solid var(--line);
   flex: none;
 }
+/* Collées en bas du panneau : si un panier long fait défiler le panneau, les boutons restent visibles. */
 .order-panel__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -437,13 +441,13 @@
     min-height: 48px;
   }
 }
-/* Panneau pleine largeur : les trois actions tiennent sur une seule ligne. */
-@media (max-height: 560px) and (max-width: 959px) {
-  .order-panel__actions {
+/* Panneau pleine largeur (disposition en trois onglets) : les trois actions tiennent sur une seule ligne. */
+@media (max-height: 560px) {
+  .app[data-disposition='onglets'] .order-panel__actions {
     display: grid;
     grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
   }
-  .order-panel__secondary {
+  .app[data-disposition='onglets'] .order-panel__secondary {
     display: contents;
   }
 }

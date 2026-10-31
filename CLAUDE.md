@@ -30,7 +30,8 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 | `src/state/store.ts` | Store applicatif : orchestre domaine + persistance, actions synchrones renvoyant `Result` |
 | `src/storage/` | `schema.ts` (lecture/normalisation des données stockées), `repository.ts` (écritures par opération, `localStorage`), `export.ts` (sauvegarde JSON, lecture seule) |
 | `src/data/` | Carte, paramètres par défaut et jeu de démonstration (fictifs) |
-| `src/components/`, `src/pages/` | Interface uniquement : ne calcule aucune règle métier |
+| `src/components/`, `src/pages/` | Interface uniquement : ne calcule aucune règle métier. `components/layout/disposition.ts` : barre latérale et disposition de la prise de commande selon la place disponible (intervention 7) |
+| `src/storage/interface.ts` | Préférences d'affichage de l'appareil (barre latérale), clé `<espace>-interface` hors du préfixe des données : jamais sauvegardée, restaurée ni réinitialisée avec elles |
 | `src/modules/statistiques/` | Module **facultatif** (masquable dans Paramètres, chargé à la demande) : calculs purs `calculs.ts` + interface. Lecture seule : n'écrit jamais, n'importe pas le store. Le cœur de l'application ne doit jamais dépendre de ce dossier (sauf le point d'entrée dans `App`) |
 | `src/audio/` + `scripts/generate-sounds.mjs` | Sons d'encaissement (WAV originaux générés par le script) |
 | `tests/` | Vitest, environnement Node (`tests/node-fs.d.ts` : déclaration minimale de `node:fs`, pas de `@types/node`) |
@@ -42,7 +43,7 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 - Toute règle métier va dans `src/domain/` (fonction pure) **et** est appliquée par le store, pas seulement par un bouton désactivé. Exception : les calculs propres au module Statistiques restent dans son dossier pour qu'il reste supprimable.
 - Les commandes gardent des **copies figées** (client, adresse de livraison effective, prix) : modifier une fiche ne change pas l'historique.
 - Fidélité = **journal d'événements** + réconciliation idempotente (`reconcileOrderLoyalty`) : on n'écrit jamais un solde, seulement l'écart. Crédit à l'encaissement confirmé uniquement.
-- Conserver la direction artistique (tokens dans `src/styles/tokens.css`), cibles tactiles ≥ 44 px, pas de refonte non demandée. Vérifier à chaque intervention que le panneau Commande tient sans défilement en **1440 px de large** (tablette Samsung réelle : échelle Windows 150 %, Edge maximisé, hauteur estimée 800 à 840 px, à confirmer) et en 1280×800, et que les actions restent accessibles en 844×340 (iPhone paysage) et 390×750.
+- Conserver la direction artistique (tokens dans `src/styles/tokens.css`), cibles tactiles ≥ 44 px, pas de refonte non demandée. Vérifier à chaque intervention que le panneau Commande tient sans défilement en **1432×836** (fenêtre réelle d'Edge sur la tablette Samsung, échelle Windows 150 %, mesurée le 31/10) et en 1280×800, et que les actions restent accessibles en 844×340 (iPhone paysage) et 390×750.
 - Les fichiers du dépôt sont en fins de ligne CRLF (Windows) : un script de remplacement doit les normaliser puis les restaurer. Les heredocs bash contenant des backticks échouent dans cet environnement : écrire les scripts de remplacement dans un fichier `.cjs` du scratchpad.
 
 ## Données existantes : précautions impératives

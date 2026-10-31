@@ -2,6 +2,7 @@ import logo from '../../assets/logo-ferrari.webp';
 import monogram from '../../assets/monogram-ferrari.webp';
 import { Icon, type IconName } from '../ui/Icon';
 import type { Route } from '../../state/useRoute';
+import type { SidebarState } from './disposition';
 
 interface NavItem {
   route: Route;
@@ -27,17 +28,28 @@ interface SidebarProps {
   editingOrderNumber: number | null;
   /** Module Statistiques affiché (Paramètres → Modules facultatifs). */
   statisticsEnabled: boolean;
+  /** Ouverte : logo et libellés ; réduite : monogramme et icônes seules. */
+  state: SidebarState;
+  /** Fenêtre étroite : barre toujours réduite, sans bouton. */
+  forced: boolean;
+  onToggle: () => void;
+  /** Prévisualisation seulement : taille réelle de la fenêtre (px CSS). */
+  viewport?: { width: number; height: number; ratio: number };
 }
 
-export function Sidebar({ route, onNavigate, activeOrders, editingOrderNumber, statisticsEnabled }: SidebarProps) {
+export function Sidebar({ route, onNavigate, activeOrders, editingOrderNumber, statisticsEnabled, state, forced, onToggle, viewport }: SidebarProps) {
   const items = ITEMS.filter((item) => !item.optional || statisticsEnabled);
+  const open = state === 'ouverte';
   return (
     <nav className="sidebar" aria-label="Navigation principale">
       <div className="sidebar__brand">
-        <img className="sidebar__logo" src={logo} alt="Pizzeria Ferrari" width={462} height={160} />
-        <img className="sidebar__monogram" src={monogram} alt="Pizzeria Ferrari" width={512} height={512} />
+        {open ? (
+          <img className="sidebar__logo" src={logo} alt="Pizzeria Ferrari" width={462} height={160} />
+        ) : (
+          <img className="sidebar__monogram" src={monogram} alt="Pizzeria Ferrari" width={512} height={512} />
+        )}
       </div>
-      <ul className="sidebar__list">
+      <ul className="sidebar__list" id="sidebar-navigation">
         {items.map((item) => {
           const label = item.route === 'prise' && editingOrderNumber ? `Modification n° ${editingOrderNumber}` : item.label;
           return (
@@ -53,7 +65,7 @@ export function Sidebar({ route, onNavigate, activeOrders, editingOrderNumber, s
                 <span className="sidebar__icon">
                   <Icon name={item.route === 'prise' && editingOrderNumber ? 'pencil' : item.icon} size={24} />
                   {item.route === 'commandes' && activeOrders > 0 && (
-                    <span className="badge sidebar__badge" aria-label={`${activeOrders} commandes actives`}>
+                    <span className="badge sidebar__badge" aria-hidden="true">
                       {activeOrders}
                     </span>
                   )}
@@ -64,11 +76,37 @@ export function Sidebar({ route, onNavigate, activeOrders, editingOrderNumber, s
           );
         })}
       </ul>
-      <p className="sidebar__foot">
-        Version de test
-        <br />
-        Données fictives
-      </p>
+      <div className="sidebar__bottom">
+        {/* Un seul bouton dans les deux états : le focus clavier reste dessus après un appui. */}
+        {!forced && (
+          <button
+            type="button"
+            className="sidebar__toggle"
+            aria-expanded={open}
+            aria-controls="sidebar-navigation"
+            aria-label={open ? 'Réduire le menu' : 'Déplier le menu'}
+            title={open ? 'Réduire le menu' : 'Déplier le menu'}
+            onClick={onToggle}
+          >
+            <Icon name={open ? 'chevronLeft' : 'chevronRight'} size={22} />
+            <span className="sidebar__label">Réduire le menu</span>
+          </button>
+        )}
+        {open && (
+          <p className="sidebar__foot">
+            Version de test
+            <br />
+            Données fictives
+          </p>
+        )}
+        {viewport && (
+          <p className="sidebar__viewport" title="Taille réelle de la fenêtre (pixels CSS) et densité de l'écran">
+            {viewport.width}×{viewport.height}
+            <br />
+            {viewport.ratio.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}x
+          </p>
+        )}
+      </div>
     </nav>
   );
 }
