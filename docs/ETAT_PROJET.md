@@ -9,7 +9,7 @@ Ce document décrit ce qui existe **réellement** dans le code de `main`. Les r�
 | --- | --- |
 | URL | https://lupo1313.github.io/ferrari-manager/ |
 | Commit sur `main` | Code : `3eabd56` (fusion `--no-ff` de `feat/intervention-8-restauration`), suivi uniquement de commits de documentation |
-| Build servi | `assets/index-Bj_3rjjO.js` attendu (build local identique au commit de fusion ; à confirmer après déploiement). Précédents : `index-DzDJxLvB.js` (intervention 7), `index-CvFZA6CO.js` (intervention 6) |
+| Build servi | `assets/index-Bj_3rjjO.js` (vérifié le 31/10 : déploiement `github-pages` en succès pour `b8ec595`, fichier servi identique au build local, aucun élément de la prévisualisation, carte « Restaurer une sauvegarde » présente, aucune écriture au chargement ni en naviguant, aucune copie de sécurité ni trace créée, 6 modules sans erreur JavaScript). Précédents : `index-DzDJxLvB.js` (intervention 7), `index-CvFZA6CO.js` (intervention 6) |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
 | Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; depuis le 31/10, sert l'**intervention 8** (branche `feat/intervention-8-restauration`, `6c019a6`), build `index-d24VVupI.js` (commit `09e6cc1` du dépôt d'aperçu, Pages en succès, fichier servi identique au build local). |
 
