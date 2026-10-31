@@ -65,7 +65,7 @@ React 18 + TypeScript strict + Vite 5 + Vitest 2. Aucune autre dépendance d'ex�
 ## Tests et vérifications (obligatoires avant tout commit)
 
 ```bash
-npm test          # Vitest (268 tests au 30/10/2026)
+npm test          # Vitest (300 tests au 31/10/2026)
 npm run build     # tsc --noEmit + build de production
 ```
 
@@ -85,4 +85,4 @@ Ajouter des tests métier pour chaque règle, y compris les tentatives de contou
 3. Intervention ciblée : pas de fonctionnalité ni de refonte non demandée ; signaler les incertitudes et les décisions métier au lieu d'inventer ; arrêter et expliquer si un contrôle obligatoire échoue.
 4. Mettre à jour `docs/ETAT_PROJET.md` (et `docs/ROADMAP.md` si besoin) à la fin de chaque intervention, et après chaque mise en production.
 5. Ne pas supprimer les branches ni le dépôt d'aperçu sans accord.
-6. Ne pas commencer une nouvelle intervention (intervention 7 et suivantes) sans demande explicite du gérant.
+6. Ne pas commencer une nouvelle intervention (intervention 8 et suivantes) sans demande explicite du gérant.

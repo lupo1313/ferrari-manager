@@ -1,6 +1,6 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 31/10/2026, intégration des tests manuels réalisés sur la tablette Samsung (section 4.2), sans changement de code depuis la mise en production de l'intervention 6 (fusion `c8cf885`). **Aucune intervention en cours** ; la suite est dans `docs/ROADMAP.md`.
+Dernière mise à jour : 31/10/2026, mise en production de l'intervention 7 (barre latérale rétractable, disposition selon la place disponible ; fusion `641f759`). **Aucune intervention en cours** ; la suite est dans `docs/ROADMAP.md` (intervention 8 à ne pas commencer sans demande).
 Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 
 ## 1. En production
@@ -8,8 +8,8 @@ Ce document décrit ce qui existe **réellement** dans le code de `main`. Les r�
 | Élément | Valeur |
 | --- | --- |
 | URL | https://lupo1313.github.io/ferrari-manager/ |
-| Commit sur `main` | Code : `c8cf885` (fusion `--no-ff` de `feat/intervention-6-trajets-scooter`), suivi uniquement de commits de documentation |
-| Build servi (vérifié le 30/10) | `assets/index-CvFZA6CO.js` (déploiement `github-pages` en succès, 6 modules contrôlés sans erreur JavaScript) |
+| Commit sur `main` | Code : `641f759` (fusion `--no-ff` de `feat/intervention-7-barre-laterale`), suivi uniquement de commits de documentation |
+| Build servi | `assets/index-DzDJxLvB.js` attendu (build local identique au commit de fusion ; à confirmer après déploiement). Précédent : `index-CvFZA6CO.js` (intervention 6) |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
 | Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; depuis le 31/10, sert l'**intervention 7** (branche `feat/intervention-7-barre-laterale`, `e0ab93b`), build `index-Dpv0k2_7.js` (commit `03a38f6` du dépôt d'aperçu, déploiement Pages en succès, version servie vérifiée). Isolation vérifiée en ligne : actions dans l'aperçu sans aucune modification des clés `ferrari-manager:*` ni création de `ferrari-manager-interface`. |
 
@@ -27,8 +27,9 @@ Historique des interventions sur `main` :
 | `98df805` → `cb49242` | Interventions 4 (services, livraison offerte, Statistiques), 4A (écran Commandes), 4B (navigation pendant une modification, petits écrans), libellé « Reste à encaisser » |
 | `9ff6c85` → `02c62e7` | Intervention 5 : tickets cuisine et livreur, paiement prévu, encaissement détaillé (titres-restaurant, mixte), repères de livraison |
 | `c09c075` → `c8cf885` | Intervention 6 : trajet en scooter sur le ticket livreur, adresse de livraison propre à la commande, conformité au serveur public FOSSGIS |
+| `e0ab93b` → `641f759` | Intervention 7 : barre latérale rétractable (préférence par appareil, repli automatique), disposition selon la place disponible, actions du panier collées en bas |
 
-Branches distantes conservées (déjà intégrées) : `feat/intervention-6-trajets-scooter`, `feat/intervention-5-tickets-paiements`, `feat/commandes-cartes`, `feat/statistiques`, `feat/export-donnees`, `feat/encaissement-fidelite`, `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
+Branche locale intégrée : `feat/intervention-7-barre-laterale` (jamais poussée, conservée). Branches distantes conservées (déjà intégrées) : `feat/intervention-6-trajets-scooter`, `feat/intervention-5-tickets-paiements`, `feat/commandes-cartes`, `feat/statistiques`, `feat/export-donnees`, `feat/encaissement-fidelite`, `fix/p0-2-stockage-local`, `refacto/persistance-panier` (anciennes, déjà intégrées).
 
 ### Intervention 4 (en production depuis le 30/10)
 
@@ -79,7 +80,7 @@ Deux problèmes relevés sur Safari iPhone, corrigés sans changer les règles d
 - **Conditions du serveur public FOSSGIS** (vérifiées le 30/10 sur fossgis.de) : attribution « © OpenStreetMap (ODbL) · signaler une erreur » avec les trois liens sous le résultat, et « données © contributeurs OpenStreetMap (ODbL) » sur le ticket ; au plus une requête d'itinéraire par seconde (espacement imposé dans `services/trajet.ts`) ; une requête à la fois ; User-Agent et Referer envoyés par le navigateur. Contact technique de l'exploitant (exigé) : `ast.logistiques@gmail.com`, lien « contact » (mailto) dans la mention sous le trajet et adresse en clair dans Paramètres → « Calcul des trajets de livraison » (avec la mention complète OpenStreetMap / FOSSGIS / BAN) ; jamais sur les tickets ni envoyée aux services ; usage commercial autorisé seulement si le service n'est pas une partie essentielle de l'offre.
 - **Limites** : estimation sans trafic en temps réel ; vitesses urbaines du modèle prudentes (2,2 km ≈ 13 min en centre-ville, proche de la voiture) ; profil cyclomoteur 45 km/h (un 125 cm³ va plus vite) ; serveur public FOSSGIS sans garantie de disponibilité, 1 requête/s.
 
-### Intervention 7 · barre latérale rétractable (branche `feat/intervention-7-barre-laterale`, NON fusionnée, NON déployée)
+### Intervention 7 · barre latérale rétractable (en production depuis le 31/10)
 
 Navigation et mise en page uniquement : aucun fichier du domaine, du store ni du stockage métier modifié.
 - **Barre latérale** : ouverte (176 px, logo, libellés) ou réduite (72 px, monogramme au cercle doré, icônes seules ; chaque entrée garde son nom accessible, info-bulle et badge des commandes actives). Un bouton unique en bas de la barre (« Réduire le menu » / « Déplier le menu », `aria-expanded`, `aria-controls`), collé en bas même quand la barre défile. Fenêtre de moins de 900 px : toujours réduite, sans bouton (iPhone : 72 px au lieu de 68). Pas d'animation de largeur.
