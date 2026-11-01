@@ -1,6 +1,6 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 01/11/2026. Production : intervention 8 (restauration d'une sauvegarde JSON ; fusion `3eabd56`). **Intervention en cours : 9b (gestion des suppléments)**, sur `feat/intervention-9b-supplements`, locale et non commitée. 9a est conservée (aperçu publié), derniers essais Samsung encore en attente ; essais Noël préservés et mis de côté. Aucune fusion ni publication 9b. La suite est dans `docs/ROADMAP.md`.
+Dernière mise à jour : 01/11/2026. Production : intervention 8 (restauration d'une sauvegarde JSON ; fusion `3eabd56`). **Intervention en cours : 9b (gestion des suppléments)**, sur `feat/intervention-9b-supplements`, source `dd27f2e` poussée ; aperçu 9b sans Noël publié (`db71928`, `index-Dn3ZhAiO.js`). Essais PC réussis ; Samsung et Safari iPhone 9b, impression réelle restent à vérifier. Noël préservé localement et exclu de la publication. Aucune fusion ni mise en production. La suite est dans `docs/ROADMAP.md`.
 Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 
 ## 1. En production
@@ -161,9 +161,9 @@ Vérifications : 374 tests et build aperçu réussis. Huit vues contrôlées : o
 
 Restauration depuis une clé USB de `test-9a-avec-carte.json.json` : 5 clients et 6 commandes restaurés. Reine à 12,80 € dans la carte ; commande historique avec Reine à 12 € conservée. Données toujours présentes après fermeture et réouverture de l’onglet. Résultat déclaré par le gérant, non exécuté par Codex. Les derniers essais Samsung restent en attente.
 
-### Intervention 9b : gestion des suppléments (locale, non commitée)
+### Intervention 9b : gestion des suppléments (aperçu sans Noël publié)
 
-- Branche dédiée `feat/intervention-9b-supplements`, issue de `c5c3791` avec les modifications locales 9a/Noël préservées. Le worktree `ferrari-manager-noel-claude` n’a pas été modifié. Aucun commit, push, fusion ou déploiement.
+- Branche dédiée `feat/intervention-9b-supplements`, issue de `c5c3791` avec les modifications locales 9a/Noël préservées. Le worktree `ferrari-manager-noel-claude` n’a pas été modifié. Source 9b sans Noël commitée et poussée (`dd27f2e`) ; travaux Noël conservés non commités. Publication limitée au dépôt d’aperçu (`db71928`), aucune fusion ni mise en production.
 - Paramètres → Suppléments (`#/parametres/supplements`) : ajout, modification du nom et du prix, désactivation confirmée et réactivation, filtres Actifs / Désactivés / Tous. Composants Modal, ConfirmDialog et styles de la gestion 9a réutilisés. Nom 1 à 60 caractères ; prix 0,10 € à 999,99 € en centimes entiers. Doublon de nom actif refusé, accents/casse/espaces ignorés ; réactivation refusée si un autre actif porte le même nom. Aucun bouton de suppression définitive.
 - Stockage : clé dédiée `<espace>:v1:supplements` contenant `{ v: 1, toppings: [...] }`, initialisée une fois depuis les suppléments de départ. Aucun document existant réécrit au chargement ; aucune modification de `SCHEMA_VERSION` ou `formatSauvegarde`. Les modifications des suppléments écrivent uniquement cette clé, après succès du stockage. Réinitialisation et clôture la conservent. Liste illisible jamais écrasée ni remplacée silencieusement.
 - Lignes figées : nom et prix de chaque supplément déjà sélectionné conservés, y compris lors d’une personnalisation ou d’une réouverture de commande. Une nouvelle sélection prend les valeurs de la carte, contrôlées par le store (les valeurs de prix/nom envoyées par le formulaire ne font pas foi). Pas de renommage ni de recalcul rétroactif des commandes, tickets ou fidélité. Les suppléments d’une pizza offerte restent payants.
@@ -175,7 +175,7 @@ Validation : **406 tests réussis**, dont 32 scénarios 9b (validations, prix/no
 
 Parcours Chromium vérifié sur des données fictives dans l’origine dédiée `http://127.0.0.1:5182/` (les données des essais précédents sur 5181 n’ont pas été modifiées) : ajout de Truffe test 9b à 1,25 €, sélection sur Margarita, renommage en Truffe premium test 9b et tarif à 2 €, rechargement, désactivation, filtres, plus du panier et de la personnalisation bloqués, note Bien cuite enregistrée avec total 11,25 €, réactivation. Restauration effective d’un ancien fichier fictif sans liste (suppléments conservés), nouveau fichier (liste remplacée, ancienne commande à 13 € conservée alors que Œuf passe de 1 € à 1,80 €), retour à la copie complète (panier et note retrouvés). Liste et formulaire contrôlés en 1920×1080, 1432×836 et 1280×800 : aucun débordement horizontal, actions du formulaire visibles, aucune erreur console. Noël reste désactivé dans cette origine ; fichiers et travail Noël conservés (simple raccord de route Paramètres, aucun nouveau décor).
 
-Restent à faire avec le gérant : parcours 9b sur Samsung réelle, contrôle Safari iPhone de l’ajout/modification/désactivation et des boutons +, sauvegarde/restauration 9b depuis la clé USB sur les appareils, contrôle des tickets sur imprimante réelle. Les derniers essais Samsung de 9a restent en attente. Aperçu local : `http://127.0.0.1:5182/#/parametres/supplements`. L’aperçu en ligne reste sur la publication 9a `934d27e`.
+Restent à faire avec le gérant : parcours 9b sur Samsung réelle, contrôle Safari iPhone de l’ajout/modification/désactivation et des boutons +, sauvegarde/restauration 9b depuis la clé USB sur les appareils, contrôle des tickets sur imprimante réelle. Les derniers essais Samsung de 9a restent en attente. Aperçu local : `http://127.0.0.1:5182/#/parametres/supplements`. L’aperçu en ligne est désormais sur la publication 9b sans Noël `db71928` (voir publication ci-dessous).
 
 ### Essais manuels PC 9b réussis (résultats transmis le 01/11/2026)
 
@@ -191,6 +191,18 @@ Résultats déclarés par le gérant, non exécutés par Codex :
 Restent à vérifier : Samsung réelle, Safari iPhone 9b et impression réelle. Les derniers essais Samsung 9a restent en attente.
 
 Préparation de publication : sources séparées dans node_modules/.cache/preparation-9b-sans-noel, depuis c5c3791 plus les seuls changements 9b. Aucun import, sélecteur, décor, animation ou asset Noël dans cette version ; barre latérale et logo compact identiques au commit 9a. Le travail Noël et le logo transparent restent intacts dans le dossier principal. Préparation vérifiée : 406 tests réussis ; builds production et aperçu réussis, JavaScript aperçu index-Dn3ZhAiO.js. Contrôle navigateur : gestion des suppléments présente, aucun réglage/décor Noël et aucune erreur console. Vérification publique en lecture seule : production index-Bj_3rjjO.js inchangée ; aperçu actuellement servi index-C0JKHLaC.js (non remplacé). Manifeste exact et empreintes dans node_modules/.cache/contenu-publication-9b.md. Destination prévue uniquement : dépôt lupo1313/ferrari-manager-apercu. Aucun commit, push, fusion ni déploiement à ce stade ; production inchangée.
+
+### Publication 9b sans Noël sur l’aperçu (01/11/2026)
+
+Publication explicitement autorisée par le gérant après validation de la préparation séparée.
+- Source : `dd27f2e` sur `feat/intervention-9b-supplements`, poussée dans `lupo1313/ferrari-manager`. Base 9a `c5c3791`, 26 fichiers source/tests/documentation ; aucun code, style, sélecteur, animation ni asset Noël. Barre latérale et logos identiques à la 9a publiée.
+- Publication statique : `db71928` dans `lupo1313/ferrari-manager-apercu`, branche `main` de ce dépôt séparé uniquement. Aucun push sur `main` du dépôt de production.
+- Build exact de la préparation validée : `index-Dn3ZhAiO.js`, 12 fichiers statiques, namespace `ferrari-manager-apercu-i3`. SHA-256 du JavaScript effectivement servi identique au build : `602931550120a470bad36230277b32bf27f943ad4f8800932ff1b285a0229c37`.
+- Vérifications : 406 tests et builds production/aperçu réussis lors de la préparation ; manifestes et fichiers recontrôlés avant publication. Workflow « pages build and deployment » réussi et environnement `github-pages` au statut `success` pour `db71928` (déploiement 7478473585) : https://github.com/lupo1313/ferrari-manager-apercu/actions/runs/41345893220 .
+- URL : https://lupo1313.github.io/ferrari-manager-apercu/ ; gestion des suppléments : https://lupo1313.github.io/ferrari-manager-apercu/#/parametres/supplements .
+- Production vérifiée en lecture seule : `index-Bj_3rjjO.js` inchangé ; branche distante `main` toujours `b8ec595bf96b176adfac2d5ed49687890e478a06`. Aucun déploiement ni fusion en production. Aucune donnée navigateur modifiée.
+- Préservation : fichiers locaux, dont Noël et logo transparent, vérifiés identiques octet pour octet à leur état avant publication ; worktree Claude non touché. Après publication, seules les modifications Noël restent non commitées dans le dossier principal.
+- Essais restant à faire : Samsung, Safari iPhone 9b et impression réelle. Ancienne sauvegarde 9a : seul avertissement validé manuellement par le gérant, restauration non exécutée.
 
 ## 2. Fonctionnalités opérationnelles
 
