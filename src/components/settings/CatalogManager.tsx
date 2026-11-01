@@ -48,7 +48,7 @@ export function CatalogManager({ onBack }: { onBack: () => void }) {
           <h1 className="page__title">Carte des produits</h1>
           <p className="muted">
             Les modifications s’appliquent aux prochaines sélections. Paniers et commandes déjà enregistrés gardent leurs libellés, prix et
-            compositions. Aucun produit n’est supprimé : un produit désactivé reste visible dans l’historique. Suppléments : inchangés.
+            compositions. Aucun produit n’est supprimé : un produit désactivé reste visible dans l’historique. Les suppléments se gèrent séparément depuis Paramètres.
           </p>
         </div>
         <button type="button" className="btn btn--success" onClick={() => setForm({})} disabled={!editable}>

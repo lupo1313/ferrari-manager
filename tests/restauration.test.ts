@@ -401,7 +401,7 @@ describe('4. restauration ordinaire : données du fichier, panier vide, copie de
     const A = stateA();
     const B = stateB();
     await performRestore(B.m.kv, fileFor(await okAnalysis(await exportOf(A.m.kv))), { now: T0, origin: ORIGIN, keys: P });
-    expect(Object.keys((JSON.parse(await exportOf(B.m.kv)) as BackupFile).stockage)).toEqual([P.doc, P.carte, P.cart]);
+    expect(Object.keys((JSON.parse(await exportOf(B.m.kv)) as BackupFile).stockage)).toEqual([P.doc, P.carte, P.cart, P.supplements]);
   });
 
   it('restaurer deux fois le même fichier : même résultat', async () => {

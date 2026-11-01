@@ -518,10 +518,10 @@ describe('7. sauvegarde et restauration avec la carte', () => {
     const { A, B } = states();
     const text = await exportOf(A.kv);
     const file = JSON.parse(text) as BackupFile;
-    expect(Object.keys(file.stockage)).toEqual([K.doc, K.carte, K.cart]);
+    expect(Object.keys(file.stockage)).toEqual([K.doc, K.carte, K.cart, K.supplements]);
     expect(file.formatSauvegarde).toBe(1);
     const a = await analysis(text);
-    expect(a.fileCarte).toEqual({ produits: demoCatalog.products.length + 1, desactives: 0 });
+    expect(a.fileCarte).toEqual({ produits: demoCatalog.products.length + 1, desactives: 0, supplements: demoCatalog.toppings.length, supplementsDesactives: 0 });
     expect((await performRestore(B.kv, planFor(a), { now: T0, origin: ORIGIN, keys: K })).ok).toBe(true);
     expect(B.map.get(K.carte)).toBe(A.map.get(K.carte));
     expect(B.map.get(K.doc)).toBe(A.map.get(K.doc));

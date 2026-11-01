@@ -1,9 +1,9 @@
-import type { Customer, LoyaltyEvent, Order } from '../domain/types';
+import type { Customer, LoyaltyEvent, Order, Topping } from '../domain/types';
 import { subtotal } from '../domain/pricing';
 import { normalizePhone } from '../domain/customers';
 import { TENDER_KINDS } from '../domain/payment';
 import { LOYALTY_REASON_LABELS } from '../domain/loyalty';
-import { isActive, readCatalogDocument } from '../domain/catalog';
+import { isActive, readCatalogDocument, readToppingsDocument } from '../domain/catalog';
 import { DEFAULT_STORAGE_NAMESPACE, STORAGE_NAMESPACE, parseStored, storageNamespace } from './repository';
 import { BACKUP_FORMAT, BACKUP_TYPE, backupToText, createBackup, readAppKeys, sha256, summarize, type BackupFile, type ReadableStore } from './export';
 import { SCHEMA_VERSION, normalizeServices } from './schema';
@@ -18,7 +18,7 @@ import { SCHEMA_VERSION, normalizeServices } from './schema';
  *   navigateur ne fournit pas le calcul SHA-256. Seule la longueur est alors contrôlée.
  * Une empreinte présente mais fausse, ou un mélange des deux variantes, est toujours refusé.
  *
- * Écriture : seules les deux clés métier du build en cours sont écrites (jamais un nom de clé lu dans
+ * Écriture : seules les clés métier du build en cours sont écrites (jamais un nom de clé lu dans
  * le fichier), après une copie de sécurité relue et une trace d'opération qui permet de reprendre ou
  * d'annuler au démarrage une restauration interrompue entre deux écritures.
  */
@@ -29,9 +29,10 @@ export interface RestoreKeys {
   cart: string;
   /** Carte des produits (intervention 9a). */
   carte: string;
+  supplements: string;
   /** Copie complète de l'état avant la dernière restauration (format d'export), hors des clés métier. */
   safety: string;
-  /** Trace de l'opération en cours, supprimée quand les deux clés sont écrites et relues. */
+  /** Trace de l'opération en cours, supprimée quand les clés sont écrites et relues. */
   journal: string;
   /** Message à afficher après le rechargement (sessionStorage, propre à l'onglet). */
   notice: string;
@@ -43,6 +44,7 @@ export function restoreKeys(namespace = STORAGE_NAMESPACE): RestoreKeys {
     doc: `${namespace}:v1`,
     cart: `${namespace}:v1:panier`,
     carte: `${namespace}:v1:carte`,
+    supplements: `${namespace}:v1:supplements`,
     safety: `${namespace}-copie-avant-restauration`,
     journal: `${namespace}-restauration-en-cours`,
     notice: `${namespace}-avis-restauration`,
@@ -88,10 +90,13 @@ export interface CartFacts {
 export interface CarteFacts {
   produits: number;
   desactives: number;
+  supplements?: number;
+  supplementsDesactives?: number;
 }
 
-export function describeCarte(products: { active?: boolean }[]): CarteFacts {
-  return { produits: products.length, desactives: products.filter((p) => !isActive(p)).length };
+export function describeCarte(products: { active?: boolean }[], toppings?: Topping[]): CarteFacts {
+  return { produits: products.length, desactives: products.filter((p) => !isActive(p)).length,
+    ...(toppings === undefined ? {} : { supplements: toppings.length, supplementsDesactives: toppings.filter((t) => !isActive(t)).length }) };
 }
 
 export interface AnalyzedBackup {
@@ -106,6 +111,7 @@ export interface AnalyzedBackup {
   fileCartText: string | null;
   /** Carte du fichier (texte exact), ou null : sauvegarde antérieure à la carte modifiable. */
   fileCarteText: string | null;
+  fileSupplementsText: string | null;
   fileCarte: CarteFacts | null;
   fileCart: CartFacts | null;
   /** Clés du fichier qui ne sont ni les données ni le panier : ignorées. */
@@ -348,10 +354,19 @@ export async function analyzeBackupText(text: string, target = STORAGE_NAMESPACE
     const carteParsed = parseStored(fileCarteText);
     const carte = carteParsed.kind === 'data' ? readCatalogDocument(carteParsed.value) : { ok: false as const, reason: 'illisible' };
     if (!carte.ok) return { ok: false, problems: [{ kind: 'structure', message: `Carte des produits du fichier invalide (${carte.reason}).` }] };
-    fileCarte = describeCarte(carte.products);
+    fileCarte = describeCarte(carte.products, carte.toppings);
   }
+  const supplementsKey = espace + ':v1:supplements';
+  const fileSupplementsText = typeof stockage[supplementsKey] === 'string' ? stockage[supplementsKey] as string : null;
+  if (fileSupplementsText !== null) {
+    const parsedToppings = parseStored(fileSupplementsText);
+    const read = parsedToppings.kind === 'data' ? readToppingsDocument(parsedToppings.value) : { ok: false as const, reason: 'illisible' };
+    if (!read.ok) return { ok: false, problems: [{ kind: 'structure', message: 'Suppléments du fichier invalides (' + read.reason + ').' }] };
+    if (fileCarte) fileCarte = { ...fileCarte, supplements: read.toppings.length, supplementsDesactives: read.toppings.filter((t) => !isActive(t)).length };
+  }
+  if (fileSupplementsText === null) notes.push('Ce fichier ne contient pas de liste de suppléments : les suppléments actuels seront conservés.');
   const orders = ((parsed.value as Record<string, unknown>).orders as Order[]).map((o) => ({ id: o.id, number: o.number }));
-  const ignoredKeys = keys.filter((k) => k !== docKey && k !== cartKey && k !== carteKey);
+  const ignoredKeys = keys.filter((k) => k !== docKey && k !== cartKey && k !== carteKey && k !== supplementsKey);
   if (ignoredKeys.length) notes.push(`${ignoredKeys.length} donnée(s) inconnue(s) du fichier ignorée(s).`);
   if (!withHash) notes.push('Fichier sans empreinte (exporté depuis une page non sécurisée) : longueurs et contenu contrôlés.');
   return {
@@ -365,6 +380,7 @@ export async function analyzeBackupText(text: string, target = STORAGE_NAMESPACE
     fileCartText,
     fileCart: describeCart(fileCartText, orders),
     fileCarteText,
+    fileSupplementsText,
     fileCarte,
     ignoredKeys,
     notes,
@@ -400,7 +416,7 @@ export interface RestoreJournal {
   debut: string;
   mode: RestoreMode;
   /** `carte` absente : la carte n'est pas touchée par cette opération (ancien fichier sans carte). */
-  cible: { donnees: Fingerprint; panier: Fingerprint | null; carte?: Fingerprint | null };
+  cible: { donnees: Fingerprint; panier: Fingerprint | null; carte?: Fingerprint | null; supplements?: Fingerprint | null };
 }
 
 /**
@@ -419,6 +435,7 @@ export interface RestorePlan {
    * (retour à un état copié qui n'en avait pas).
    */
   carte: string | null | 'conserver';
+  supplements?: string | null | 'conserver';
 }
 
 export type StorageAccess = ReadableStore & {
@@ -448,9 +465,9 @@ export function readSafetyCopy(kv: Pick<ReadableStore, 'getItem'>, keys = restor
 }
 
 /**
- * Remplace les deux clés métier par le plan, de façon récupérable :
+ * Remplace les clés métier par le plan, de façon récupérable :
  * 1. copie de sécurité de l'état actuel (format d'export complet, panier et modification compris), écrite puis relue ;
- * 2. trace de l'opération ; 3. panier ; 4. données (étape décisive) ; 5. relecture ; 6. trace supprimée.
+ * 2. trace de l'opération ; 3. panier ; 4. produits puis suppléments si remplacés ; 5. données (étape décisive) ; 6. relecture puis trace supprimée.
  * Un échec avant l'étape 3 ne change rien ; un échec ensuite est annulé immédiatement depuis l'état copié en mémoire,
  * et, si cette annulation échoue aussi, au démarrage suivant grâce à la trace.
  */
@@ -487,13 +504,16 @@ export async function performRestore(
   const previousDoc = before[keys.doc] ?? null;
   const previousCart = before[keys.cart] ?? null;
   const previousCarte = before[keys.carte] ?? null;
+  const previousSupplements = before[keys.supplements] ?? null;
+  const writesSupplements = plan.supplements !== undefined && plan.supplements !== 'conserver';
+  const supplementsText = writesSupplements ? plan.supplements as string | null : null;
   const writesCarte = plan.carte !== 'conserver';
   const carteText = plan.carte === 'conserver' ? null : plan.carte;
   const journal: RestoreJournal = {
     v: 1,
     debut: options.now.toISOString(),
     mode: plan.mode,
-    cible: { donnees: fingerprint(plan.docText) as Fingerprint, panier: fingerprint(plan.cartText), ...(writesCarte ? { carte: fingerprint(carteText) } : {}) },
+    cible: { donnees: fingerprint(plan.docText) as Fingerprint, panier: fingerprint(plan.cartText), ...(writesCarte ? { carte: fingerprint(carteText) } : {}), ...(writesSupplements ? { supplements: fingerprint(supplementsText) } : {}) },
   };
   try {
     kv.setItem(keys.journal, JSON.stringify(journal));
@@ -503,22 +523,29 @@ export async function performRestore(
   // Ce qui a réellement été écrit : seul cela est annulé en cas d'échec.
   let wroteCart = false;
   let wroteCarte = false;
+  let wroteSupplements = false;
   let wroteDoc = false;
   try {
-    // Ordre : panier, carte, puis données principales (étape décisive).
+    // Ordre : panier, carte, suppléments, puis données principales (étape décisive).
     writeOrRemove(kv, keys.cart, plan.cartText);
     wroteCart = true;
     if (writesCarte) {
       writeOrRemove(kv, keys.carte, carteText);
       wroteCarte = true;
     }
+    if (writesSupplements) {
+      writeOrRemove(kv, keys.supplements, supplementsText);
+      wroteSupplements = true;
+    }
     kv.setItem(keys.doc, plan.docText);
     wroteDoc = true;
     if (kv.getItem(keys.doc) !== plan.docText || kv.getItem(keys.cart) !== plan.cartText) throw new Error('relecture');
     if (writesCarte && kv.getItem(keys.carte) !== carteText) throw new Error('relecture');
+    if (writesSupplements && kv.getItem(keys.supplements) !== supplementsText) throw new Error('relecture');
   } catch {
     try {
       if (wroteDoc) writeOrRemove(kv, keys.doc, previousDoc);
+      if (wroteSupplements) writeOrRemove(kv, keys.supplements, previousSupplements);
       if (wroteCarte) writeOrRemove(kv, keys.carte, previousCarte);
       if (wroteCart) writeOrRemove(kv, keys.cart, previousCart);
       kv.removeItem(keys.journal);
@@ -564,7 +591,7 @@ export function planFromSafetyCopy(copyText: string, keys = restoreKeys()): Rest
     const cartText = raw.stockage[keys.cart];
     const carteText = raw.stockage[keys.carte];
     // Retour arrière COMPLET : la carte redevient celle de la copie (supprimée si la copie n'en avait pas).
-    return { mode: 'copie', docText, cartText: typeof cartText === 'string' ? cartText : null, carte: typeof carteText === 'string' ? carteText : null };
+    return { mode: 'copie', docText, cartText: typeof cartText === 'string' ? cartText : null, carte: typeof carteText === 'string' ? carteText : null, supplements: raw.stockage[keys.supplements] ?? null };
   } catch {
     return null;
   }
@@ -604,7 +631,8 @@ export function recoverInterruptedRestore(kv: StorageAccess, nowMs: number, keys
     const started = Date.parse(journal.debut);
     if (!Number.isNaN(started) && nowMs - started < JOURNAL_FRESH_MS && nowMs >= started) return { state: 'en-cours' };
     const carteDone = !('carte' in journal.cible) || sameAs(kv.getItem(keys.carte), journal.cible.carte ?? null);
-    if (sameAs(kv.getItem(keys.doc), journal.cible.donnees) && sameAs(kv.getItem(keys.cart), journal.cible.panier) && carteDone) {
+    const supplementsDone = !('supplements' in journal.cible) || sameAs(kv.getItem(keys.supplements), journal.cible.supplements ?? null);
+    if (sameAs(kv.getItem(keys.doc), journal.cible.donnees) && sameAs(kv.getItem(keys.cart), journal.cible.panier) && carteDone && supplementsDone) {
       try {
         kv.removeItem(keys.journal);
       } catch {
@@ -624,6 +652,7 @@ export function recoverInterruptedRestore(kv: StorageAccess, nowMs: number, keys
     writeOrRemove(kv, keys.cart, plan.cartText);
     // Carte : rétablie si l'opération interrompue pouvait l'avoir modifiée (ou si la trace est illisible).
     if (!journal || 'carte' in journal.cible) writeOrRemove(kv, keys.carte, plan.carte === 'conserver' ? null : plan.carte);
+    if (!journal || 'supplements' in journal.cible) writeOrRemove(kv, keys.supplements, plan.supplements === 'conserver' ? null : plan.supplements ?? null);
     kv.removeItem(keys.journal);
     return { state: 'retablie' };
   } catch {

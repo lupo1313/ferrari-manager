@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../ui/Icon';
 import { useAppData, useCatalog, useStore } from '../../state/StoreContext';
+import { unavailableTopping } from '../../domain/toppings';
 import { lineCatalogState } from '../../domain/catalog';
 import type { OrderLine as CartOrderLine } from '../../domain/types';
 import { useToast } from '../ui/Toast';
@@ -46,6 +47,7 @@ export function OrderPanel({ onShowCatalog }: OrderPanelProps) {
   const catalogError = store.getCatalogError();
   const lineNotice = (line: CartOrderLine): { notice: string | null; canIncrease: boolean } => {
     if (catalogError) return { notice: 'Carte illisible · quantité non augmentable', canIncrease: false };
+    if (unavailableTopping(line, catalog.toppings)) return { notice: 'Supplément désactivé ou absent · quantité non augmentable', canIncrease: false };
     const state = lineCatalogState(line, catalog.products.find((p) => p.id === line.productId));
     if (state.kind === 'absent') return { notice: 'Absent de la carte · quantité non augmentable', canIncrease: false };
     if (state.kind === 'desactive') return { notice: 'Produit désactivé · quantité non augmentable', canIncrease: false };

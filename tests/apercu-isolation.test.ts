@@ -72,9 +72,11 @@ describe('prévisualisation : stockage isolé de la version actuelle', () => {
       'ferrari-manager-apercu-i3:v1',
       'ferrari-manager-apercu-i3:v1:carte',
       'ferrari-manager-apercu-i3:v1:panier',
+      'ferrari-manager-apercu-i3:v1:supplements',
       'ferrari-manager:v1',
       'ferrari-manager:v1:carte',
       'ferrari-manager:v1:panier',
+      'ferrari-manager:v1:supplements',
     ]);
   });
 

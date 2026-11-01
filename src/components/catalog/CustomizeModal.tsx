@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Icon } from '../ui/Icon';
 import { Stepper } from '../ui/Stepper';
-import { useStore } from '../../state/StoreContext';
+import { unavailableTopping } from '../../domain/toppings';
+import { useCatalog, useStore } from '../../state/StoreContext';
 import { useToast } from '../ui/Toast';
 import { formatPrice } from '../../domain/money';
 import { lineTotal } from '../../domain/pricing';
@@ -26,6 +27,7 @@ export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) 
   const ingredients = line ? lineIngredients(line, product) : product.ingredients ?? [];
   const store = useStore();
   const toast = useToast();
+  const catalog = useCatalog();
   const [removed, setRemoved] = useState<string[]>(line?.removedIngredients ?? []);
   const [toppings, setToppings] = useState<LineTopping[]>(line?.addedToppings ?? []);
   const [quantity, setQuantity] = useState(line?.quantity ?? 1);
@@ -33,7 +35,10 @@ export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) 
   const isReward = Boolean(line?.reward);
   // Ligne existante d'un produit désactivé, absent ou d'une carte illisible : quantité non augmentable
   // (augmenter serait une nouvelle sélection, refusée aussi par le store) ; diminuer reste possible.
-  const canIncrease = !line || (!store.getCatalogError() && product !== undefined && isActive(product));
+  const canIncrease = !line || (!store.getCatalogError() && product !== undefined && isActive(product) && !unavailableTopping({ addedToppings: toppings }, catalog.toppings));
+  // Copies déjà choisies en priorité : jamais de changement visuel de nom/prix lors d'une modification de fiche.
+  const toppingChoices = [...(store.getCatalogError() ? [] : catalog.toppings.filter(isActive)).map((t) => toppings.find((x) => x.id === t.id) ?? t),
+    ...toppings.filter((t) => store.getCatalogError() || !catalog.toppings.some((current) => current.id === t.id && isActive(current)))];
 
   const preview = useMemo(
     () =>
@@ -108,18 +113,20 @@ export function CustomizeModal({ product, line, onClose }: CustomizeModalProps) 
       <section className="customize__section">
         <h3 className="customize__title">Suppléments</h3>
         <div className="chip-grid chip-grid--toppings">
-          {store.catalog.toppings.map((t) => {
+          {toppingChoices.map((t) => {
             const active = toppings.some((x) => x.id === t.id);
+            const unavailable = !!store.getCatalogError() || !catalog.toppings.some((current) => current.id === t.id && isActive(current));
             return (
               <button
                 key={t.id}
                 type="button"
-                className={`chip chip--topping ${active ? 'chip--active' : ''}`}
+                className={`chip chip--topping ${active ? 'chip--active' : ''} ${unavailable ? 'chip--unavailable' : ''}`}
                 aria-pressed={active}
-                onClick={() => toggleTopping({ id: t.id, name: t.name, price: t.price })}
+                onClick={() => toggleTopping(line?.addedToppings.find((old) => old.id === t.id) ?? { id: t.id, name: t.name, price: t.price })}
               >
                 <span>{t.name}</span>
                 <span className="price">+{formatPrice(t.price)}</span>
+                {unavailable && <span className="chip__availability">Indisponible · retirer</span>}
               </button>
             );
           })}

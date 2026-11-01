@@ -41,6 +41,8 @@ export interface Product {
 export interface CatalogDocument {
   v: 1;
   products: Product[];
+  /** Absent dans les cartes 9a : suppléments de départ en mémoire, sans réécriture. */
+  toppings?: Topping[];
 }
 
 /** Supplément ajoutable sur une pizza (ingrédient en plus, payant). */
@@ -48,6 +50,10 @@ export interface Topping {
   id: string;
   name: string;
   price: Cents;
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  deactivatedAt?: string | null;
 }
 
 export interface Catalog {

@@ -11,9 +11,11 @@ import type {
   PaymentPart,
   PaymentPlan,
   Product,
+  Topping,
   RewardKind,
   Settings,
 } from '../domain/types';
+import { selectedToppings, unavailableTopping, validateToppingInput, type ToppingInput, type ToppingErrors } from '../domain/toppings';
 import type { IdFactory } from '../domain/ids';
 import { createId } from '../domain/ids';
 import type { AppRepository, PersistedData } from '../storage/repository';
@@ -51,7 +53,7 @@ import {
   buildProduct,
   catalogDocument,
   isActive,
-  readCatalogDocument,
+  readCatalogDocument, readToppingsDocument,
   setProductActive,
   validateProductInput,
   type ProductErrors,
@@ -85,7 +87,7 @@ import { closeServiceRecord, currentService, openServiceRecord } from '../domain
 
 export type Result<T = void> =
   | { ok: true; value: T }
-  | { ok: false; error: string; fieldErrors?: CustomerFieldErrors; existingCustomerId?: string; productErrors?: ProductErrors };
+  | { ok: false; error: string; fieldErrors?: CustomerFieldErrors; existingCustomerId?: string; productErrors?: ProductErrors; toppingErrors?: ToppingErrors };
 
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const fail = (error: string, extra: Partial<Extract<Result, { ok: false }>> = {}): Result<never> => ({
@@ -130,7 +132,7 @@ export function createAppStore(deps: StoreDeps) {
   const { repo } = deps;
   /** Carte du code : produits de départ (initialisation unique de la carte enregistrée) et suppléments (intervention 9b). */
   const defaultCatalog = deps.catalog;
-  const toppingById = new Map(defaultCatalog.toppings.map((t) => [t.id, t]));
+  let toppingById = new Map(defaultCatalog.toppings.map((t) => [t.id, t]));
   /** Carte en vigueur : celle enregistrée (clé carte), jamais une autre que celle retrouvée au rechargement. */
   let catalog: Catalog = defaultCatalog;
   let productById = new Map(catalog.products.map((p) => [p.id, p]));
@@ -157,9 +159,11 @@ export function createAppStore(deps: StoreDeps) {
   let cartTimer: ReturnType<typeof setTimeout> | null = null;
   let data: AppData = loadOrSeed();
   initCatalog();
+  if (!catalogError) initToppings();
 
-  function setCatalogProducts(products: Product[]) {
-    catalog = { products, toppings: defaultCatalog.toppings };
+  function setCatalogProducts(products: Product[], toppings: Topping[] = catalog.toppings) {
+    catalog = { products, toppings };
+    toppingById = new Map(toppings.map((t) => [t.id, t]));
     productById = new Map(products.map((p) => [p.id, p]));
   }
 
@@ -168,7 +172,7 @@ export function createAppStore(deps: StoreDeps) {
     if (loaded.kind === 'error') return lockCatalog(loaded.error);
     if (loaded.kind === 'data') {
       const read = readCatalogDocument(loaded.value);
-      return read.ok ? setCatalogProducts(read.products) : lockCatalog(read.reason);
+      return read.ok ? setCatalogProducts(read.products, read.toppings ?? defaultCatalog.toppings) : lockCatalog(read.reason);
     }
     // Première utilisation de la carte modifiable : initialisée UNE fois depuis les produits actuels.
     // Si l'écriture échoue, la même carte sera recréée au prochain lancement (même contenu).
@@ -181,11 +185,25 @@ export function createAppStore(deps: StoreDeps) {
     }
   }
 
+  function initToppings() {
+    const loaded = repo.loadToppings();
+    if (loaded.kind === 'error') return lockCatalog(loaded.error);
+    if (loaded.kind === 'data') {
+      const read = readToppingsDocument(loaded.value);
+      return read.ok ? setCatalogProducts(catalog.products, read.toppings) : lockCatalog(read.reason);
+    }
+    // Initialisation unique dans sa propre clé ; aucun document existant n'est réécrit.
+    if (!storageLocked) {
+      try { repo.saveToppings({ v: 1, toppings: catalog.toppings }); }
+      catch { /* mêmes valeurs au prochain chargement si le stockage refuse */ }
+    }
+  }
+
   function lockCatalog(reason: string) {
     catalogError =
       `Carte des produits illisible (${reason}) : elle est conservée intacte, mais aucun produit ne peut être ajouté à une commande. ` +
       'Restaurez une sauvegarde (Paramètres → Restaurer une sauvegarde). Les commandes existantes restent consultables.';
-    setCatalogProducts([]);
+    setCatalogProducts([], []);
   }
 
   /** Raison pour laquelle la carte ne peut pas être modifiée, ou null. */
@@ -196,13 +214,14 @@ export function createAppStore(deps: StoreDeps) {
   }
 
   /** Écrit d'abord ; la carte affichée ne change que si l'écriture a réussi (sinon rien n'est appliqué). */
-  function commitCatalog(products: Product[]): boolean {
+  function commitCatalog(products: Product[], toppings?: Topping[]): boolean {
     try {
-      repo.saveCatalog(catalogDocument(products));
+      if (toppings !== undefined) repo.saveToppings({ v: 1, toppings });
+      else repo.saveCatalog(catalogDocument(products));
     } catch {
       return false;
     }
-    setCatalogProducts(products);
+    setCatalogProducts(products, toppings);
     notify();
     return true;
   }
@@ -470,7 +489,9 @@ export function createAppStore(deps: StoreDeps) {
     addConfiguredLine(productId: string, options: LineOptions): Result<Product> {
       const s = selectable(productId);
       if (!s.ok) return s;
-      setCart(addLine(data.cart, createLine(s.value, newId('lin'), options)));
+      const selected = selectedToppings(options.addedToppings ?? [], catalog.toppings);
+      if (!selected.ok) return fail(selected.error);
+      setCart(addLine(data.cart, createLine(s.value, newId('lin'), { ...options, addedToppings: selected.value })));
       return ok(s.value);
     },
 
@@ -481,18 +502,26 @@ export function createAppStore(deps: StoreDeps) {
     updateLine(lineId: string, options: LineOptions): Result {
       const line = data.cart.lines.find((l) => l.id === lineId);
       if (!line) return fail('Ligne introuvable.');
+      const selected = selectedToppings(options.addedToppings ?? line.addedToppings, catalog.toppings, line.addedToppings);
+      if (!selected.ok) return fail(selected.error);
+      if (options.quantity !== undefined && options.quantity > line.quantity && unavailableTopping({ addedToppings: selected.value }, catalog.toppings)) {
+        return fail('Supplément désactivé ou absent : quantité non augmentable. Retirez ce supplément pour augmenter la ligne.');
+      }
       // Même règle que setLineQuantity : augmenter la quantité est une nouvelle sélection.
       if (options.quantity !== undefined && options.quantity > line.quantity) {
         const s = selectable(line.productId);
         if (!s.ok) return fail(`${s.error} Quantité inchangée (diminuer ou supprimer reste possible).`);
       }
-      setCart(updateLine(data.cart, lineId, options, product(line.productId)));
+      setCart(updateLine(data.cart, lineId, { ...options, addedToppings: selected.value }, product(line.productId)));
       return ok(undefined);
     },
 
     addToppingToLine(lineId: string, toppingId: string): Result {
       const t = toppingById.get(toppingId);
-      if (!t) return fail('Supplément introuvable.');
+      if (catalogError) return fail(catalogError);
+      if (!t || !isActive(t)) return fail('Supplément désactivé ou absent : nouvelle sélection impossible.');
+      const line = data.cart.lines.find((l) => l.id === lineId);
+      if (!line || line.category !== 'pizza') return fail('Choisissez une ligne de pizza.');
       setCart(addToppingToLine(data.cart, lineId, t));
       return ok(undefined);
     },
@@ -501,6 +530,7 @@ export function createAppStore(deps: StoreDeps) {
     setLineQuantity(lineId: string, quantity: number): Result {
       const line = data.cart.lines.find((l) => l.id === lineId);
       if (line && quantity > line.quantity) {
+        if (unavailableTopping(line, catalog.toppings)) return fail('Supplément désactivé ou absent : quantité non augmentable.');
         const s = selectable(line.productId);
         if (!s.ok) return fail(`${s.error} Quantité inchangée (diminuer ou supprimer reste possible).`);
       }
@@ -862,6 +892,41 @@ export function createAppStore(deps: StoreDeps) {
       data = { ...data, settings: next };
       notify();
       return ok(next);
+    },
+
+    /* ---------- Suppléments (intervention 9b) ---------- */
+    addCatalogTopping(input: ToppingInput): Result<Topping> {
+      const blocked = catalogWriteBlocked();
+      if (blocked) return fail(blocked);
+      const { errors, name, price } = validateToppingInput(input, catalog.toppings);
+      if (price === null) return fail('Vérifiez les champs signalés.', { toppingErrors: errors });
+      const created: Topping = { id: newId('sup'), name, price, active: true, createdAt: nowIso(), updatedAt: nowIso(), deactivatedAt: null };
+      if (!commitCatalog(catalog.products, [...catalog.toppings, created])) return fail(CATALOG_SAVE_FAILED);
+      return ok(created);
+    },
+    updateCatalogTopping(id: string, input: ToppingInput): Result<Topping> {
+      const blocked = catalogWriteBlocked();
+      if (blocked) return fail(blocked);
+      const existing = toppingById.get(id);
+      if (!existing) return fail('Supplément introuvable.');
+      const { errors, name, price } = validateToppingInput(input, catalog.toppings, id);
+      if (price === null) return fail('Vérifiez les champs signalés.', { toppingErrors: errors });
+      const updated = { ...existing, name, price, updatedAt: nowIso() };
+      if (!commitCatalog(catalog.products, catalog.toppings.map((t) => t.id === id ? updated : t))) return fail(CATALOG_SAVE_FAILED);
+      return ok(updated);
+    },
+    setCatalogToppingActive(id: string, active: boolean): Result<Topping> {
+      const blocked = catalogWriteBlocked();
+      if (blocked) return fail(blocked);
+      const existing = toppingById.get(id);
+      if (!existing) return fail('Supplément introuvable.');
+      if (active) {
+        const { errors } = validateToppingInput({ name: existing.name, price: '1' }, catalog.toppings, id);
+        if (errors.name) return fail('Réactivation impossible : ' + errors.name);
+      }
+      const updated = { ...existing, active, updatedAt: nowIso(), deactivatedAt: active ? null : nowIso() };
+      if (!commitCatalog(catalog.products, catalog.toppings.map((t) => t.id === id ? updated : t))) return fail(CATALOG_SAVE_FAILED);
+      return ok(updated);
     },
 
     /* ---------- Carte des produits (intervention 9a) ---------- */

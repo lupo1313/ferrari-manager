@@ -1,4 +1,4 @@
-import type { Cart, CatalogDocument, Customer, LoyaltyEvent, Order, ServiceRecord, Settings } from '../domain/types';
+import type { Cart, CatalogDocument, Customer, LoyaltyEvent, Order, ServiceRecord, Settings, Topping } from '../domain/types';
 import type { AppData } from './schema';
 
 /**
@@ -62,6 +62,8 @@ export interface AppRepository {
   loadCatalog(): { kind: 'empty' } | { kind: 'data'; value: unknown } | { kind: 'error'; error: string };
   /** Écrit la carte complète ; lève une exception si le stockage refuse (rien n'est alors enregistré). */
   saveCatalog(doc: CatalogDocument): void;
+  loadToppings(): ReturnType<typeof parseStored>;
+  saveToppings(doc: { v: 1; toppings: Topping[] }): void;
 }
 
 /**
@@ -198,6 +200,11 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
       }
     },
 
+    loadToppings() {
+      try { return parseStored(kv.getItem(key + ':supplements')); }
+      catch { return { kind: 'error', error: 'stockage local inaccessible' }; }
+    },
+    saveToppings(doc) { kv.setItem(key + ':supplements', JSON.stringify(doc)); },
     saveCatalog(catalog) {
       kv.setItem(catalogKey, JSON.stringify(catalog));
     },
@@ -238,18 +245,19 @@ export function createMemoryRepository(initial: unknown = null, initialRaw?: str
   if (initialRaw !== undefined) store.set(STORAGE_KEY, initialRaw);
   else if (initial) store.set(STORAGE_KEY, JSON.stringify(initial));
   if (initialCartRaw !== undefined) store.set(CART_KEY, initialCartRaw);
-  const control = { saves: 0, cartSaves: 0, failOn: null as null | 'doc' | 'cart' | 'carte' | 'all' };
+  const control = { saves: 0, cartSaves: 0, failOn: null as null | 'doc' | 'cart' | 'carte' | 'supplements' | 'all' };
   const kv: KeyValueStore = {
     getItem: (k) => store.get(k) ?? null,
     setItem: (k, v) => {
       const isCart = k === CART_KEY;
       const isCatalog = k === CATALOG_KEY;
-      if (control.failOn === 'all' || (control.failOn === 'cart' && isCart) || (control.failOn === 'carte' && isCatalog) || (control.failOn === 'doc' && !isCart && !isCatalog)) {
+      const isToppings = k === STORAGE_KEY + ':supplements';
+      if (control.failOn === 'all' || (control.failOn === 'cart' && isCart) || (control.failOn === 'carte' && isCatalog) || (control.failOn === 'supplements' && isToppings) || (control.failOn === 'doc' && !isCart && !isCatalog && !isToppings)) {
         throw new Error('QuotaExceededError');
       }
       store.set(k, v);
       if (isCart) control.cartSaves++;
-      else if (!isCatalog) control.saves++;
+      else if (!isCatalog && !isToppings) control.saves++;
     },
     removeItem: (k) => void store.delete(k),
   };

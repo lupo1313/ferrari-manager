@@ -32,6 +32,9 @@ interface Review {
 
 const carteLabel = (c: CarteFacts | null) => (c ? `${c.produits} produits${c.desactives ? ` (dont ${c.desactives} désactivé${c.desactives > 1 ? 's' : ''})` : ''}` : 'illisible');
 
+const toppingsLabel = (c: CarteFacts | null) => c?.supplements === undefined ? 'liste absente' :
+  c.supplements + ' suppléments' + (c.supplementsDesactives ? ' (dont ' + c.supplementsDesactives + ' désactivés)' : '');
+
 const PROBLEM_LABELS: Record<Problem['kind'], string> = {
   fichier: 'Fichier',
   structure: 'Données invalides',
@@ -86,7 +89,7 @@ export function RestoreCard() {
   }, [copyUrl]);
 
   const catalogNow = useCatalog();
-  const carteNow = store.getCatalogError() ? null : describeCarte(catalogNow.products);
+  const carteNow = store.getCatalogError() ? null : describeCarte(catalogNow.products, catalogNow.toppings);
   const locked = store.isStorageLocked();
   const before = locked ? null : factsOf(data);
   const cartArticles = data.cart.lines.reduce((n, l) => n + l.quantity, 0);
@@ -104,14 +107,15 @@ export function RestoreCard() {
       // Ancien fichier sans carte : la carte actuelle est conservée (clé non touchée).
       const plan: RestorePlan | null =
         mode === 'fichier'
-          ? { mode, docText: analysis.docText, cartText: emptyCartText(), carte: analysis.fileCarteText ?? 'conserver' }
+          ? { mode, docText: analysis.docText, cartText: emptyCartText(), carte: analysis.fileCarteText ?? 'conserver', supplements: analysis.fileSupplementsText ?? 'conserver' }
           : planFromSafetyCopy(text, keys);
       if (!plan) {
         setRefused({ source, problems: [{ kind: 'fichier', message: 'Copie de sécurité incomplète.' }] });
         return;
       }
       const carteAfter = plan.carte === 'conserver' ? storage()?.getItem(keys.carte) ?? null : plan.carte;
-      const dry = dryRunLoad(plan.docText, plan.cartText, carteAfter);
+      const supplementsAfter = plan.supplements === undefined || plan.supplements === 'conserver' ? storage()?.getItem(keys.supplements) ?? null : plan.supplements;
+      const dry = dryRunLoad(plan.docText, plan.cartText, carteAfter, supplementsAfter);
       if (!dry.ok) {
         setRefused({ source, problems: [{ kind: 'structure', message: `L’application ne pourrait pas charger ces données (${dry.reason}).` }] });
         return;
@@ -127,8 +131,8 @@ export function RestoreCard() {
         carteAfter: dry.carte,
         carteAfterError: dry.carteError,
       });
-    } catch {
-      setRefused({ source, problems: [{ kind: 'fichier', message: 'Lecture du fichier impossible.' }] });
+    } catch (e) {
+      setRefused({ source, problems: [{ kind: 'fichier', message: e instanceof Error ? e.message : 'Lecture du fichier impossible.' }] });
     } finally {
       setBusy(null);
     }
@@ -310,6 +314,10 @@ export function RestoreCard() {
                     {review.plan.carte === 'conserver' ? ' · conservée' : review.plan.mode === 'fichier' ? ' · celle du fichier' : ' · celle de la copie'}
                   </td>
                 </tr>
+                <tr><th scope="row">Suppléments</th><td>{toppingsLabel(carteNow)}</td><td>
+                  {toppingsLabel(review.carteAfter)}
+                  {review.plan.mode === 'fichier' && review.analysis.fileSupplementsText === null ? ' · conservés' : ' · restaurés'}
+                </td></tr>
               </tbody>
             </table>
 
@@ -332,6 +340,9 @@ export function RestoreCard() {
                         ? `Le panier actuel (${cartArticles} article(s)${editing ? `, modification de la commande n° ${editing.number}` : ''}) sera remplacé par un panier vide ; il reste dans la copie de sécurité.`
                         : 'Le panier actuel est vide.'}
                     </p>
+                    {review.analysis.fileSupplementsText === null && <p>
+                      <strong>Suppléments conservés :</strong> ce fichier ne contient pas leur liste. Les suppléments actuels restent inchangés.
+                    </p>}
                     <p>
                       {review.analysis.fileCarte
                         ? `Carte des produits : remplacée par celle du fichier (${carteLabel(review.analysis.fileCarte)}).`
@@ -340,7 +351,7 @@ export function RestoreCard() {
                   </>
                 ) : (
                   <p>
-                    <strong>Retour arrière complet :</strong> données, panier, modification en cours et carte des produits redeviennent exactement ceux
+                    <strong>Retour arrière complet :</strong> données, panier, modification en cours, carte des produits et suppléments redeviennent exactement ceux
                     d’avant la dernière restauration. L’état actuel est lui-même gardé comme nouvelle copie de sécurité.
                   </p>
                 )}

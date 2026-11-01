@@ -1,4 +1,4 @@
-import type { CatalogDocument, Cents, OrderLine, PizzaTag, Product, ProductCategory } from './types';
+import type { CatalogDocument, Cents, OrderLine, PizzaTag, Product, ProductCategory, Topping } from './types';
 import { parseEuros } from './money';
 
 /**
@@ -153,8 +153,8 @@ export function productToInput(p: Product): ProductInput {
   };
 }
 
-export function catalogDocument(products: Product[]): CatalogDocument {
-  return { v: CATALOG_VERSION, products };
+export function catalogDocument(products: Product[], toppings?: Topping[]): CatalogDocument {
+  return { v: CATALOG_VERSION, products, ...(toppings === undefined ? {} : { toppings }) };
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -164,7 +164,7 @@ const isStringList = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x
  * Lecture stricte d'une carte enregistrée (stockage ou fichier de sauvegarde). Une carte invalide n'est
  * jamais « réparée » : elle est refusée et laissée intacte.
  */
-export function readCatalogDocument(raw: unknown): { ok: true; products: Product[] } | { ok: false; reason: string } {
+export function readCatalogDocument(raw: unknown): { ok: true; products: Product[]; toppings?: Topping[] } | { ok: false; reason: string } {
   if (!isObject(raw) || raw.v !== CATALOG_VERSION || !Array.isArray(raw.products)) return { ok: false, reason: 'format de carte inconnu' };
   const ids = new Set<string>();
   for (const [i, p] of (raw.products as unknown[]).entries()) {
@@ -189,7 +189,23 @@ export function readCatalogDocument(raw: unknown): { ok: true; products: Product
     }
     if (p.active !== undefined && typeof p.active !== 'boolean') return { ok: false, reason: `produit ${p.id} : état invalide` };
   }
-  return { ok: true, products: raw.products as Product[] };
+  if (raw.toppings !== undefined) {
+    if (!Array.isArray(raw.toppings)) return { ok: false, reason: 'liste des suppléments invalide' };
+    const toppingIds = new Set<string>();
+    const names = new Set<string>();
+    for (const t of raw.toppings) {
+      if (!isObject(t) || typeof t.id !== 'string' || !t.id.trim() || toppingIds.has(t.id) ||
+        typeof t.name !== 'string' || !t.name.trim() || typeof t.price !== 'number' || !Number.isInteger(t.price) || t.price < 0 ||
+        (t.active !== undefined && typeof t.active !== 'boolean')) return { ok: false, reason: 'supplément invalide ou identifiant en double' };
+      toppingIds.add(t.id);
+      if (t.active !== false) {
+        const name = fold(t.name);
+        if (names.has(name)) return { ok: false, reason: 'suppléments actifs de même nom' };
+        names.add(name);
+      }
+    }
+  }
+  return { ok: true, products: raw.products as Product[], ...(raw.toppings === undefined ? {} : { toppings: raw.toppings as Topping[] }) };
 }
 
 /** État d'une ligne par rapport à la carte actuelle (repère affiché dans le panier ; la ligne n'est jamais modifiée). */
@@ -202,4 +218,11 @@ export function lineCatalogState(line: OrderLine, product: Product | undefined):
     return { kind: 'modifie', price: product.price, name: product.name };
   }
   return { kind: 'ok' };
+}
+
+/** Liste indépendante : les versions 9a ne réécrivent jamais cette clé. */
+export function readToppingsDocument(raw: unknown): { ok: true; toppings: Topping[] } | { ok: false; reason: string } {
+  if (!isObject(raw) || raw.v !== 1 || !Array.isArray(raw.toppings)) return { ok: false, reason: 'format des suppléments inconnu' };
+  const read = readCatalogDocument({ v: 1, products: [], toppings: raw.toppings });
+  return read.ok ? { ok: true, toppings: read.toppings! } : read;
 }

@@ -343,6 +343,12 @@ export function SettingsPage() {
           </a>
         </section>
 
+        <section className="card settings-grid__wide">
+          <h2 className="card__title"><Icon name="plusCircle" /> Suppléments</h2>
+          <p>Ajouter, modifier, désactiver ou réactiver les suppléments. Les noms et prix déjà enregistrés dans les lignes restent inchangés.</p>
+          <a className="btn btn--dark" href="#/parametres/supplements"><Icon name="pencil" />Gérer les suppléments</a>
+        </section>
+
         <BackupCard />
 
         <RestoreCard />
