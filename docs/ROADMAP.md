@@ -1,7 +1,7 @@
 # Feuille de route Ferrari Manager
 
 Mise à jour le 31/10/2026 : intervention 8 en production (fusion `3eabd56`), intervention 7 en production (fusion `641f759`), tests manuels sur la tablette Samsung intégrés (`docs/ETAT_PROJET.md`, section 4), décisions produit du 31/10 enregistrées. L'état actuel de chaque sujet est décrit dans `docs/ETAT_PROJET.md` ; ce document ne liste que ce qui reste à faire et les décisions en attente.
-Chaque intervention suit les règles de CLAUDE.md. **Intervention 10 développée localement sur demande explicite**, branche feat/intervention-10-cloture ; vérifications locales terminées, validation Samsung en attente (voir ETAT_PROJET). Publication exclusive de l’aperçu 10 sans Noël/logo autorisée le 02/11, en cours ; commit source conservé localement. Aucun push dans le dépôt de production, aucune fusion. Travaux Noël et worktree Claude préservés.
+Chaque intervention suit les règles de CLAUDE.md. **Intervention 10 développée localement sur demande explicite**, branche feat/intervention-10-cloture ; vérifications locales terminées, validation Samsung en attente (voir ETAT_PROJET). Aperçu 10 sans Noël/logo publié le 02/11 : 7b0a831, index-DGHzI53y.js, Pages réussi ; source d5f13e0 conservée localement. En attente des tests Samsung. Aucun push dans le dépôt de production, aucune fusion. Travaux Noël et worktree Claude préservés.
 
 ## Décisions produit du 31/10/2026 (non développées)
 

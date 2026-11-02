@@ -1,15 +1,19 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 02/11/2026. Production : intervention 8 ; aperçu publié : 9b sans Noël (db71928, index-Dn3ZhAiO.js). **Intervention en cours : 10, clôture du service, uniquement locale**, branche feat/intervention-10-cloture. Validation Samsung en attente. Publication de l’aperçu 10 sans Noël/logo autorisée le 02/11 ; préparation vérifiée, publication en cours. Aucun push vers le dépôt de production.
+Dernière mise à jour : 02/11/2026. Production inchangée : intervention 8, main b8ec595, index-Bj_3rjjO.js. **Intervention 10 publiée uniquement sur l’aperçu sans Noël/logo** : source locale d5f13e0, publication 7b0a831, index-DGHzI53y.js. Validation Samsung en attente. Aucun push vers le dépôt de production ni fusion.
 Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 
-## Intervention 10 · clôture du service (locale, 02/11/2026)
+## Intervention 10 · clôture du service (aperçu uniquement, 02/11/2026)
 
-Branche dédiée : feat/intervention-10-cloture, base 8734e68. Commit source local autorisé pour cette intervention ; seul le dépôt ferrari-manager-apercu sera poussé. Aucune fusion ni mise en production. Les travaux Noël/logo non commités sont conservés à l'identique (empreintes vérifiées), ainsi que le worktree Claude. Les paragraphes décrivant main ci-dessous restent historiques : cette clôture n'est pas en production ni sur l'aperçu publié 9b.
+Branche dédiée : feat/intervention-10-cloture, base 8734e68. Commit source local autorisé pour cette intervention ; seul le dépôt ferrari-manager-apercu sera poussé. Aucune fusion ni mise en production. Les travaux Noël/logo non commités sont conservés à l'identique (empreintes vérifiées), ainsi que le worktree Claude. Les paragraphes décrivant main ci-dessous restent historiques : cette clôture est publiée uniquement sur l’aperçu et n’est pas en production.
 
-### Préparation de publication du 02/11
+### Publication de l’aperçu du 02/11
 
 Version isolée depuis 8734e68 : seuls les 16 fichiers de clôture, tests et documentation sont retenus. App.tsx, Sidebar.tsx, SettingsPage.tsx et tous les assets/préférences Noël/logo sont exclus. 449 tests réussis dans le dépôt et dans cette préparation ; builds production et aperçu réussis. Build sans Noël : index-DGHzI53y.js. Production relevée avant publication : main b8ec595bf96b176adfac2d5ed49687890e478a06, index-Bj_3rjjO.js. Stockage et canal d’onglets de l’aperçu séparés ; aucune modification des données du navigateur pendant la publication.
+
+Publication autorisée et effectuée dans le seul dépôt lupo1313/ferrari-manager-apercu : commit 7b0a83148f6b6c7bc9d1b122e77cb7e6fa8066fa. Source : d5f13e04a84a55eadbac9a7e6bb5f11f820882d9, conservée localement sur feat/intervention-10-cloture (non poussée). Déploiement github-pages réussi ; exécution https://github.com/lupo1313/ferrari-manager-apercu/actions/runs/41490659030. URL : https://lupo1313.github.io/ferrari-manager-apercu/. JavaScript réellement servi : assets/index-DGHzI53y.js, identique octet par octet au build testé (SHA-256 af58f9b120836724e25948b50b38d60220a0d83403de8827b26ab9df1fa286a2).
+
+Production contrôlée avant/après en lecture seule : même main b8ec595bf96b176adfac2d5ed49687890e478a06, même index-Bj_3rjjO.js, même empreinte SHA-256. Aucun push au dépôt ferrari-manager, aucune fusion ni publication de production. Aucune action sur les données des navigateurs. Les 29 fichiers Noël/logo sont inchangés ; worktree Claude toujours c5c3791 sur feat/noel-claude. Arrêt du travail en attente des tests Samsung, sans commencer d’autre intervention.
 
 ### Parcours et fichiers
 
@@ -31,11 +35,11 @@ Les fiches clients complètes, la carte, les suppléments et les paramètres son
 
 Le document principal est écrit atomiquement avec clients et fidélité. Une trace contenant uniquement l'état fermé permet de terminer le nettoyage du panier et de la copie interne après interruption ; avant cette écriture principale, la reprise annule seulement la trace. Un état intermédiaire n'est jamais chargé pour travailler. Double clic protégé, données relues avant validation, écritures d'un ancien onglet refusées. Web Locks et détection des autres onglets obligatoires : vérification indisponible ou autre onglet présent = clôture refusée. Restauration et clôture ne peuvent pas se superposer.
 
-Validation locale sur données fictives : 449 tests réussis (43 dédiés à la clôture), builds production et aperçu réussis. Build aperçu local : index-DwDISvFh.js, URL http://127.0.0.1:5190/. Aucun build publié. Tests : quatre combinaisons, annulation, génération en échec, commandes à résoudre, interruptions avant/après validation, double validation, ancien onglet, restauration sur stockage vierge, sauvegardes anciennes et réouverture le lendemain. Un cycle métier complet vérifie une récompense réservée puis consommée, sa conservation après clôture/restauration, l'utilisation unique de la récompense restante le lendemain et le refus d'une récompense supplémentaire.
+Validation locale sur données fictives : 449 tests réussis (43 dédiés à la clôture), builds production et aperçu réussis. Build aperçu local : index-DwDISvFh.js, URL http://127.0.0.1:5190/. Ce build local avec les essais Noël n’est pas celui publié ; le build isolé publié est indiqué ci-dessus. Tests : quatre combinaisons, annulation, génération en échec, commandes à résoudre, interruptions avant/après validation, double validation, ancien onglet, restauration sur stockage vierge, sauvegardes anciennes et réouverture le lendemain. Un cycle métier complet vérifie une récompense réservée puis consommée, sa conservation après clôture/restauration, l'utilisation unique de la récompense restante le lendemain et le refus d'une récompense supplémentaire.
 
 Parcours Chromium contrôlé en PC et en 1432 × 836 / 1280 × 800 : choix et confirmations accessibles, PDF réel de deux pages relu, deux fichiers téléchargés, blocage avec un second onglet puis annulation sans perte. Cycle clôture → rechargement → restauration du JSON téléchargé → réouverture réussi : 5 clients, 48 pizzas comptées, 3 récompenses disponibles, aucun doublon et aucune commande réintroduite. Comparaison exacte des tableaux de fidélité après restauration et réouverture. Les tests automatisés couvrent aussi récompenses utilisées et dettes, absentes de ce petit jeu visuel.
 
-À valider avec le gérant sur Samsung/Edge : téléchargement et lecture des deux fichiers sur clé USB, annulation du dialogue d'enregistrement, confirmation tactile, autres onglets, fermeture/réouverture réelle du navigateur et cycle du lendemain. Safari iPhone, impression papier du PDF et tickets thermiques restent non validés pour cette intervention. L'émulation de taille n'est pas un test matériel Samsung. Production et aperçu distant inchangés par ce travail local.
+À valider avec le gérant sur Samsung/Edge : téléchargement et lecture des deux fichiers sur clé USB, annulation du dialogue d'enregistrement, confirmation tactile, autres onglets, fermeture/réouverture réelle du navigateur et cycle du lendemain. Safari iPhone, impression papier du PDF et tickets thermiques restent non validés pour cette intervention. L'émulation de taille n'est pas un test matériel Samsung. Production inchangée ; aperçu 10 publié ensuite sans Noël/logo pour ces essais.
 
 ## 1. En production
 
@@ -45,7 +49,7 @@ Parcours Chromium contrôlé en PC et en 1432 × 836 / 1280 × 800 : choix et co
 | Commit sur `main` | Code : `3eabd56` (fusion `--no-ff` de `feat/intervention-8-restauration`), suivi uniquement de commits de documentation |
 | Build servi | `assets/index-Bj_3rjjO.js` (vérifié le 31/10 : déploiement `github-pages` en succès pour `b8ec595`, fichier servi identique au build local, aucun élément de la prévisualisation, carte « Restaurer une sauvegarde » présente, aucune écriture au chargement ni en naviguant, aucune copie de sécurité ni trace créée, 6 modules sans erreur JavaScript). Précédents : `index-DzDJxLvB.js` (intervention 7), `index-CvFZA6CO.js` (intervention 6) |
 | Déploiement | GitHub Actions `deploy-pages.yml` (tests, build, déploiement) à chaque push sur `main` |
-| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ (dépôt séparé `lupo1313/ferrari-manager-apercu`, build de la branche, stockage isolé). Conservée ; depuis le 01/11, sert l'**intervention 9a** (branche `feat/intervention-9a-produits`, `6dcd947`), build `index-C0JKHLaC.js` (correctifs du « + » et des champs conservés lors des changements de catégorie), publication `934d27e`, Pages en succès, fichier servi identique au build local. Précédemment : intervention 8 (`index-d24VVupI.js`). |
+| Prévisualisation | https://lupo1313.github.io/ferrari-manager-apercu/ : intervention 10 sans Noël/logo, publication 7b0a831, source locale d5f13e0, index-DGHzI53y.js, déploiement Pages réussi le 02/11. Précédent : 9b sans Noël, db71928 / index-Dn3ZhAiO.js. Stockage isolé de la production. |
 
 Historique des interventions sur `main` :
 
