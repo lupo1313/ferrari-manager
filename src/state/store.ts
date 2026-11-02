@@ -975,11 +975,12 @@ export function createAppStore(deps: StoreDeps) {
 
     /** Efface toutes les données locales et recharge le jeu de démonstration (la carte des produits est conservée). */
     resetDemoData() {
+      if (frozen) return;
+      try { repo.clear(); } catch { docError = DOC_ERROR; notify(); return; }
       // Choix explicite de l'utilisateur : seule action autorisée à remplacer des données illisibles.
       storageLocked = null;
       if (cartTimer !== null) clearTimeout(cartTimer);
       cartTimer = null;
-      repo.clear();
       const seeded = deps.seed(defaultCatalog, now(), newId);
       try {
         repo.replaceAll(withoutCart(seeded), seeded.cart);

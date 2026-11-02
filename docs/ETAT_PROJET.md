@@ -1,7 +1,41 @@
 # État du projet Ferrari Manager
 
-Dernière mise à jour : 01/11/2026. Production : intervention 8 (restauration d'une sauvegarde JSON ; fusion `3eabd56`). **Intervention en cours : 9b (gestion des suppléments)**, sur `feat/intervention-9b-supplements`, source `dd27f2e` poussée ; aperçu 9b sans Noël publié (`db71928`, `index-Dn3ZhAiO.js`). Essais PC réussis ; Samsung et Safari iPhone 9b, impression réelle restent à vérifier. Noël préservé localement et exclu de la publication. Aucune fusion ni mise en production. La suite est dans `docs/ROADMAP.md`.
+Dernière mise à jour : 02/11/2026. Production : intervention 8 ; aperçu publié : 9b sans Noël (db71928, index-Dn3ZhAiO.js). **Intervention en cours : 10, clôture du service, uniquement locale**, branche feat/intervention-10-cloture. Validation Samsung en attente. Publication de l’aperçu 10 sans Noël/logo autorisée le 02/11 ; préparation vérifiée, publication en cours. Aucun push vers le dépôt de production.
 Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
+
+## Intervention 10 · clôture du service (locale, 02/11/2026)
+
+Branche dédiée : feat/intervention-10-cloture, base 8734e68. Commit source local autorisé pour cette intervention ; seul le dépôt ferrari-manager-apercu sera poussé. Aucune fusion ni mise en production. Les travaux Noël/logo non commités sont conservés à l'identique (empreintes vérifiées), ainsi que le worktree Claude. Les paragraphes décrivant main ci-dessous restent historiques : cette clôture n'est pas en production ni sur l'aperçu publié 9b.
+
+### Préparation de publication du 02/11
+
+Version isolée depuis 8734e68 : seuls les 16 fichiers de clôture, tests et documentation sont retenus. App.tsx, Sidebar.tsx, SettingsPage.tsx et tous les assets/préférences Noël/logo sont exclus. 449 tests réussis dans le dépôt et dans cette préparation ; builds production et aperçu réussis. Build sans Noël : index-DGHzI53y.js. Production relevée avant publication : main b8ec595bf96b176adfac2d5ed49687890e478a06, index-Bj_3rjjO.js. Stockage et canal d’onglets de l’aperçu séparés ; aucune modification des données du navigateur pendant la publication.
+
+### Parcours et fichiers
+
+- Récapitulatif distinguant ventes enregistrées, encaissements confirmés dans le logiciel, annulations et cadeaux. Les calculs existants des statistiques sont partagés depuis domain/statistics ; le module facultatif les réexporte sans changement de règle.
+- Clôture bloquée tant qu'une commande, même archivée, n'est pas terminée et encaissée, présente un écart de paiement, ou qu'un panier, une modification ou une récompense réservée reste à résoudre. Les commandes annulées sont distinguées. Aucune résolution automatique ni suppression silencieuse.
+- Deux choix indépendants, tous deux proposés par défaut : bilan PDF indicatif (jamais présenté comme document de caisse certifié) et sauvegarde de reprise JSON. Les quatre combinaisons sont possibles, y compris aucun fichier.
+- Chaque fichier demandé doit être téléchargé puis explicitement déclaré enregistré et vérifié par le gérant. Un téléchargement lancé ne suffit pas. Annulation ou échec avant confirmation finale : aucune suppression. Confirmation finale distincte et explicite du retrait des données.
+- PDF : ventes par produit, suppléments, panier moyen, livraison/emporter, paiements par moyen, annulations et cadeaux séparés. Les frais historiques sont inclus dans les encaissements enregistrés, sans être ajoutés aux ventes de produits. Les annulations marquées encaissées sont séparées (remboursement non suivi). Les commandes antérieures retirées sont signalées à part. Montants déclarés dans le logiciel, sans contrôle physique de caisse.
+- JSON de reprise au format de sauvegarde existant (version 1) : clients, journal de fidélité conservé, carte, suppléments, paramètres, compteur remis à 1 ; service fermé, panier vide, aucune commande. L'instant de préparation constitue la borne de clôture commune au PDF, au JSON et à l'état final. Toute modification des données après préparation impose de recommencer.
+- La sauvegarde complète de Paramètres reste distincte et inchangée : elle permet de conserver l'historique avant clôture. Les sauvegardes anciennes restent lisibles ; elles peuvent volontairement rétablir leur ancien état, contrairement au fichier de reprise.
+
+### Périmètre du retrait et fidélité
+
+Après confirmation : toutes les commandes actuellement stockées, y compris archives et commandes annulées, leur historique client et leurs paiements sont retirés. Les anciens services et leurs statistiques disparaissent ; seule la borne du dernier service fermé reste, sans commandes ni données financières. L'ancienne copie interne avant restauration est également supprimée, car elle pourrait réintroduire cet historique. Ce périmètre est annoncé avant validation. Les fichiers déjà enregistrés hors du Manager ne sont pas supprimés.
+
+Les fiches clients complètes, la carte, les suppléments et les paramètres sont conservés. La fidélité reste calculée depuis son journal : mêmes identifiants, dates, variations et raisons ; seuls les liens vers les commandes retirées sont détachés et leur libellé devient « Fidélité conservée après clôture ». Les compteurs, progression, récompenses acquises/utilisées/disponibles et dettes sont comparés avant/après. Aucune réservation ne peut être abandonnée : elle bloque la clôture jusqu'à résolution. Aucun crédit synthétique ni double comptage.
+
+### Cohérence et vérifications
+
+Le document principal est écrit atomiquement avec clients et fidélité. Une trace contenant uniquement l'état fermé permet de terminer le nettoyage du panier et de la copie interne après interruption ; avant cette écriture principale, la reprise annule seulement la trace. Un état intermédiaire n'est jamais chargé pour travailler. Double clic protégé, données relues avant validation, écritures d'un ancien onglet refusées. Web Locks et détection des autres onglets obligatoires : vérification indisponible ou autre onglet présent = clôture refusée. Restauration et clôture ne peuvent pas se superposer.
+
+Validation locale sur données fictives : 449 tests réussis (43 dédiés à la clôture), builds production et aperçu réussis. Build aperçu local : index-DwDISvFh.js, URL http://127.0.0.1:5190/. Aucun build publié. Tests : quatre combinaisons, annulation, génération en échec, commandes à résoudre, interruptions avant/après validation, double validation, ancien onglet, restauration sur stockage vierge, sauvegardes anciennes et réouverture le lendemain. Un cycle métier complet vérifie une récompense réservée puis consommée, sa conservation après clôture/restauration, l'utilisation unique de la récompense restante le lendemain et le refus d'une récompense supplémentaire.
+
+Parcours Chromium contrôlé en PC et en 1432 × 836 / 1280 × 800 : choix et confirmations accessibles, PDF réel de deux pages relu, deux fichiers téléchargés, blocage avec un second onglet puis annulation sans perte. Cycle clôture → rechargement → restauration du JSON téléchargé → réouverture réussi : 5 clients, 48 pizzas comptées, 3 récompenses disponibles, aucun doublon et aucune commande réintroduite. Comparaison exacte des tableaux de fidélité après restauration et réouverture. Les tests automatisés couvrent aussi récompenses utilisées et dettes, absentes de ce petit jeu visuel.
+
+À valider avec le gérant sur Samsung/Edge : téléchargement et lecture des deux fichiers sur clé USB, annulation du dialogue d'enregistrement, confirmation tactile, autres onglets, fermeture/réouverture réelle du navigateur et cycle du lendemain. Safari iPhone, impression papier du PDF et tickets thermiques restent non validés pour cette intervention. L'émulation de taille n'est pas un test matériel Samsung. Production et aperçu distant inchangés par ce travail local.
 
 ## 1. En production
 

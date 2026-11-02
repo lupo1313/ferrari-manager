@@ -1,0 +1,12 @@
+.closure-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+.closure-summary > div { display:flex; flex-direction:column; gap:6px; padding:14px; border:1px solid var(--line); border-radius:12px; background:#f5f6f8; }
+.closure-summary strong { font-size:23px; }
+.closure-summary small, .closure-choices small { display:block; font-size:12px; line-height:1.5; color:#626976; }
+.closure-choices { border:0; padding:0; margin:20px 0 0; }
+.closure-choices legend { font-weight:700; margin-bottom:10px; }
+.closure-choices label, .closure-final { display:flex; align-items:flex-start; gap:12px; padding:14px; border:1px solid var(--line); border-radius:10px; margin:10px 0; cursor:pointer; }
+.closure-choices input, .closure-files input { width:22px; height:22px; flex-shrink:0; accent-color:#cc0017; }
+.closure-file { padding:14px 0; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:10px; }
+.closure-file label { display:flex; align-items:center; gap:12px; min-height:44px; cursor:pointer; }
+.closure-final { background:#fff7ed; }
+@media(max-width:600px) { .closure-summary { grid-template-columns:1fr; gap:6px; } .closure-summary > div { padding:10px; } }

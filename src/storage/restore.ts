@@ -478,6 +478,11 @@ export async function performRestore(
 ): Promise<RestoreOutcome> {
   const keys = options.keys ?? restoreKeys();
   const unchanged = (error: string): RestoreOutcome => ({ ok: false, changed: false, error });
+  try {
+    if (kv.getItem(`${keys.namespace}-cloture-en-cours`) !== null) {
+      return unchanged('Une clôture reste à terminer : rechargez la page avant de restaurer. Aucune donnée modifiée.');
+    }
+  } catch { return unchanged('Stockage inaccessible : aucune restauration effectuée.'); }
 
   // 1. Copie de sécurité : état complet actuel, au format d'une sauvegarde, puis relue et vérifiée.
   let before: Record<string, string>;

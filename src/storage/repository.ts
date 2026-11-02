@@ -108,12 +108,20 @@ export interface KeyValueStore {
 export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, cartKey = CART_KEY, catalogKey = `${key}:carte`): AppRepository {
   /** Dernier contenu durable connu (lu ou écrit). null tant que rien n'a été chargé. */
   let doc: Record<string, unknown> | null = null;
+  let knownRaw: string | null = null;
+  const closingKey = `${key.slice(0, -3)}-cloture-en-cours`;
+  function assertCurrent() {
+    if (kv.getItem(closingKey) !== null) throw new Error('Clôture en cours : écriture suspendue.');
+    if (kv.getItem(key) !== knownRaw) throw new Error('Données modifiées dans un autre onglet : rechargez la page.');
+  }
 
   function writeDoc(next: Record<string, unknown>) {
+    assertCurrent();
     // Le panier n'est jamais réécrit avec l'historique (ancien format : il y figurait).
     const { cart: _legacyCart, ...durable } = next;
     void _legacyCart;
     kv.setItem(key, JSON.stringify(durable));
+    knownRaw = JSON.stringify(durable);
     doc = durable;
   }
 
@@ -129,8 +137,10 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
       let raw: string | null;
       let rawCart: string | null;
       try {
+        if (kv.getItem(closingKey) !== null) return { kind: 'error', error: 'Clôture à terminer : rechargez la page.' };
         raw = kv.getItem(key);
         rawCart = kv.getItem(cartKey);
+        knownRaw = raw;
       } catch {
         // Stockage bloqué (navigation privée, réglages du navigateur).
         return { kind: 'error', error: 'stockage local inaccessible' };
@@ -183,6 +193,7 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
     },
 
     saveCart(cart) {
+      assertCurrent();
       kv.setItem(cartKey, JSON.stringify(cart));
     },
 
@@ -204,12 +215,14 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
       try { return parseStored(kv.getItem(key + ':supplements')); }
       catch { return { kind: 'error', error: 'stockage local inaccessible' }; }
     },
-    saveToppings(doc) { kv.setItem(key + ':supplements', JSON.stringify(doc)); },
+    saveToppings(doc) { assertCurrent(); kv.setItem(key + ':supplements', JSON.stringify(doc)); },
     saveCatalog(catalog) {
+      assertCurrent();
       kv.setItem(catalogKey, JSON.stringify(catalog));
     },
 
     clear() {
+      assertCurrent();
       doc = null;
       // La carte (`catalogKey`) n'est pas effacée : « Réinitialiser les données de démonstration » la conserve.
       for (const k of [key, cartKey]) {
@@ -219,6 +232,7 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
           /* rien à faire */
         }
       }
+      knownRaw = kv.getItem(key);
     },
   };
 }
