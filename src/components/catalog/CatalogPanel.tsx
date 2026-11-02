@@ -1,6 +1,7 @@
 import { memo, useState, type ReactNode } from 'react';
 import { Icon, type IconName } from '../ui/Icon';
-import { useAppSelector, useStore } from '../../state/StoreContext';
+import { useAppSelector, useCatalog, useStore } from '../../state/StoreContext';
+import { isActive } from '../../domain/catalog';
 import { useToast } from '../ui/Toast';
 import { ProductCard } from './ProductCard';
 import { CustomizeModal } from './CustomizeModal';
@@ -33,7 +34,11 @@ export const CatalogPanel = memo(function CatalogPanel() {
   const [customizing, setCustomizing] = useState<Product | null>(null);
   const [toppingTarget, setToppingTarget] = useState<Topping | null>(null);
 
-  const products = store.catalog.products;
+  // Nouvelles sélections : produits actifs de la carte en vigueur (rien si la carte est illisible).
+  const catalog = useCatalog();
+  const catalogError = store.getCatalogError();
+  const products = catalog.products.filter(isActive);
+  const toppings = catalogError ? [] : catalog.toppings.filter(isActive);
   const pizzas = products.filter((p) => p.category === 'pizza');
   const drinks = products.filter((p) => p.category === 'boisson');
   const desserts = products.filter((p) => p.category === 'dessert');
@@ -56,7 +61,8 @@ export const CatalogPanel = memo(function CatalogPanel() {
         toast(`${t.name} est déjà sur ${line.name}.`, 'info');
         return;
       }
-      store.addToppingToLine(line.id, t.id);
+      const result = store.addToppingToLine(line.id, t.id);
+      if (!result.ok) { toast(result.error, 'error'); return; }
       toast(`${t.name} ajouté sur ${line.name}`, 'success');
       return;
     }
@@ -125,7 +131,7 @@ export const CatalogPanel = memo(function CatalogPanel() {
             'Suppléments',
             'plusCircle',
             <div className="mini-strip">
-              {toppingChips(store.catalog.toppings.slice(0, STRIP_SIZE))}
+              {toppingChips(toppings.slice(0, STRIP_SIZE))}
               {seeAll('supplements')}
             </div>,
             TOPPING_HINT,
@@ -156,7 +162,7 @@ export const CatalogPanel = memo(function CatalogPanel() {
       content = section('Desserts', 'cake', grid(desserts));
       break;
     case 'supplements':
-      content = section('Suppléments', 'plusCircle', <div className="mini-grid">{toppingChips(store.catalog.toppings)}</div>, TOPPING_HINT);
+      content = section('Suppléments', 'plusCircle', <div className="mini-grid">{toppingChips(toppings)}</div>, TOPPING_HINT);
       break;
     default: {
       const label = CATEGORIES.find((c) => c.id === category)?.label ?? '';
@@ -181,7 +187,15 @@ export const CatalogPanel = memo(function CatalogPanel() {
           </button>
         ))}
       </div>
-      <div className="panel__body scroll-y catalog-panel__body">{content}</div>
+      <div className="panel__body scroll-y catalog-panel__body">
+        {catalogError ? (
+          <p className="notice notice--error" role="alert">
+            <Icon name="alert" size={18} /> {catalogError}
+          </p>
+        ) : (
+          content
+        )}
+      </div>
 
       {customizing && <CustomizeModal product={customizing} onClose={() => setCustomizing(null)} />}
       {toppingTarget && <ToppingTargetModal topping={toppingTarget} pizzaLines={pizzaLines} onClose={() => setToppingTarget(null)} />}

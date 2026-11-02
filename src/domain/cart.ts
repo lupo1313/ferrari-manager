@@ -37,7 +37,7 @@ export function createLine(
   reward: RewardKind | null = null,
 ): OrderLine {
   const allowedIngredients = new Set(product.ingredients ?? []);
-  return {
+  const line: OrderLine = {
     id,
     productId: product.id,
     name: product.name,
@@ -49,6 +49,28 @@ export function createLine(
     note: (options.note ?? '').trim(),
     reward,
   };
+  // Composition figée avec la ligne : une fiche modifiée ensuite ne la reconstruit jamais.
+  if (product.ingredients && product.ingredients.length > 0) line.ingredients = [...product.ingredients];
+  return line;
+}
+
+/**
+ * Ingrédients retirables d'une ligne existante : sa composition figée ; pour une ligne plus ancienne
+ * (sans composition enregistrée), la fiche actuelle complétée par les retraits déjà enregistrés,
+ * qui ne sont jamais perdus. Rien n'est ajouté à la ligne elle-même.
+ */
+export function lineIngredients(line: OrderLine, product?: Product): string[] {
+  if (line.ingredients) return line.ingredients;
+  const list = [...(product?.ingredients ?? [])];
+  for (const i of line.removedIngredients) if (!list.includes(i)) list.push(i);
+  return list;
+}
+
+const sameList = (a?: string[], b?: string[]) => (a === undefined || b === undefined ? a === b : a.length === b.length && a.every((x, i) => x === b[i]));
+
+/** Même produit, dans le même état de fiche (nom, prix, catégorie, composition) : condition pour fusionner deux lignes. */
+export function sameSelection(a: OrderLine, b: OrderLine): boolean {
+  return a.productId === b.productId && a.name === b.name && a.unitPrice === b.unitPrice && a.category === b.category && sameList(a.ingredients, b.ingredients);
 }
 
 function dedupeToppings(toppings: LineTopping[]): LineTopping[] {
@@ -73,7 +95,9 @@ export function addProduct(cart: Cart, product: Product, newLineId: string): Car
 
 export function addLine(cart: Cart, line: OrderLine): Cart {
   if (isPlainLine(line)) {
-    const existing = cart.lines.find((l) => l.productId === line.productId && isPlainLine(l));
+    // Fusion seulement entre lignes sans personnalisation (ni supplément, ni retrait, ni note, ni récompense)
+    // ET issues de la même fiche : un produit dont le prix ou le nom a changé forme une nouvelle ligne.
+    const existing = cart.lines.find((l) => isPlainLine(l) && sameSelection(l, line));
     if (existing) {
       return setLineQuantity(cart, existing.id, existing.quantity + line.quantity);
     }
@@ -81,15 +105,24 @@ export function addLine(cart: Cart, line: OrderLine): Cart {
   return { ...cart, lines: [...cart.lines, line] };
 }
 
-/** Remplace les personnalisations d'une ligne existante. */
-export function updateLine(cart: Cart, lineId: string, options: LineOptions, product: Product): Cart {
+/**
+ * Remplace les personnalisations d'une ligne existante, à partir de la LIGNE elle-même : nom, prix,
+ * catégorie, récompense et composition restent ceux figés à l'ajout, même si la fiche a changé depuis.
+ * `product` ne sert qu'aux anciennes lignes sans composition enregistrée (voir lineIngredients).
+ */
+export function updateLine(cart: Cart, lineId: string, options: LineOptions, product?: Product): Cart {
   return {
     ...cart,
     lines: cart.lines.map((l) => {
       if (l.id !== lineId) return l;
-      const rebuilt = createLine(product, l.id, { ...options, quantity: options.quantity ?? l.quantity }, l.reward);
-      // Le prix et le nom restent ceux figés à l'ajout.
-      return { ...rebuilt, name: l.name, unitPrice: l.unitPrice };
+      const allowed = new Set(lineIngredients(l, product));
+      return {
+        ...l,
+        quantity: l.reward ? 1 : clampQuantity(options.quantity ?? l.quantity),
+        addedToppings: l.category === 'pizza' ? dedupeToppings(options.addedToppings ?? []) : [],
+        removedIngredients: (options.removedIngredients ?? []).filter((i) => allowed.has(i)),
+        note: (options.note ?? '').trim(),
+      };
     }),
   };
 }

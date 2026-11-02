@@ -533,3 +533,11 @@
   flex: none;
   margin-top: 1px;
 }
+
+/* Repère de ligne : fiche modifiée, produit désactivé ou absent (intervention 9a). */
+.cart-line__notice {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber-ink);
+}

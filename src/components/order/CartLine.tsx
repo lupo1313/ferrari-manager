@@ -10,9 +10,13 @@ interface CartLineProps {
   onQuantity: (quantity: number) => void;
   onRemove: () => void;
   onCustomize?: () => void;
+  /** Repère « fiche modifiée / produit désactivé » : la ligne elle-même n'est jamais modifiée. */
+  notice?: string | null;
+  /** false : produit désactivé ou absent, augmenter la quantité serait une nouvelle sélection. */
+  canIncrease?: boolean;
 }
 
-export function CartLine({ line, onQuantity, onRemove, onCustomize }: CartLineProps) {
+export function CartLine({ line, onQuantity, onRemove, onCustomize, notice, canIncrease = true }: CartLineProps) {
   const details = describeLine(line);
   return (
     <li className={`cart-line ${line.reward ? 'cart-line--reward' : ''}`}>
@@ -21,7 +25,7 @@ export function CartLine({ line, onQuantity, onRemove, onCustomize }: CartLinePr
           <Icon name="gift" size={20} />
         </span>
       ) : (
-        <Stepper value={line.quantity} onChange={onQuantity} label={`quantité ${line.name}`} removeAtMin />
+        <Stepper value={line.quantity} onChange={onQuantity} label={`quantité ${line.name}`} removeAtMin max={canIncrease ? undefined : line.quantity} />
       )}
       <button
         type="button"
@@ -39,6 +43,7 @@ export function CartLine({ line, onQuantity, onRemove, onCustomize }: CartLinePr
             {d}
           </span>
         ))}
+        {notice && <span className="cart-line__notice">{notice}</span>}
         {onCustomize && details.length === 0 && <span className="cart-line__hint">Toucher pour personnaliser</span>}
       </button>
       <span className="cart-line__price price">{lineTotal(line) === 0 && line.reward ? 'Offert' : formatPrice(lineTotal(line))}</span>

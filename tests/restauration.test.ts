@@ -140,7 +140,7 @@ async function refusal(text: string, target = PROD) {
   return a.ok ? [] : a.problems;
 }
 
-const fileFor = (a: AnalyzedBackup): RestorePlan => ({ mode: 'fichier', docText: a.docText, cartText: emptyCartText() });
+const fileFor = (a: AnalyzedBackup): RestorePlan => ({ mode: 'fichier', docText: a.docText, cartText: emptyCartText(), carte: a.fileCarteText ?? 'conserver' });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -367,7 +367,8 @@ describe('4. restauration ordinaire : données du fichier, panier vide, copie de
     B.m.writes.length = 0;
     const others = ['ferrari-manager-interface', 'autre-site:cle', `${APERCU}:v1`].map((k) => [k, B.m.map.get(k)]);
     await performRestore(B.m.kv, fileFor(await okAnalysis(await exportOf(A.m.kv))), { now: T0, origin: ORIGIN, keys: P });
-    expect(new Set(B.m.writes)).toEqual(new Set([P.safety, P.journal, P.cart, P.doc]));
+    // Intervention 9a : la carte du fichier est aussi écrite (clé du build).
+    expect(new Set(B.m.writes)).toEqual(new Set([P.safety, P.journal, P.cart, P.carte, P.doc]));
     for (const [k, v] of others) expect(B.m.map.get(k!), k).toBe(v);
   });
 
@@ -400,7 +401,7 @@ describe('4. restauration ordinaire : données du fichier, panier vide, copie de
     const A = stateA();
     const B = stateB();
     await performRestore(B.m.kv, fileFor(await okAnalysis(await exportOf(A.m.kv))), { now: T0, origin: ORIGIN, keys: P });
-    expect(Object.keys((JSON.parse(await exportOf(B.m.kv)) as BackupFile).stockage)).toEqual([P.doc, P.cart]);
+    expect(Object.keys((JSON.parse(await exportOf(B.m.kv)) as BackupFile).stockage)).toEqual([P.doc, P.carte, P.cart, P.supplements]);
   });
 
   it('restaurer deux fois le même fichier : même résultat', async () => {

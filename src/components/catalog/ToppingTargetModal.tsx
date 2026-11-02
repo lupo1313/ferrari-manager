@@ -28,7 +28,8 @@ export function ToppingTargetModal({ topping, pizzaLines, onClose }: ToppingTarg
               className="target-item"
               disabled={already}
               onClick={() => {
-                store.addToppingToLine(l.id, topping.id);
+                const result = store.addToppingToLine(l.id, topping.id);
+                if (!result.ok) { toast(result.error, 'error'); return; }
                 toast(`${topping.name} ajouté sur ${l.name}${l.quantity > 1 ? ` (× ${l.quantity})` : ''}`, 'success');
                 onClose();
               }}

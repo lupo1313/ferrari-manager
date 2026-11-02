@@ -9,6 +9,8 @@ import { ClientsPage } from './pages/ClientsPage';
 import { LoyaltyPage } from './pages/LoyaltyPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { StatistiquesPage } from './modules/statistiques';
+import { ToppingManager } from './components/settings/ToppingManager';
+import { CatalogManager } from './components/settings/CatalogManager';
 import { useAppSelector, usePersistError, useStore } from './state/StoreContext';
 import { useToast } from './components/ui/Toast';
 import { useRoute } from './state/useRoute';
@@ -131,7 +133,7 @@ export function App() {
   return (
     <div className="app" data-sidebar={sidebar} data-disposition={disposition}>
       <Sidebar
-        route={route}
+        route={route === 'carte' || route === 'supplements' ? 'parametres' : route}
         onNavigate={navigate}
         activeOrders={activeOrders}
         editingOrderNumber={editing?.number ?? null}
@@ -158,6 +160,8 @@ export function App() {
           </Suspense>
         )}
         {route === 'parametres' && <SettingsPage />}
+        {route === 'supplements' && <ToppingManager onBack={() => navigate('parametres')} />}
+        {route === 'carte' && <CatalogManager onBack={() => navigate('parametres')} />}
       </main>
       {endService && <EndServiceDialog onClose={() => setEndService(false)} />}
     </div>

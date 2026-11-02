@@ -877,3 +877,77 @@
   height: 22px;
   flex: none;
 }
+
+/* Carte des produits (intervention 9a) */
+.pill--success {
+  background: var(--green-soft);
+  color: var(--green-ink);
+  border: 1px solid transparent;
+}
+.catalog-manager__back {
+  margin-left: -10px;
+  margin-bottom: 4px;
+}
+.catalog-manager__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+.catalog-manager__count {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+.catalog-table td {
+  vertical-align: middle;
+}
+.catalog-table__desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.catalog-table__tag {
+  margin-left: 8px;
+}
+.catalog-table tr.is-inactive td:not(.data-table__actions) {
+  opacity: 0.55;
+}
+.product-form__adder {
+  display: flex;
+  gap: 8px;
+}
+.product-form__adder .input {
+  flex: 1;
+}
+
+/* Écran étroit (téléphone) : chaque produit sur un bloc, actions accessibles sans défilement horizontal. */
+@media (max-width: 699px) {
+  .catalog-table thead {
+    display: none;
+  }
+  .catalog-table,
+  .catalog-table tbody,
+  .catalog-table tr,
+  .catalog-table td {
+    display: block;
+    width: 100%;
+  }
+  .catalog-table tr {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .catalog-table td {
+    padding: 2px 0;
+    border: 0;
+  }
+  .catalog-table td.data-table__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+    padding-top: 8px;
+    text-align: left;
+  }
+}

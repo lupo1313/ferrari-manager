@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Icon } from '../ui/Icon';
 import { Modal } from '../ui/Modal';
-import { useAppData, useStore } from '../../state/StoreContext';
+import { useAppData, useCatalog, useStore } from '../../state/StoreContext';
 import { dryRunLoad, emptyCartText, factsOf } from '../../state/restoreDryRun';
 import { tabPresence } from '../../storage/tabs';
 import {
@@ -10,7 +10,9 @@ import {
   planFromSafetyCopy,
   readSafetyCopy,
   restoreKeys,
+  describeCarte,
   type AnalyzedBackup,
+  type CarteFacts,
   type Problem,
   type RestoreFacts,
   type RestorePlan,
@@ -23,7 +25,15 @@ interface Review {
   analysis: AnalyzedBackup;
   plan: RestorePlan;
   after: RestoreFacts;
+  /** Carte qui sera en vigueur après l'opération (null si illisible). */
+  carteAfter: CarteFacts | null;
+  carteAfterError: string | null;
 }
+
+const carteLabel = (c: CarteFacts | null) => (c ? `${c.produits} produits${c.desactives ? ` (dont ${c.desactives} désactivé${c.desactives > 1 ? 's' : ''})` : ''}` : 'illisible');
+
+const toppingsLabel = (c: CarteFacts | null) => c?.supplements === undefined ? 'liste absente' :
+  c.supplements + ' suppléments' + (c.supplementsDesactives ? ' (dont ' + c.supplementsDesactives + ' désactivés)' : '');
 
 const PROBLEM_LABELS: Record<Problem['kind'], string> = {
   fichier: 'Fichier',
@@ -78,6 +88,8 @@ export function RestoreCard() {
     if (copyUrl) URL.revokeObjectURL(copyUrl);
   }, [copyUrl]);
 
+  const catalogNow = useCatalog();
+  const carteNow = store.getCatalogError() ? null : describeCarte(catalogNow.products, catalogNow.toppings);
   const locked = store.isStorageLocked();
   const before = locked ? null : factsOf(data);
   const cartArticles = data.cart.lines.reduce((n, l) => n + l.quantity, 0);
@@ -92,12 +104,18 @@ export function RestoreCard() {
         setRefused({ source, problems: analysis.problems });
         return;
       }
-      const plan = mode === 'fichier' ? { mode, docText: analysis.docText, cartText: emptyCartText() } : planFromSafetyCopy(text, keys);
+      // Ancien fichier sans carte : la carte actuelle est conservée (clé non touchée).
+      const plan: RestorePlan | null =
+        mode === 'fichier'
+          ? { mode, docText: analysis.docText, cartText: emptyCartText(), carte: analysis.fileCarteText ?? 'conserver', supplements: analysis.fileSupplementsText ?? 'conserver' }
+          : planFromSafetyCopy(text, keys);
       if (!plan) {
         setRefused({ source, problems: [{ kind: 'fichier', message: 'Copie de sécurité incomplète.' }] });
         return;
       }
-      const dry = dryRunLoad(plan.docText, plan.cartText);
+      const carteAfter = plan.carte === 'conserver' ? storage()?.getItem(keys.carte) ?? null : plan.carte;
+      const supplementsAfter = plan.supplements === undefined || plan.supplements === 'conserver' ? storage()?.getItem(keys.supplements) ?? null : plan.supplements;
+      const dry = dryRunLoad(plan.docText, plan.cartText, carteAfter, supplementsAfter);
       if (!dry.ok) {
         setRefused({ source, problems: [{ kind: 'structure', message: `L’application ne pourrait pas charger ces données (${dry.reason}).` }] });
         return;
@@ -110,9 +128,11 @@ export function RestoreCard() {
         analysis,
         plan,
         after: dry.facts,
+        carteAfter: dry.carte,
+        carteAfterError: dry.carteError,
       });
-    } catch {
-      setRefused({ source, problems: [{ kind: 'fichier', message: 'Lecture du fichier impossible.' }] });
+    } catch (e) {
+      setRefused({ source, problems: [{ kind: 'fichier', message: e instanceof Error ? e.message : 'Lecture du fichier impossible.' }] });
     } finally {
       setBusy(null);
     }
@@ -286,6 +306,18 @@ export function RestoreCard() {
                     <td>{value(review.after)}</td>
                   </tr>
                 ))}
+                <tr>
+                  <th scope="row">Carte des produits</th>
+                  <td>{carteLabel(carteNow)}</td>
+                  <td>
+                    {carteLabel(review.carteAfter)}
+                    {review.plan.carte === 'conserver' ? ' · conservée' : review.plan.mode === 'fichier' ? ' · celle du fichier' : ' · celle de la copie'}
+                  </td>
+                </tr>
+                <tr><th scope="row">Suppléments</th><td>{toppingsLabel(carteNow)}</td><td>
+                  {toppingsLabel(review.carteAfter)}
+                  {review.plan.mode === 'fichier' && review.analysis.fileSupplementsText === null ? ' · conservés' : ' · restaurés'}
+                </td></tr>
               </tbody>
             </table>
 
@@ -308,11 +340,25 @@ export function RestoreCard() {
                         ? `Le panier actuel (${cartArticles} article(s)${editing ? `, modification de la commande n° ${editing.number}` : ''}) sera remplacé par un panier vide ; il reste dans la copie de sécurité.`
                         : 'Le panier actuel est vide.'}
                     </p>
+                    {review.analysis.fileSupplementsText === null && <p>
+                      <strong>Suppléments conservés :</strong> ce fichier ne contient pas leur liste. Les suppléments actuels restent inchangés.
+                    </p>}
+                    <p>
+                      {review.analysis.fileCarte
+                        ? `Carte des produits : remplacée par celle du fichier (${carteLabel(review.analysis.fileCarte)}).`
+                        : `Ce fichier ne contient pas de carte des produits (sauvegarde antérieure) : la carte actuelle (${carteLabel(carteNow)}) est conservée.`}
+                    </p>
                   </>
                 ) : (
                   <p>
-                    <strong>Retour arrière complet :</strong> données, panier et modification en cours redeviennent exactement ceux d’avant la dernière
-                    restauration. L’état actuel est lui-même gardé comme nouvelle copie de sécurité.
+                    <strong>Retour arrière complet :</strong> données, panier, modification en cours, carte des produits et suppléments redeviennent exactement ceux
+                    d’avant la dernière restauration. L’état actuel est lui-même gardé comme nouvelle copie de sécurité.
+                  </p>
+                )}
+                {review.carteAfterError && (
+                  <p>
+                    <strong>Attention :</strong> la carte des produits en vigueur après l’opération sera illisible ; aucun produit ne pourra être ajouté
+                    à une commande avant la restauration d’un fichier contenant une carte valide.
                   </p>
                 )}
                 <p>Fermez les autres onglets de Ferrari Manager avant de continuer.</p>

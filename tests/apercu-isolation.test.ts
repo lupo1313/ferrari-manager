@@ -67,11 +67,16 @@ describe('prévisualisation : stockage isolé de la version actuelle', () => {
     expect(map.get('ferrari-manager:v1')).toBe(prodBefore);
     expect(map.get('ferrari-manager:v1:panier')).toBe(prodCartBefore);
     expect(storeFor(kv, 'ferrari-manager', 'q').getData().orders).toHaveLength(3);
+    // Intervention 9a : chaque version a aussi sa propre carte des produits.
     expect([...map.keys()].sort()).toEqual([
       'ferrari-manager-apercu-i3:v1',
+      'ferrari-manager-apercu-i3:v1:carte',
       'ferrari-manager-apercu-i3:v1:panier',
+      'ferrari-manager-apercu-i3:v1:supplements',
       'ferrari-manager:v1',
+      'ferrari-manager:v1:carte',
       'ferrari-manager:v1:panier',
+      'ferrari-manager:v1:supplements',
     ]);
   });
 

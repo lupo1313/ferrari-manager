@@ -1,11 +1,10 @@
-import { useAppData, useStore } from '../state/StoreContext';
+import { useAppData, useCatalog } from '../state/StoreContext';
 import { computeBalance, customerLoyaltyStatus, eligibleRewardProducts, LOYALTY_REASON_LABELS } from '../domain/loyalty';
 import { customerFullName } from '../domain/customers';
 import { formatDateTime } from '../domain/time';
 import { Icon } from '../components/ui/Icon';
 
 export function LoyaltyPage() {
-  const store = useStore();
   const data = useAppData();
   const rules = data.settings.loyalty;
   const nameOf = (id: string) => {
@@ -13,8 +12,9 @@ export function LoyaltyPage() {
     return c ? customerFullName(c) : 'Client supprimé';
   };
   const journal = [...data.loyaltyEvents].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 150);
-  const pizzas = eligibleRewardProducts(store.catalog, 'pizza', rules);
-  const drinks = eligibleRewardProducts(store.catalog, 'boisson', rules);
+  const catalog = useCatalog();
+  const pizzas = eligibleRewardProducts(catalog, 'pizza', rules);
+  const drinks = eligibleRewardProducts(catalog, 'boisson', rules);
 
   return (
     <div className="page">
