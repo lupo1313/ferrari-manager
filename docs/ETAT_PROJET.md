@@ -15,6 +15,12 @@ Publication autorisée et effectuée dans le seul dépôt lupo1313/ferrari-manag
 
 Production contrôlée avant/après en lecture seule : même main b8ec595bf96b176adfac2d5ed49687890e478a06, même index-Bj_3rjjO.js, même empreinte SHA-256. Aucun push au dépôt ferrari-manager, aucune fusion ni publication de production. Aucune action sur les données des navigateurs. Les 29 fichiers Noël/logo sont inchangés ; worktree Claude toujours c5c3791 sur feat/noel-claude. Arrêt du travail en attente des tests Samsung, sans commencer d’autre intervention.
 
+### Validation PC et demande de production du 02/11
+
+Le gérant valide les essais PC : blocage avec commandes non résolues, exports PDF/JSON, clôture sans téléchargement, retrait des anciennes commandes/statistiques, conservation clients/carte/fidélité, réouverture, persistance après actualisation et consommation correcte d'une récompense. Il autorise la production de la seule intervention 10, sans autre fonctionnalité.
+
+Contrôle préalable : main distant reste b8ec595 (intervention 8). La branche feat/intervention-10-cloture contient aussi les interventions 9a et 9b non fusionnées. Une fusion directe publierait donc 9a + 9b + 10. Le gérant a ensuite explicitement autorisé 9a + 9b + 10. Contrôle temporaire sur les données générées par main réussi : aucune réécriture, commandes/statistiques/tickets/fidélité identiques. Sauvegarde fournie le 02/11 à 19h02 contrôlée en mémoire contre main : 6 clients, 11 commandes, panier, fidélité, statistiques et tickets conservés, aucune réécriture. Deux tests temporaires de compatibilité réussis puis retirés des fichiers à commiter. Fichier laissé hors dépôt. Publication de 9a + 9b + 10 autorisée ; fusion et déploiement en préparation, sans Noël/logo. Commit source 10 déjà existant : d5f13e0. Tests relancés sur la préparation sans Noël/logo : 449 réussis. Travaux Noël/logo et worktree Claude préservés.
+
 ### Parcours et fichiers
 
 - Récapitulatif distinguant ventes enregistrées, encaissements confirmés dans le logiciel, annulations et cadeaux. Les calculs existants des statistiques sont partagés depuis domain/statistics ; le module facultatif les réexporte sans changement de règle.
