@@ -1,5 +1,11 @@
 # État du projet Ferrari Manager
 
+## Mise en production autorisée du 02/11/2026
+
+Le gérant a validé les essais PC puis explicitement autorisé 9a + 9b + 10. Source intervention 10 : d5f13e0 ; fusion sans Noël/logo : 1f6ed99. 449 tests et build production réussis sur le commit fusionné. Compatibilité vérifiée en mémoire avec la sauvegarde fournie et les données générées par main : aucune réécriture, commandes, panier, clients, fidélité, statistiques et tickets identiques. Sauvegarde conservée hors dépôt ; tests temporaires retirés.
+
+Build production attendu : index-A80Grr0l.js. Déploiement déclenché par le prochain push de main ; vérification Pages et fichier servi à suivre. Les mentions antérieures « aperçu uniquement » ci-dessous sont historiques. Noël/logo non commités et worktree Claude préservés. Essais Samsung matériels et impression réelle restent à valider ; aucune nouvelle intervention démarrée.
+
 Dernière mise à jour : 02/11/2026. Production inchangée : intervention 8, main b8ec595, index-Bj_3rjjO.js. **Intervention 10 publiée uniquement sur l’aperçu sans Noël/logo** : source locale d5f13e0, publication 7b0a831, index-DGHzI53y.js. Validation Samsung en attente. Aucun push vers le dépôt de production ni fusion.
 Ce document décrit ce qui existe **réellement** dans le code de `main`. Les règles ci-dessous sont couvertes par des tests sauf mention contraire. Version de test : pas encore prête pour une exploitation commerciale complète (voir la section 5).
 

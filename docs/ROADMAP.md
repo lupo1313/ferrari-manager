@@ -1,5 +1,11 @@
 # Feuille de route Ferrari Manager
 
+## Mise en production autorisée du 02/11/2026
+
+Le gérant a validé les essais PC puis explicitement autorisé 9a + 9b + 10. Source intervention 10 : d5f13e0 ; fusion sans Noël/logo : 1f6ed99. 449 tests et build production réussis sur le commit fusionné. Compatibilité vérifiée en mémoire avec la sauvegarde fournie et les données générées par main : aucune réécriture, commandes, panier, clients, fidélité, statistiques et tickets identiques. Sauvegarde conservée hors dépôt ; tests temporaires retirés.
+
+Build production attendu : index-A80Grr0l.js. Déploiement déclenché par le prochain push de main ; vérification Pages et fichier servi à suivre. Les mentions antérieures « aperçu uniquement » ci-dessous sont historiques. Noël/logo non commités et worktree Claude préservés. Essais Samsung matériels et impression réelle restent à valider ; aucune nouvelle intervention démarrée.
+
 Mise à jour le 31/10/2026 : intervention 8 en production (fusion `3eabd56`), intervention 7 en production (fusion `641f759`), tests manuels sur la tablette Samsung intégrés (`docs/ETAT_PROJET.md`, section 4), décisions produit du 31/10 enregistrées. L'état actuel de chaque sujet est décrit dans `docs/ETAT_PROJET.md` ; ce document ne liste que ce qui reste à faire et les décisions en attente.
 Chaque intervention suit les règles de CLAUDE.md. **Intervention 10 développée localement sur demande explicite**, branche feat/intervention-10-cloture ; vérifications locales terminées, validation Samsung en attente (voir ETAT_PROJET). Aperçu 10 sans Noël/logo publié le 02/11 : 7b0a831, index-DGHzI53y.js, Pages réussi ; source d5f13e0 conservée localement. En attente des tests Samsung. Aucun push dans le dépôt de production, aucune fusion. Travaux Noël et worktree Claude préservés.
 
