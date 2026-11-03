@@ -51,6 +51,8 @@ export interface AppRepository {
   load(): LoadResult;
   saveOrderWithLoyalty(change: OrderChange): void;
   upsertCustomer(customer: Customer): void;
+  /** Ajoute plusieurs fiches en UNE seule écriture : tout est enregistré ou rien (import CSV des clients). */
+  addCustomers(customers: Customer[]): void;
   saveSettings(settings: Settings): void;
   saveService(change: ServiceChange): void;
   saveCart(cart: Cart): void;
@@ -173,6 +175,12 @@ export function createKeyValueRepository(kv: KeyValueStore, key = STORAGE_KEY, c
         ...current(),
         customers: exists ? customers.map((c) => (c.id === customer.id ? customer : c)) : [...customers, customer],
       });
+    },
+
+    addCustomers(added) {
+      const customers = list<Customer>('customers');
+      const known = new Set(customers.map((c) => c.id));
+      writeDoc({ ...current(), customers: [...customers, ...added.filter((c) => !known.has(c.id))] });
     },
 
     saveSettings(settings) {

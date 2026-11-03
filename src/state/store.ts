@@ -43,6 +43,7 @@ import {
   applyCustomerInput,
   buildCustomer,
   findCustomerByPhone,
+  normalizePhone,
   validateCustomerInput,
   type CustomerFieldErrors,
   type CustomerInput,
@@ -448,6 +449,27 @@ export function createAppStore(deps: StoreDeps) {
         : undefined;
       if (!commitCustomer(customer, cart)) return fail(SAVE_FAILED);
       return ok(customer);
+    },
+
+    /**
+     * Import CSV : ajoute uniquement de NOUVEAUX clients (numéro inconnu, sans doublon dans la liste), sans
+     * fidélité ni commande. Tout est revalidé ici ; une seule écriture : si elle échoue, rien n'est ajouté.
+     */
+    importCustomers(inputs: CustomerInput[]): Result<{ added: number }> {
+      const batch: Customer[] = [];
+      const phones = new Set<string>();
+      for (const input of inputs) {
+        if (Object.keys(validateCustomerInput(input)).length) return fail('Import refusé : une fiche est invalide. Rien n’a été ajouté.');
+        const phone = normalizePhone(input.phone);
+        if (phones.has(phone) || findCustomerByPhone(data.customers, phone)) return fail('Import refusé : un numéro est déjà enregistré. Rien n’a été ajouté.');
+        phones.add(phone);
+        batch.push(buildCustomer({ ...input, instructions: '' }, newId('cus'), nowIso()));
+      }
+      if (batch.length === 0) return ok({ added: 0 });
+      if (!persist(() => repo.addCustomers(batch))) return fail(SAVE_FAILED);
+      data = { ...data, customers: [...data.customers, ...batch] };
+      notify();
+      return ok({ added: batch.length });
     },
 
     /** Ne modifie que la fiche : les commandes déjà enregistrées gardent leur copie figée. */

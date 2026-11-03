@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/ui/Icon';
 import { CustomerFormModal } from '../components/customer/CustomerFormModal';
 import { useOrderForCustomer } from '../components/order/EditInProgressDialog';
 import { useAppData } from '../state/StoreContext';
 import { customerFullName, formatPhone, searchCustomers } from '../domain/customers';
 import { computeBalance } from '../domain/loyalty';
+import { buildCustomersCsv, customersCsvFilename } from '../domain/customersCsv';
+import { analyzeCustomersCsv, IMPORT_MAX_BYTES, type ImportAnalysis } from '../domain/customersImport';
+import { CustomerImportDialog } from '../components/customer/CustomerImportDialog';
 import type { Customer } from '../domain/types';
 
 export function ClientsPage({ onGoToOrderTaking }: { onGoToOrderTaking: () => void }) {
@@ -13,11 +16,40 @@ export function ClientsPage({ onGoToOrderTaking }: { onGoToOrderTaking: () => vo
   const [form, setForm] = useState<{ customer?: Customer } | null>(null);
   const rules = data.settings.loyalty;
   const orderFor = useOrderForCustomer(onGoToOrderTaking);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState<{ fileName: string; analysis: ImportAnalysis } | null>(null);
 
   const list = useMemo(() => {
     const base = query.trim() ? searchCustomers(data.customers, query, 200) : data.customers;
     return [...base].sort((a, b) => customerFullName(a).localeCompare(customerFullName(b), 'fr'));
   }, [data.customers, query]);
+
+  /** Tous les clients enregistrés (jamais le filtre de recherche), téléchargés localement : aucune donnée modifiée. */
+  const exportCustomers = () => {
+    const url = URL.createObjectURL(new Blob([buildCustomersCsv(data.customers)], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = customersCsvFilename(new Date());
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  /** Lecture locale du fichier choisi, puis récapitulatif : rien n'est enregistré avant la confirmation. */
+  const chooseFile = async (file: File | undefined) => {
+    if (!file) return;
+    let analysis: ImportAnalysis;
+    try {
+      analysis =
+        file.size > IMPORT_MAX_BYTES
+          ? analyzeCustomersCsv('', [], file.size)
+          : analyzeCustomersCsv(await file.text(), data.customers, file.size);
+    } catch {
+      analysis = analyzeCustomersCsv('\uFFFD', []);
+    }
+    setImporting({ fileName: file.name, analysis });
+  };
 
   return (
     <div className="page">
@@ -26,9 +58,29 @@ export function ClientsPage({ onGoToOrderTaking }: { onGoToOrderTaking: () => vo
           <h1 className="page__title">Clients</h1>
           <p className="muted">{data.customers.length} fiches (fictives). Un numéro de téléphone = une fiche.</p>
         </div>
-        <button type="button" className="btn btn--primary" onClick={() => setForm({})}>
-          <Icon name="plus" /> Nouveau client
-        </button>
+        <div className="page__actions">
+          <button type="button" className="btn" onClick={exportCustomers} disabled={data.customers.length === 0}>
+            <Icon name="file" /> Exporter les clients
+          </button>
+          <button type="button" className="btn" onClick={() => fileInput.current?.click()}>
+            <Icon name="refresh" /> Importer les clients
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".csv,text/csv"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label="Fichier CSV des clients"
+            onChange={(e) => {
+              void chooseFile(e.target.files?.[0]);
+              e.target.value = ''; // permet de rechoisir le même fichier
+            }}
+          />
+          <button type="button" className="btn btn--primary" onClick={() => setForm({})}>
+            <Icon name="plus" /> Nouveau client
+          </button>
+        </div>
       </header>
       <div className="page__toolbar">
         <div className="page-search page-search--wide">
@@ -96,6 +148,7 @@ export function ClientsPage({ onGoToOrderTaking }: { onGoToOrderTaking: () => vo
       </div>
 
       {orderFor.dialog}
+      {importing && <CustomerImportDialog fileName={importing.fileName} analysis={importing.analysis} onClose={() => setImporting(null)} />}
       {form && <CustomerFormModal customer={form.customer} selectOnCreate={false} onClose={() => setForm(null)} />}
     </div>
   );
