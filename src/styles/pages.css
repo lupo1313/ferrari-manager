@@ -1,4 +1,11 @@
 .page {
+  /*
+   * Bloc conteneur des éléments en position absolue (.sr-only : champs fichier masqués de Paramètres et Clients).
+   * Sans lui, un tel élément situé au bas d'une page longue se positionnait par rapport à la fenêtre entière,
+   * hors du clip de .app : <html> devenait défilable et une seconde barre de défilement apparaissait.
+   * Contenu dans .page, il défile avec elle et n'agrandit ni <html> ni .app.
+   */
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -19,6 +26,53 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+/* Paramètres : l'en-tête (titre, état d'enregistrement, bouton « Enregistrer ») reste visible pendant le défilement. */
+.page__header--sticky {
+  position: sticky;
+  top: -4px;
+  z-index: 5;
+  margin: -4px -16px 0;
+  padding: 8px 16px;
+  background: var(--bg);
+}
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-group__title {
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--line-strong);
+  font-size: 20px;
+  font-weight: 700;
+}
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card__title .pill {
+  margin-left: auto;
+  white-space: normal;
+  height: auto;
+  min-height: 26px;
+  text-align: right;
+}
+.card__title .pill + .pill {
+  margin-left: 0;
+}
+.loyalty-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+}
+.loyalty-eligible {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 .page__title {
   font-size: 26px;
