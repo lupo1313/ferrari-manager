@@ -50,9 +50,9 @@ describe('intervention 12 : organisation de la page Paramètres', () => {
   it('indications d’enregistrement : immédiat pour son et modules, « Enregistrer » pour ticket et fidélité', () => {
     expect(page.match(/Enregistrement immédiat/g)).toHaveLength(2);
     expect(page.match(/Cliquez sur Enregistrer pour appliquer/g)).toHaveLength(2);
-    const sound = page.slice(page.indexOf('Son des encaissements'), page.indexOf('Modules facultatifs'));
+    const sound = page.slice(page.indexOf('Son des encaissements'), page.indexOf('Onglet Statistiques'));
     expect(sound).toContain('Enregistrement immédiat');
-    expect(sound).toContain('store.updateSettings({ paymentSound: on })');
+    expect(sound).toContain("store.updateSettings({ paymentSound: on, paymentSoundKind: 'caisse' })");
     const tickets = page.slice(page.indexOf('Pizzeria et ticket'), page.indexOf('Son des encaissements'));
     expect(tickets).toContain('Cliquez sur Enregistrer pour appliquer');
   });

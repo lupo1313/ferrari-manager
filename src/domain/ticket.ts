@@ -1,3 +1,4 @@
+import { ticketCompanyLines, normalizePizzeria } from './pizzeria';
 import type { Order, OrderLine, ProductCategory, Settings } from './types';
 import { describeLine } from './cart';
 import { formatPhone } from './customers';
@@ -37,6 +38,7 @@ interface TicketHeader {
   requestedLabel: string;
   statusWarning: string | null;
   widthMm: number;
+  footer?: string;
 }
 
 export interface KitchenLine {
@@ -76,6 +78,7 @@ export interface DeliveryPayment {
 export interface DeliveryTicket extends TicketHeader {
   kind: 'livreur';
   pizzeriaPhone: string;
+  companyLines?: string[];
   customer: {
     name: string;
     phone: string | null;
@@ -95,6 +98,7 @@ export interface DeliveryTicket extends TicketHeader {
 }
 
 function header(order: Order, settings: Settings): TicketHeader {
+  const footer = normalizePizzeria(settings.pizzeria).ticketFooter?.trim();
   return {
     pizzeriaName: settings.pizzeria.name.toUpperCase(),
     headline: `COMMANDE N° ${order.number} · ${MODE_LABELS[order.mode].toUpperCase()}`,
@@ -104,6 +108,7 @@ function header(order: Order, settings: Settings): TicketHeader {
     requestedLabel: order.requestedTime ? `POUR ${formatTimeOfDay(order.requestedTime).toUpperCase()}` : 'DÈS QUE POSSIBLE',
     statusWarning: order.status === 'annulee' ? 'COMMANDE ANNULÉE' : null,
     widthMm: settings.ticketWidthMm,
+    ...(footer ? { footer } : {}),
   };
 }
 
@@ -176,6 +181,7 @@ export function buildDeliveryTicket(order: Order, settings: Settings): DeliveryT
     ...header(order, settings),
     kind: 'livreur',
     pizzeriaPhone: settings.pizzeria.phone,
+    ...(ticketCompanyLines(settings.pizzeria).length ? { companyLines: ticketCompanyLines(settings.pizzeria) } : {}),
     customer: c
       ? {
           name: c.name,

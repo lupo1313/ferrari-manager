@@ -5,7 +5,8 @@ import { useToast } from '../components/ui/Toast';
 import { useAppData, useStore, useCatalog } from '../state/StoreContext';
 import { formatPrice } from '../domain/money';
 import type { Settings, TicketWidth } from '../domain/types';
-import { PAYMENT_SOUND_KINDS, PAYMENT_SOUND_LABELS, paymentSound, type PaymentSoundKind } from '../audio/paymentSound';
+import { paymentSound } from '../audio/paymentSound';
+import { TICKET_TEXT_LIMITS } from '../domain/pizzeria';
 import { OPERATOR_CONTACT_EMAIL } from '../services/trajet';
 import { RestoreCard } from '../components/settings/RestoreCard';
 import { isActive } from '../domain/catalog';
@@ -162,7 +163,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="page">
+    <div className="page settings-page">
       <header className="page__header page__header--sticky">
         <div>
           <h1 className="page__title">Paramètres</h1>
@@ -216,146 +217,71 @@ export function SettingsPage() {
           Service et fonctionnement
         </h2>
         <div className="settings-grid">
-          <section className="card">
-            <h3 className="card__title">
-              <Icon name="printer" /> Pizzeria et ticket
-              <span className="pill pill--muted">Cliquez sur Enregistrer pour appliquer</span>
-            </h3>
-            <div className="field">
-              <span className="field__label">Largeur du rouleau thermique</span>
-              <div className="segmented">
-                {([58, 80] as TicketWidth[]).map((w) => (
-                  <button
-                    key={w}
-                    type="button"
-                    className="segmented__item"
-                    aria-pressed={draft.ticketWidthMm === w}
-                    onClick={() => setDraft((d) => ({ ...d, ticketWidthMm: w }))}
-                  >
-                    {w} mm
-                  </button>
+          <details className="settings-disclosure settings-grid__wide" open>
+            <summary><Icon name="printer" /><strong>Pizzeria et ticket</strong><span className="field__hint">Cliquez sur Enregistrer pour appliquer</span></summary>
+            <div className="settings-disclosure__body">
+              <div className="settings-fields">
+                {([['name', 'Nom sur le ticket'], ['phone', 'Téléphone'], ['address', 'Adresse']] as const).map(([key, label]) => (
+                  <label className="field" key={key}><span className="field__label">{label}</span>
+                    <input className="input" value={draft.pizzeria[key]} onChange={(e) => setDraft((d) => ({ ...d, pizzeria: { ...d.pizzeria, [key]: e.target.value } }))} />
+                  </label>
                 ))}
+                <label className="field"><span className="field__label">Largeur du rouleau thermique</span>
+                  <select className="input" value={draft.ticketWidthMm} onChange={(e) => setDraft((d) => ({ ...d, ticketWidthMm: Number(e.target.value) as TicketWidth }))}>
+                    <option value={58}>58 mm</option><option value={80}>80 mm</option>
+                  </select>
+                </label>
               </div>
-              <span className="field__hint">Impression via la boîte de dialogue du navigateur (pilotage direct de l’imprimante prévu en V2).</span>
+              <details className="settings-optional">
+                <summary>Mentions et pied de ticket <span className="muted">Facultatifs</span></summary>
+                <p className="field__hint">SIRET, RCS, TVA et mentions sur le ticket livreur. Pied personnalisé sur les deux tickets. Vides : aucune ligne ajoutée.</p>
+                <div className="settings-fields">
+                  {([['siret', 'SIRET'], ['rcs', 'RCS'], ['vatNumber', 'Numéro de TVA intracommunautaire']] as const).map(([key, label]) => (
+                    <label className="field" key={key}><span className="field__label">{label}</span>
+                      <input className="input" maxLength={TICKET_TEXT_LIMITS[key]} value={draft.pizzeria[key] ?? ''} onChange={(e) => setDraft((d) => ({ ...d, pizzeria: { ...d.pizzeria, [key]: e.target.value } }))} />
+                    </label>
+                  ))}
+                </div>
+                <div className="settings-fields settings-fields--text">
+                  {([['additionalMentions', 'Mentions complémentaires libres'], ['ticketFooter', 'Pied de ticket personnalisé']] as const).map(([key, label]) => (
+                    <label className="field" key={key}><span className="field__label">{label}</span>
+                      <textarea className="input" rows={2} maxLength={TICKET_TEXT_LIMITS[key]} value={draft.pizzeria[key] ?? ''} onChange={(e) => setDraft((d) => ({ ...d, pizzeria: { ...d.pizzeria, [key]: e.target.value } }))} />
+                      <span className="field__hint">{(draft.pizzeria[key] ?? '').length} / {TICKET_TEXT_LIMITS[key]} caractères</span>
+                    </label>
+                  ))}
+                </div>
+              </details>
             </div>
-            {(['name', 'address', 'phone'] as const).map((k) => (
-              <label key={k} className="field">
-                <span className="field__label">{k === 'name' ? 'Nom sur le ticket' : k === 'address' ? 'Adresse' : 'Téléphone'}</span>
-                <input
-                  className="input"
-                  value={draft.pizzeria[k]}
-                  onChange={(e) => setDraft((d) => ({ ...d, pizzeria: { ...d.pizzeria, [k]: e.target.value } }))}
-                />
-              </label>
-            ))}
-          </section>
-
-          <div className="settings-stack">
-            <section className="card">
-              <h3 className="card__title">
-                <Icon name="volume" /> Son des encaissements
-                <span className="pill pill--muted">Enregistrement immédiat</span>
-              </h3>
-              <div className="segmented" role="group" aria-label="Son des encaissements">
-                {[true, false].map((on) => (
-                  <button
-                    key={String(on)}
-                    type="button"
-                    className="segmented__item"
-                    aria-pressed={data.settings.paymentSound === on}
-                    onClick={() => {
-                      // Enregistré immédiatement (sans le bouton « Enregistrer ») : un simple interrupteur.
-                      const r = store.updateSettings({ paymentSound: on });
-                      if (!r.ok) toast(r.error, 'error');
-                      else setDraft((d) => ({ ...d, paymentSound: on }));
-                    }}
-                  >
-                    {on ? 'Activé' : 'Désactivé'}
-                  </button>
-                ))}
-              </div>
-              <div className="field">
-                <span className="field__label">Choisir le son</span>
-                <div className="sound-options">
-                  {PAYMENT_SOUND_KINDS.map((kind: PaymentSoundKind) => (
-                    <div key={kind} className="sound-option">
-                      <button
-                        type="button"
-                        className="sound-option__choice"
-                        aria-pressed={data.settings.paymentSoundKind === kind}
-                        onClick={() => {
-                          const r = store.updateSettings({ paymentSoundKind: kind });
-                          if (!r.ok) toast(r.error, 'error');
-                          else setDraft((d) => ({ ...d, paymentSoundKind: kind }));
-                        }}
-                      >
-                        <span className="sound-option__radio" aria-hidden="true" />
-                        {PAYMENT_SOUND_LABELS[kind]}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn--sm"
-                        onClick={() => {
-                          if (!paymentSound.play(kind)) toast('Son indisponible sur cet appareil (vérifiez le volume ou le mode silencieux).', 'info');
-                        }}
-                      >
-                        <Icon name="volume" size={18} /> Écouter
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <span className="field__hint">Joué uniquement quand une commande passe à « Encaissée ». Pensez au volume de la tablette.</span>
+          </details>
+          <div className="settings-quick settings-grid__wide">
+            <section className="settings-inline">
+              <Icon name="volume" /><div><h3>Son des encaissements</h3><span className="field__hint">Caisse enregistreuse · Enregistrement immédiat</span></div>
+              <button type="button" className="btn settings-switch" role="switch" aria-label="Son des encaissements" aria-checked={data.settings.paymentSound} onClick={() => {
+                const on = !data.settings.paymentSound;
+                const r = store.updateSettings({ paymentSound: on, paymentSoundKind: 'caisse' });
+                if (!r.ok) toast(r.error, 'error');
+                else setDraft((d) => ({ ...d, paymentSound: on, paymentSoundKind: 'caisse' }));
+              }}>{data.settings.paymentSound ? 'Activé' : 'Désactivé'}</button>
+              <button type="button" className="btn" onClick={() => {
+                if (!paymentSound.play('caisse')) toast('Son indisponible sur cet appareil (vérifiez le volume ou le mode silencieux).', 'info');
+              }}>Écouter</button>
             </section>
-
-            <section className="card">
-              <h3 className="card__title">
-                <Icon name="grid" /> Modules facultatifs
-                <span className="pill pill--muted">Enregistrement immédiat</span>
-              </h3>
-              <div className="field">
-                <span className="field__label">Onglet Statistiques</span>
-                <div className="segmented" role="group" aria-label="Onglet Statistiques">
-                  {[true, false].map((on) => (
-                    <button
-                      key={String(on)}
-                      type="button"
-                      className="segmented__item"
-                      aria-pressed={data.settings.modules.statistiques === on}
-                      onClick={() => {
-                        // Enregistré immédiatement, comme le son : un simple interrupteur d'affichage.
-                        const r = store.updateSettings({ modules: { statistiques: on } });
-                        if (!r.ok) toast(r.error, 'error');
-                        else setDraft((d) => ({ ...d, modules: { statistiques: on } }));
-                      }}
-                    >
-                      {on ? 'Affiché' : 'Masqué'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <span className="field__hint">
-                Masquer l’onglet ne supprime aucune donnée : commandes, encaissements et historique des services restent enregistrés. Les bilans
-                réapparaissent dès que l’onglet est de nouveau affiché.
-              </span>
-            </section>
-
-            <section className="card">
-              <h3 className="card__title">
-                <Icon name="truck" /> Livraison
-              </h3>
-              <p className="settings-fixed">
-                <strong>Livraison toujours offerte (0 €)</strong>
-              </p>
-              <span className="field__hint">Règle fixe de la pizzeria, sans exception : aucun frais de livraison ne peut être ajouté.</span>
+            <section className="settings-inline">
+              <div><h3>Onglet Statistiques</h3><span className="field__hint">Enregistrement immédiat · données conservées</span></div>
+              <button type="button" className="btn" aria-pressed={data.settings.modules.statistiques} aria-label={data.settings.modules.statistiques ? 'Masquer les statistiques' : 'Afficher les statistiques'} onClick={() => {
+                const on = !data.settings.modules.statistiques;
+                const r = store.updateSettings({ modules: { statistiques: on } });
+                if (!r.ok) toast(r.error, 'error');
+                else setDraft((d) => ({ ...d, paymentSoundKind: r.value.paymentSoundKind, modules: { statistiques: on } }));
+              }}><Icon name={data.settings.modules.statistiques ? 'eye' : 'eyeOff'} />{data.settings.modules.statistiques ? 'Affiché' : 'Masqué'}</button>
             </section>
           </div>
+          <p className="settings-delivery settings-grid__wide"><Icon name="truck" /><strong>Livraison toujours offerte (0 €)</strong><span className="muted">Règle fixe, aucun frais ajouté.</span></p>
 
           {/* Mentions exigées par les conditions du serveur public FOSSGIS et la licence OpenStreetMap. */}
-          <section className="card settings-grid__wide">
-            <h3 className="card__title">
-              <Icon name="truck" /> Calcul des trajets de livraison
-            </h3>
+          <details className="settings-disclosure settings-grid__wide">
+            <summary><Icon name="info" /><strong>Informations avancées</strong><span className="field__hint">Calcul des trajets de livraison</span></summary>
+            <div className="settings-disclosure__body">
             <p>
               Distance et durée en scooter calculées avec le serveur public d’itinéraires du FOSSGIS e.V. (Valhalla) et la Base Adresse
               Nationale (IGN). Données ©{' '}
@@ -375,7 +301,8 @@ export function SettingsPage() {
             <p>
               Contact technique de l’exploitant : <a href={`mailto:${OPERATOR_CONTACT_EMAIL}`}>{OPERATOR_CONTACT_EMAIL}</a>
             </p>
-          </section>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -456,11 +383,12 @@ export function SettingsPage() {
           Données et sauvegardes
         </h2>
         <div className="settings-grid">
-          <BackupCard />
+          <details className="settings-disclosure settings-grid__wide"><summary><Icon name="database" /><strong>Sauvegarder les données</strong><span className="field__hint">Fichier JSON complet</span></summary><BackupCard /></details>
 
-          <RestoreCard />
+          <details className="settings-disclosure settings-grid__wide"><summary><Icon name="history" /><strong>Restaurer une sauvegarde</strong><span className="field__hint">Contrôles et copie de sécurité</span></summary><RestoreCard /></details>
 
-          <section className="card settings-grid__wide card--danger">
+          <details className="settings-disclosure settings-grid__wide"><summary><Icon name="alert" /><strong>Données de démonstration</strong><span className="field__hint">Remplacement des données, avec confirmation</span></summary>
+          <section className="card card--danger">
             <h3 className="card__title">
               <Icon name="database" /> Données de test
             </h3>
@@ -471,7 +399,7 @@ export function SettingsPage() {
             <button type="button" className="btn btn--primary" onClick={() => setConfirmReset(true)}>
               <Icon name="refresh" /> Réinitialiser les données de démonstration
             </button>
-          </section>
+          </section></details>
         </div>
       </section>
 

@@ -1,5 +1,17 @@
 import type { DeliveryTicket, KitchenTicket } from '../../domain/ticket';
 
+function Footer({ ticket }: { ticket: KitchenTicket | DeliveryTicket }) {
+  const lines = ticket.kind === 'livreur' ? ticket.companyLines ?? [] : [];
+  if (!lines.length && !ticket.footer) return null;
+  return (
+    <div className="ticket__footer">
+      <hr />
+      {lines.map((line, i) => <p key={i}>{line}</p>)}
+      {ticket.footer && <p>{ticket.footer}</p>}
+    </div>
+  );
+}
+
 /** En-tête commun : numéro très visible, date, heure demandée. */
 function Header({ ticket, title }: { ticket: KitchenTicket | DeliveryTicket; title: string }) {
   return (
@@ -55,6 +67,7 @@ export function KitchenTicketView({ ticket }: { ticket: KitchenTicket }) {
       <p className="ticket__strong">
         {ticket.pizzaCount} pizza{ticket.pizzaCount > 1 ? 's' : ''}
       </p>
+      <Footer ticket={ticket} />
     </div>
   );
 }
@@ -146,6 +159,7 @@ export function DeliveryTicketView({ ticket }: { ticket: DeliveryTicket }) {
         ))}
       </div>
       <p className="ticket__center ticket__small">Pizzeria : {ticket.pizzeriaPhone}</p>
+      <Footer ticket={ticket} />
     </div>
   );
 }

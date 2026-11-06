@@ -703,3 +703,34 @@
   color: var(--text);
   border: 1px solid var(--line-strong);
 }
+
+/* Intervention 13 : le catalogue récupère l'espace du client replié. */
+.client-full { display: flex; flex: 1; min-height: 0; }
+.client-fold { flex: none; margin-bottom: 8px; min-height: 44px; }
+.client-compact { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 14px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow-wrap: anywhere; font-size: 13px; }
+[data-disposition='colonnes'] .workspace[data-client-collapsed='true'] { --col-client: 140px; }
+[data-disposition='colonnes'] .workspace[data-client-collapsed='true'] .client-full { display: none; }
+[data-disposition='onglets-carte'] .client-fold, [data-disposition='onglets'] .client-fold,
+[data-disposition='onglets-carte'] .client-compact, [data-disposition='onglets'] .client-compact { display: none; }
+.topbar__clock { flex-direction: column; align-items: flex-end; gap: 0; flex: none; }
+.topbar__time { font-size: 30px; line-height: 1.1; font-weight: 800; letter-spacing: .02em; width: 8ch; text-align: right; color: var(--text); }
+.topbar__date { font-size: 12px; order: 1; }
+.service-btn { min-height: 50px; padding: 6px 16px; gap: 10px; border-width: 1px; }
+.service-btn--open { border-color: #b7d8c6; background: #f0f8f3; }
+.service-btn--closed { border-color: var(--line-strong); }
+.service-btn__label small { font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 699px) { .topbar { gap: 8px; padding: 0 8px; } .topbar__clock { display: flex; } .topbar__time { font-size: 18px; } .service-btn { padding: 6px 8px; } .service-btn__dot { display: none; } }
+
+.workspace__col--client { flex-direction: column; }
+
+@media (max-width: 699px) {
+  .topbar { flex-wrap: wrap; height: auto; padding: 8px; }
+  .topbar .global-search { order: 3; flex-basis: 100%; max-width: none; }
+  .topbar__clock { margin-left: 0; margin-right: auto; }
+  .topbar__time { font-size: 22px; text-align: left; }
+  .service-btn__label small { display: block; }
+}
+
+.app[data-disposition='onglets'] .pane-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.app[data-disposition='onglets-carte'] .pane-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pane-tabs button { min-width: 0; overflow-wrap: anywhere; }

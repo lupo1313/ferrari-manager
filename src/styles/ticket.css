@@ -163,3 +163,6 @@
     break-before: page;
   }
 }
+
+/* Mentions facultatives : retours à la ligne, y compris identifiants longs, en 58 mm. */
+.ticket__footer { font-size: 10px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }

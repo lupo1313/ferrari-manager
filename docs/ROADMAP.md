@@ -1,5 +1,9 @@
 # Feuille de route Ferrari Manager
 
+## Intervention 13 : prête pour validation, non publiée (06/11/2026)
+
+Base 12 validée 54084aa ; branche feat/intervention-13-ux. Ergonomie commande, heure/service et Paramètres terminée ; 494 tests, TypeScript et builds réussis. Voir le bilan en tête de ETAT_PROJET. Prochaine étape : autorisation de publier sur le dépôt d’aperçu, puis essais tactiles Samsung, son et nouvelles mentions imprimées. Aucun push/merge/déploiement à cette étape. Noël/logo et autres worktrees préservés.
+
 ## Mise en production autorisée du 02/11/2026
 
 Le gérant a validé les essais PC puis explicitement autorisé 9a + 9b + 10. Source intervention 10 : d5f13e0 ; fusion sans Noël/logo : 1f6ed99. 449 tests et build production réussis sur le commit fusionné. Compatibilité vérifiée en mémoire avec la sauvegarde fournie et les données générées par main : aucune réécriture, commandes, panier, clients, fidélité, statistiques et tickets identiques. Sauvegarde conservée hors dépôt ; tests temporaires retirés.

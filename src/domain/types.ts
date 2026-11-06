@@ -352,6 +352,11 @@ export type PaymentSoundKind = 'vente' | 'caisse';
 
 export interface Settings {
   pizzeria: {
+    siret?: string;
+    rcs?: string;
+    vatNumber?: string;
+    additionalMentions?: string;
+    ticketFooter?: string;
     name: string;
     address: string;
     phone: string;

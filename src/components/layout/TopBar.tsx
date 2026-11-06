@@ -16,7 +16,7 @@ function fold(text: string) {
 function useClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 15_000);
+    const id = window.setInterval(() => setNow(new Date()), 1_000);
     return () => window.clearInterval(id);
   }, []);
   return now;
@@ -64,7 +64,7 @@ export function TopBar({ onGoToOrderTaking, serviceOpen, onServiceAction }: TopB
   };
 
   const date = now.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' });
-  const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const service = serviceIndicator(serviceOpen);
   const hasResults = results.customers.length + results.products.length > 0;
 

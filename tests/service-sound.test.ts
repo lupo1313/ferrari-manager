@@ -247,7 +247,7 @@ describe('Son de confirmation d’encaissement', () => {
     expect(createPaymentSound(() => throwing).play('vente')).toBe(false);
   });
 
-  it('le son choisi dans les paramètres est celui joué (par défaut : caisse enregistreuse)', () => {
+  it('seul le son caisse est joué, même avec un ancien choix vente', () => {
     const played: string[] = [];
     let n = 0;
     const store = createAppStore({
@@ -270,16 +270,16 @@ describe('Son de confirmation d’encaissement', () => {
     pay();
     store.updateSettings({ paymentSoundKind: 'vente' });
     pay();
-    expect(played).toEqual(['caisse', 'vente']);
+    expect(played).toEqual(['caisse', 'caisse']);
     // Valeur invalide : retour au son par défaut, jamais d'erreur.
     store.updateSettings({ paymentSoundKind: 'klaxon' as never });
     expect(store.getData().settings.paymentSoundKind).toBe('caisse');
   });
 
-  it('le choix du son est conservé après rechargement, même s’il diffère du nouveau défaut', () => {
+  it('le son caisse remplace un ancien choix vente après enregistrement et rechargement', () => {
     const t = setup();
     t.store.updateSettings({ paymentSoundKind: 'vente' });
-    expect(setup(t.repo, 'r').store.getData().settings.paymentSoundKind).toBe('vente');
+    expect(setup(t.repo, 'r').store.getData().settings.paymentSoundKind).toBe('caisse');
   });
 
   it('préférences enregistrées avant ce réglage : son activé, Caisse enregistreuse ; préférence « désactivé » respectée', () => {

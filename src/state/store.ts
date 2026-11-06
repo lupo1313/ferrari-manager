@@ -1,3 +1,4 @@
+import { normalizePizzeria, TICKET_TEXT_LIMITS } from '../domain/pizzeria';
 import type {
   Cart,
   Catalog,
@@ -760,7 +761,7 @@ export function createAppStore(deps: StoreDeps) {
       // Son : uniquement pour une vraie transition vers « Encaissée » enregistrée avec succès.
       if (!alreadyPaid && data.settings.paymentSound) {
         try {
-          deps.effects?.playPaymentSound?.(data.settings.paymentSoundKind === 'vente' ? 'vente' : 'caisse');
+          deps.effects?.playPaymentSound?.('caisse');
         } catch {
           /* le son est un confort : son échec n'affecte pas l'encaissement */
         }
@@ -896,7 +897,11 @@ export function createAppStore(deps: StoreDeps) {
       next.modules = { statistiques: next.modules.statistiques !== false };
       if (next.ticketWidthMm !== 58 && next.ticketWidthMm !== 80) return fail('Largeur de ticket invalide.');
       next.paymentSound = next.paymentSound !== false;
-      if (next.paymentSoundKind !== 'vente' && next.paymentSoundKind !== 'caisse') next.paymentSoundKind = 'caisse';
+      next.paymentSoundKind = 'caisse';
+      next.pizzeria = normalizePizzeria(next.pizzeria);
+      for (const key of Object.keys(TICKET_TEXT_LIMITS) as (keyof typeof TICKET_TEXT_LIMITS)[]) {
+        if ((next.pizzeria[key]?.length ?? 0) > TICKET_TEXT_LIMITS[key]) return fail('Mention de ticket trop longue. Raccourcissez le texte.');
+      }
       // Les garde-fous d'éligibilité filtrent toute entrée non autorisée (alcool, dessert…).
       next.loyalty = {
         ...next.loyalty,

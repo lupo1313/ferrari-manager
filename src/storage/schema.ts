@@ -1,3 +1,4 @@
+import { normalizePizzeria } from '../domain/pizzeria';
 import type { Cart, Customer, LoyaltyEvent, Order, Payment, ServiceRecord, Settings } from '../domain/types';
 import { emptyCart } from '../domain/cart';
 import { asPaymentPlan, legacyPayment } from '../domain/payment';
@@ -116,7 +117,7 @@ export function normalizeAppData(raw: unknown, defaults: NormalizeDefaults): Nor
   const settings: Settings = {
     ...d,
     ...storedSettings,
-    pizzeria: { ...d.pizzeria, ...(isObject(s.pizzeria) ? s.pizzeria : {}) },
+    pizzeria: normalizePizzeria({ ...d.pizzeria, ...(isObject(s.pizzeria) ? s.pizzeria : {}) }),
     loyalty: { ...d.loyalty, ...storedLoyalty },
     // Modules facultatifs : affichés sauf choix explicite de les masquer.
     modules: { statistiques: isObject(s.modules) && s.modules.statistiques === false ? false : d.modules.statistiques },

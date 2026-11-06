@@ -1011,3 +1011,41 @@
     text-align: left;
   }
 }
+
+/* Intervention 13 : réglages regroupés, commandes immédiates et champs manuels distincts. */
+.settings-page > .settings-group { flex: none; }
+.settings-page .settings-grid > * { min-width: 0; }
+.settings-disclosure { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.settings-disclosure > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 54px; padding: 10px 16px; cursor: pointer; list-style: none; }
+.settings-disclosure > summary::-webkit-details-marker { display: none; }
+.settings-disclosure > summary::after { content: '⌄'; margin-left: auto; font-size: 22px; }
+.settings-disclosure[open] > summary::after { transform: rotate(180deg); }
+.settings-disclosure > summary .field__hint { margin: 0; }
+.settings-disclosure__body { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.settings-disclosure > .card { border: 0; box-shadow: none; }
+.settings-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.settings-fields .field { margin: 0; min-width: 0; }
+.settings-fields--text { grid-template-columns: 1fr 1fr; margin-top: 12px; }
+.settings-optional > summary { min-height: 44px; cursor: pointer; padding: 12px 0; }
+.settings-optional > p { margin-bottom: 12px; }
+.settings-quick { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+.settings-inline { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; background: var(--surface); }
+.settings-inline > div { flex: 1; min-width: 150px; }
+.settings-inline h3 { font-size: 15px; }
+.settings-switch[aria-checked='true'] { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+.settings-delivery { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 0 4px; font-size: 14px; }
+.settings-page .settings-group__title { font-size: 17px; }
+@media (max-width: 1100px) { .settings-fields { grid-template-columns: 1fr 1fr; } .settings-quick { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .settings-fields { grid-template-columns: minmax(0, 1fr); }
+  .settings-disclosure > summary .field__hint { flex-basis: 100%; }
+  .settings-page .page__header > div:first-child > p { display: none; }
+  .settings-page .page__actions { gap: 4px; }
+  .settings-page .page__actions .pill { font-size: 11px; white-space: normal; }
+}
+
+.settings-page .btn { max-width: 100%; white-space: normal; padding-top: 8px; padding-bottom: 8px; }
+.settings-page .card__title { flex-wrap: wrap; }
+.settings-page .check-grid { grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); }
+.settings-page .check { min-width: 0; padding: 8px; }
+.settings-page .check > span { overflow-wrap: anywhere; }
