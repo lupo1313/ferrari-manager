@@ -13,7 +13,14 @@ export type ProductCategory = 'pizza' | 'boisson' | 'dessert';
 /** Familles de pizzas utilisées pour filtrer le catalogue (une pizza peut en avoir plusieurs). */
 export type PizzaTag = 'classique' | 'speciale' | 'blanche' | 'viande' | 'vegetarienne';
 
+export type PizzaBase = 'tomate' | 'creme';
+
 export interface Product {
+  pizzaBase?: PizzaBase;
+  /** Indication informative, sans blocage horaire. */
+  notice?: string;
+  /** Composition antérieure pour les anciennes lignes sans copie des ingrédients. */
+  legacyIngredients?: string[];
   id: string;
   name: string;
   category: ProductCategory;
@@ -24,7 +31,7 @@ export interface Product {
   ingredients?: string[];
   tags?: PizzaTag[];
   /** Champs masqués conservés entre catégories, sans effet sur les commandes. */
-  categoryMemory?: { ingredients: string[]; tags: PizzaTag[]; description: string; alcohol: boolean };
+  categoryMemory?: { ingredients: string[]; tags: PizzaTag[]; description: string; alcohol: boolean; pizzaBase?: PizzaBase; notice?: string };
   /** Boisson alcoolisée : jamais éligible à une récompense fidélité, quelle que soit la configuration. */
   alcohol?: boolean;
   /**
@@ -40,6 +47,7 @@ export interface Product {
 /** Carte enregistrée (intervention 9a), dans sa propre clé de stockage. Les suppléments restent dans le code. */
 export interface CatalogDocument {
   v: 1;
+  officialEdition?: string;
   products: Product[];
   /** Absent dans les cartes 9a : suppléments de départ en mémoire, sans réécriture. */
   toppings?: Topping[];

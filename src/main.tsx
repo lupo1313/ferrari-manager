@@ -4,6 +4,7 @@ import { App } from './App';
 import { StoreProvider } from './state/StoreContext';
 import { createAppStore } from './state/store';
 import { createLocalStorageRepository } from './storage/repository';
+import { officialCatalog, OFFICIAL_EDITION } from './data/officialCatalog';
 import { demoCatalog } from './data/catalog';
 import { buildDemoData } from './data/seed';
 import { ToastProvider } from './components/ui/Toast';
@@ -44,6 +45,7 @@ async function start() {
   const store = createAppStore({
     repo: createLocalStorageRepository(),
     catalog: demoCatalog,
+    initialCatalog: { catalog: officialCatalog, edition: OFFICIAL_EDITION },
     seed: buildDemoData,
     // Joué par le store uniquement après un encaissement réellement enregistré (et si le réglage est actif).
     effects: { playPaymentSound: (kind) => void paymentSound.play(kind) },
@@ -69,7 +71,7 @@ async function start() {
   installTabPresence(() => store.suspendWrites(OTHER_TAB_RESTORE));
   window.addEventListener('storage', (event) => {
     if (event.key === restoreKeysOfBuild.journal && event.newValue !== null) store.suspendWrites(OTHER_TAB_RESTORE);
-    if (event.key === closureKey() && event.newValue !== null || event.key === restoreKeysOfBuild.doc) {
+    if (event.key === closureKey() && event.newValue !== null || event.key === restoreKeysOfBuild.doc || event.key === restoreKeysOfBuild.carte || event.key === restoreKeysOfBuild.supplements) {
       store.suspendWrites('Données modifiées dans un autre onglet ou clôture en cours. Rechargez cette page avant de continuer.');
     }
   });

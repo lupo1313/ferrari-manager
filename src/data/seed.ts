@@ -82,6 +82,7 @@ const DEMO_CUSTOMERS: DemoCustomer[] = [
 export function buildDemoData(catalog: Catalog, now: Date, newId: IdFactory): AppData {
   const iso = (minutesAgo: number) => new Date(now.getTime() - minutesAgo * 60_000).toISOString();
   const settings = structuredClone(defaultSettings);
+  settings.loyalty.eligiblePizzaIds = settings.loyalty.eligiblePizzaIds.filter((id) => catalog.products.some((p) => p.id === id && p.category === 'pizza'));
 
   const customers: Customer[] = DEMO_CUSTOMERS.map((d, i) =>
     buildCustomer({ ...EMPTY_CUSTOMER_INPUT, ...d.input }, newId('cus'), iso(60 * 24 * (30 - i))),
@@ -103,7 +104,7 @@ export function buildDemoData(catalog: Catalog, now: Date, newId: IdFactory): Ap
   );
 
   const product = (id: string) => {
-    const p = catalog.products.find((x) => x.id === id);
+    const p = catalog.products.find((x) => x.id === id) ?? catalog.products.find((x) => x.id === (id === 'reine' ? 'royale' : id === 'margarita' ? 'fromage' : id));
     if (!p) throw new Error(`Produit de démo introuvable : ${id}`);
     return p;
   };

@@ -1,3 +1,5 @@
+import { planOfficialCatalog } from '../domain/officialCatalog';
+import { OFFICIAL_EDITION } from '../data/officialCatalog';
 import { normalizePizzeria, TICKET_TEXT_LIMITS } from '../domain/pizzeria';
 import type {
   Cart,
@@ -110,6 +112,8 @@ const CATALOG_SAVE_FAILED = 'Enregistrement de la carte impossible (stockage ple
 export interface StoreDeps {
   repo: AppRepository;
   catalog: Catalog;
+  /** Uniquement si aucune donnée ni carte ne sont présentes ; anciennes installations inchangées. */
+  initialCatalog?: { catalog: Catalog; edition: string };
   seed: (catalog: Catalog, now: Date, newId: IdFactory) => AppData;
   now?: () => Date;
   newId?: IdFactory;
@@ -143,6 +147,8 @@ export function createAppStore(deps: StoreDeps) {
    * de démonstration n'est jamais utilisée à sa place) jusqu'à la restauration d'une carte valide.
    */
   let catalogError: string | null = null;
+  let catalogEdition: string | undefined;
+  let catalogSnapshot: string | null = null;
   const listeners = new Set<() => void>();
 
   let docError: string | null = null;
@@ -174,6 +180,7 @@ export function createAppStore(deps: StoreDeps) {
     if (loaded.kind === 'error') return lockCatalog(loaded.error);
     if (loaded.kind === 'data') {
       const read = readCatalogDocument(loaded.value);
+      if (read.ok) { catalogEdition = read.officialEdition; catalogSnapshot = JSON.stringify(loaded.value); }
       return read.ok ? setCatalogProducts(read.products, read.toppings ?? defaultCatalog.toppings) : lockCatalog(read.reason);
     }
     // Première utilisation de la carte modifiable : initialisée UNE fois depuis les produits actuels.
@@ -181,7 +188,9 @@ export function createAppStore(deps: StoreDeps) {
     setCatalogProducts(defaultCatalog.products);
     if (storageLocked) return;
     try {
-      repo.saveCatalog(catalogDocument(defaultCatalog.products));
+      const doc = catalogDocument(defaultCatalog.products);
+      repo.saveCatalog(doc);
+      catalogSnapshot = JSON.stringify(doc);
     } catch {
       /* réessayé au prochain lancement */
     }
@@ -219,7 +228,11 @@ export function createAppStore(deps: StoreDeps) {
   function commitCatalog(products: Product[], toppings?: Topping[]): boolean {
     try {
       if (toppings !== undefined) repo.saveToppings({ v: 1, toppings });
-      else repo.saveCatalog(catalogDocument(products));
+      else {
+        const doc = catalogDocument(products, undefined, catalogEdition);
+        repo.saveCatalog(doc);
+        catalogSnapshot = JSON.stringify(doc);
+      }
     } catch {
       return false;
     }
@@ -269,7 +282,14 @@ export function createAppStore(deps: StoreDeps) {
     }
 
     // Premier lancement : rien d'enregistré, on installe le jeu de démonstration.
-    const seeded = deps.seed(defaultCatalog, now(), newId);
+    let seedCatalog = defaultCatalog;
+    if (deps.initialCatalog && repo.loadCatalog().kind === 'empty') {
+      const initial = deps.initialCatalog;
+      try { repo.saveCatalog(catalogDocument(initial.catalog.products, undefined, initial.edition)); }
+      catch { return lockStorage('initialisation de la carte officielle impossible'); }
+      seedCatalog = initial.catalog;
+    }
+    const seeded = deps.seed(seedCatalog, now(), newId);
     try {
       repo.replaceAll(withoutCart(seeded), seeded.cart);
     } catch {
@@ -958,6 +978,27 @@ export function createAppStore(deps: StoreDeps) {
 
     /* ---------- Carte des produits (intervention 9a) ---------- */
 
+    getCatalogEdition: () => catalogEdition,
+    /** Une seule écriture atomique de carte. Aucun document client/commande/fidélité/panier n'est écrit. */
+    applyOfficialCatalog(expectedProducts: string): Result<{ alreadyApplied: boolean }> {
+      const blocked = catalogWriteBlocked();
+      if (blocked) return fail(blocked);
+      if (catalogEdition === OFFICIAL_EDITION) return ok({ alreadyApplied: true });
+      const saved = repo.loadCatalog();
+      const snapshot = saved.kind === 'data' ? JSON.stringify(saved.value) : null;
+      if (saved.kind === 'error' || snapshot !== catalogSnapshot || JSON.stringify(catalog.products) !== expectedProducts) {
+        return fail('La carte a changé depuis le récapitulatif. Rechargez la page et vérifiez à nouveau.');
+      }
+      let plan: ReturnType<typeof planOfficialCatalog>;
+      try { plan = planOfficialCatalog(catalog.products, nowIso()); }
+      catch (error) { return fail((error as Error).message); }
+      const doc = catalogDocument(plan.products, undefined, OFFICIAL_EDITION);
+      try { repo.saveCatalog(doc); } catch { return fail(CATALOG_SAVE_FAILED); }
+      catalogSnapshot = JSON.stringify(doc); catalogEdition = OFFICIAL_EDITION;
+      setCatalogProducts(plan.products); notify();
+      return ok({ alreadyApplied: false });
+    },
+
     addCatalogProduct(input: ProductInput): Result<Product> {
       const blocked = catalogWriteBlocked();
       if (blocked) return fail(blocked);
@@ -989,7 +1030,7 @@ export function createAppStore(deps: StoreDeps) {
       if (!existing) return fail('Produit introuvable.');
       if (active) {
         const { errors } = validateProductInput(
-          { name: existing.name, category: existing.category, price: '1', ingredients: [], tags: [], description: '', alcohol: false },
+          { name: existing.name, category: existing.category, pizzaBase: existing.pizzaBase, price: '1', ingredients: existing.ingredients ?? [], tags: existing.tags ?? [], description: '', alcohol: false },
           catalog.products,
           productId,
         );

@@ -1,4 +1,5 @@
-import type { CatalogDocument, Cents, OrderLine, PizzaTag, Product, ProductCategory, Topping } from './types';
+import { pizzaBaseOf, productLabel } from './productDisplay';
+import type { CatalogDocument, Cents, OrderLine, PizzaBase, PizzaTag, Product, ProductCategory, Topping } from './types';
 import { parseEuros } from './money';
 
 /**
@@ -35,6 +36,8 @@ export const PRODUCT_LIMITS = {
 export const isActive = (p: Pick<Product, 'active'>) => p.active !== false;
 
 export interface ProductInput {
+  pizzaBase?: PizzaBase;
+  notice?: string;
   name: string;
   category: ProductCategory;
   /** Prix saisi en euros (« 12,50 »). */
@@ -45,7 +48,7 @@ export interface ProductInput {
   alcohol: boolean;
 }
 
-export type ProductField = 'name' | 'category' | 'price' | 'ingredients' | 'description';
+export type ProductField = 'name' | 'category' | 'price' | 'ingredients' | 'description' | 'pizzaBase' | 'notice';
 export type ProductErrors = Partial<Record<ProductField, string>>;
 
 const fold = (s: string) =>
@@ -78,10 +81,13 @@ export function validateProductInput(input: ProductInput, products: Product[], e
   const name = input.name.trim().replace(/\s+/g, ' ');
   if (!name) errors.name = 'Nom obligatoire.';
   else if (name.length > PRODUCT_LIMITS.name) errors.name = `${PRODUCT_LIMITS.name} caractères au plus.`;
-  else if (products.some((p) => p.id !== editingId && isActive(p) && p.category === input.category && fold(p.name) === fold(name))) {
+  else if (products.some((p) => p.id !== editingId && isActive(p) && p.category === input.category && fold(p.name) === fold(name) &&
+    (input.category !== 'pizza' || !pizzaBaseOf(p) || !pizzaBaseOf(input) || pizzaBaseOf(p) === pizzaBaseOf(input)))) {
     errors.name = 'Un produit actif porte déjà ce nom dans cette catégorie.';
   }
   if (!PRODUCT_CATEGORIES.includes(input.category)) errors.category = 'Catégorie invalide.';
+  if (input.pizzaBase !== undefined && !['tomate', 'creme'].includes(input.pizzaBase)) errors.pizzaBase = 'Base invalide.';
+  if (input.notice !== undefined && (typeof input.notice !== 'string' || input.notice.length > 120)) errors.notice = '120 caractères au plus.';
   const price = parseEuros(input.price);
   if (price === null || !Number.isInteger(price)) errors.price = 'Prix invalide (ex. : 12,50).';
   else if (price < PRODUCT_LIMITS.minPrice || price > PRODUCT_LIMITS.maxPrice) errors.price = 'Prix entre 0,10 € et 999,99 €.';
@@ -104,6 +110,8 @@ function fieldsFor(input: ProductInput, price: Cents): Omit<Product, 'id' | 'act
       ingredients,
       description: ingredients.join(', '),
       tags: PIZZA_TAGS.filter((t) => input.tags.includes(t)),
+      ...(input.pizzaBase ? { pizzaBase: input.pizzaBase } : {}),
+      ...(input.notice?.trim() ? { notice: input.notice.trim() } : {}),
     };
   }
   const description = input.description.trim();
@@ -123,6 +131,7 @@ export function buildProduct(input: ProductInput, price: Cents, id: string, nowI
 /** Nouvelle fiche : l'identifiant, l'état actif et les dates d'origine sont conservés. */
 export function applyProductInput(product: Product, input: ProductInput, price: Cents, nowIso: string): Product {
   const kept: Partial<Product> = {};
+  if (product.legacyIngredients) kept.legacyIngredients = [...product.legacyIngredients];
   if (product.active !== undefined) kept.active = product.active;
   if (product.createdAt) kept.createdAt = product.createdAt;
   if (product.deactivatedAt !== undefined) kept.deactivatedAt = product.deactivatedAt;
@@ -133,6 +142,8 @@ export function applyProductInput(product: Product, input: ProductInput, price: 
       tags: PIZZA_TAGS.filter((t) => input.tags.includes(t)),
       description: input.description.trim(),
       alcohol: input.alcohol,
+      ...(input.pizzaBase ? { pizzaBase: input.pizzaBase } : {}),
+      ...(input.notice?.trim() ? { notice: input.notice.trim() } : {}),
     },
   };
 }
@@ -143,6 +154,8 @@ export function setProductActive(product: Product, active: boolean, nowIso: stri
 
 export function productToInput(p: Product): ProductInput {
   return {
+    ...(p.pizzaBase ?? p.categoryMemory?.pizzaBase ? { pizzaBase: p.pizzaBase ?? p.categoryMemory?.pizzaBase } : {}),
+    ...(p.notice ?? p.categoryMemory?.notice ? { notice: p.notice ?? p.categoryMemory?.notice } : {}),
     name: p.name,
     category: p.category,
     price: (p.price / 100).toFixed(2).replace('.', ','),
@@ -153,8 +166,8 @@ export function productToInput(p: Product): ProductInput {
   };
 }
 
-export function catalogDocument(products: Product[], toppings?: Topping[]): CatalogDocument {
-  return { v: CATALOG_VERSION, products, ...(toppings === undefined ? {} : { toppings }) };
+export function catalogDocument(products: Product[], toppings?: Topping[], officialEdition?: string): CatalogDocument {
+  return { v: CATALOG_VERSION, products, ...(officialEdition ? { officialEdition } : {}), ...(toppings === undefined ? {} : { toppings }) };
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -164,8 +177,9 @@ const isStringList = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x
  * Lecture stricte d'une carte enregistrée (stockage ou fichier de sauvegarde). Une carte invalide n'est
  * jamais « réparée » : elle est refusée et laissée intacte.
  */
-export function readCatalogDocument(raw: unknown): { ok: true; products: Product[]; toppings?: Topping[] } | { ok: false; reason: string } {
+export function readCatalogDocument(raw: unknown): { ok: true; products: Product[]; toppings?: Topping[]; officialEdition?: string } | { ok: false; reason: string } {
   if (!isObject(raw) || raw.v !== CATALOG_VERSION || !Array.isArray(raw.products)) return { ok: false, reason: 'format de carte inconnu' };
+  if (raw.officialEdition !== undefined && typeof raw.officialEdition !== 'string') return { ok: false, reason: 'édition de carte invalide' };
   const ids = new Set<string>();
   for (const [i, p] of (raw.products as unknown[]).entries()) {
     const who = `produit n° ${i + 1}`;
@@ -175,6 +189,9 @@ export function readCatalogDocument(raw: unknown): { ok: true; products: Product
     if (typeof p.name !== 'string' || !p.name.trim()) return { ok: false, reason: `produit ${p.id} : nom manquant` };
     if (!PRODUCT_CATEGORIES.includes(p.category as ProductCategory)) return { ok: false, reason: `produit ${p.id} : catégorie inconnue` };
     if (typeof p.price !== 'number' || !Number.isInteger(p.price) || p.price < 0) return { ok: false, reason: `produit ${p.id} : prix invalide (centimes entiers)` };
+    if (p.pizzaBase !== undefined && !['tomate', 'creme'].includes(p.pizzaBase as string)) return { ok: false, reason: 'base de pizza invalide' };
+    if (p.notice !== undefined && typeof p.notice !== 'string') return { ok: false, reason: 'indication produit invalide' };
+    if (p.legacyIngredients !== undefined && !isStringList(p.legacyIngredients)) return { ok: false, reason: 'composition antérieure invalide' };
     if (p.ingredients !== undefined && !isStringList(p.ingredients)) return { ok: false, reason: `produit ${p.id} : ingrédients invalides` };
     if (p.tags !== undefined && !(Array.isArray(p.tags) && p.tags.every((t) => PIZZA_TAGS.includes(t as PizzaTag)))) return { ok: false, reason: `produit ${p.id} : familles invalides` };
     if (p.description !== undefined && typeof p.description !== 'string') return { ok: false, reason: `produit ${p.id} : description invalide` };
@@ -205,7 +222,7 @@ export function readCatalogDocument(raw: unknown): { ok: true; products: Product
       }
     }
   }
-  return { ok: true, products: raw.products as Product[], ...(raw.toppings === undefined ? {} : { toppings: raw.toppings as Topping[] }) };
+  return { ok: true, products: raw.products as Product[], ...(typeof raw.officialEdition === 'string' ? { officialEdition: raw.officialEdition } : {}), ...(raw.toppings === undefined ? {} : { toppings: raw.toppings as Topping[] }) };
 }
 
 /** État d'une ligne par rapport à la carte actuelle (repère affiché dans le panier ; la ligne n'est jamais modifiée). */
@@ -214,8 +231,8 @@ export type LineCatalogState = { kind: 'ok' } | { kind: 'absent' } | { kind: 'de
 export function lineCatalogState(line: OrderLine, product: Product | undefined): LineCatalogState {
   if (!product) return { kind: 'absent' };
   if (!isActive(product)) return { kind: 'desactive' };
-  if (product.price !== line.unitPrice || product.name !== line.name || product.category !== line.category) {
-    return { kind: 'modifie', price: product.price, name: product.name };
+  if (product.price !== line.unitPrice || productLabel(product) !== line.name || product.category !== line.category) {
+    return { kind: 'modifie', price: product.price, name: productLabel(product) };
   }
   return { kind: 'ok' };
 }

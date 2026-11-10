@@ -1,3 +1,4 @@
+import { productLabel } from './productDisplay';
 import type { Cart, LineTopping, OrderLine, Product, RewardKind, Topping } from './types';
 
 export const MAX_QUANTITY = 99;
@@ -40,7 +41,7 @@ export function createLine(
   const line: OrderLine = {
     id,
     productId: product.id,
-    name: product.name,
+    name: productLabel(product),
     category: product.category,
     unitPrice: product.price,
     quantity: reward ? 1 : clampQuantity(options.quantity ?? 1),
@@ -61,7 +62,7 @@ export function createLine(
  */
 export function lineIngredients(line: OrderLine, product?: Product): string[] {
   if (line.ingredients) return line.ingredients;
-  const list = [...(product?.ingredients ?? [])];
+  const list = [...(product?.legacyIngredients ?? product?.ingredients ?? [])];
   for (const i of line.removedIngredients) if (!list.includes(i)) list.push(i);
   return list;
 }
